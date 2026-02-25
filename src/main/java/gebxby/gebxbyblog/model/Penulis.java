@@ -1,7 +1,9 @@
 package gebxby.gebxbyblog.model;
-
+import lombok.Getter;
+import lombok.Setter;
 import java.util.UUID;
-
+@Getter
+@Setter
 public class Penulis {
     private String name;
     private String nickname;

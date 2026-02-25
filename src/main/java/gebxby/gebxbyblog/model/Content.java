@@ -10,7 +10,7 @@ import java.util.UUID;
 public class Content {
     private String head;
     private String subtitle;
-    private Text paragrafs;
+    private String paragrafs;
     private Penulis penulis;
     private UUID idContent;
 }

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<h1>Daftar Konten Blog</h1>
+<div th:each="c : ${contents}">
+    <h2 th:text="${c.head}">Judul</h2>
+    <p th:text="${c.paragrafs}">Isi dari Word akan muncul di sini</p>
+    <hr>
+</div>
+<a href="/content/upload-page">Upload Lagi</a>
+</body>
+</html>
