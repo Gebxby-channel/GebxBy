@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.model;
 import lombok.Getter;
 import lombok.Setter;
+import org.w3c.dom.Text;
 
 import java.util.UUID;
 
@@ -9,7 +10,7 @@ import java.util.UUID;
 public class Content {
     private String head;
     private String subtitle;
-    private String paragrafs;
+    private Text paragrafs;
     private Penulis penulis;
     private UUID idContent;
 }
