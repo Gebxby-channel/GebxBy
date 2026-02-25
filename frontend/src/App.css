@@ -1,0 +1,48 @@
+/* Layout Header ala YouTube */
+.yt-header-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 25px; /* Jarak antara logo dan teks */
+    margin-bottom: 40px;
+    padding: 20px 0;
+}
+
+/* Logo Lingkaran (Profile Picture) */
+.yt-avatar {
+    width: 130px; /* Ukuran standar avatar YouTube */
+    height: 130px;
+    border-radius: 50%; /* Membuat jadi lingkaran sempurna */
+    object-fit: cover;
+    border: 3px solid #1a1a1a;
+    box-shadow: 0 0 15px rgba(139, 0, 0, 0.4); /* Glow merah tipis */
+}
+
+/* Bagian Teks (Nama Kanal & Status) */
+.yt-channel-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.yt-channel-info h1 {
+    font-size: 2.8rem;
+    margin: 0;
+    color: #fff;
+    font-weight: 700;
+    text-transform: none; /* YouTube biasanya tidak full caps */
+}
+
+.yt-channel-info p {
+    margin: 5px 0 0 0;
+    color: #aaa;
+    font-size: 1rem;
+}
+
+/* Tambahan: Banner tipis di atas (Optional agar makin mirip) */
+.yt-banner-mockup {
+    width: 100%;
+    height: 120px;
+    background: linear-gradient(90deg, #8B0000 0%, #000 100%);
+    border-radius: 12px;
+    margin-bottom: -60px; /* Membuat avatar tumpang tindih sedikit */
+}

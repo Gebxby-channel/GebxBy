@@ -1,0 +1,140 @@
+/* Reset & Base */
+body {
+    background-color: #0f0f0f; /* Warna hitam YouTube */
+    color: #fff;
+    font-family: "Roboto", Arial, sans-serif;
+    margin: 0;
+}
+
+.main-layout {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+/* 1. Banner Section */
+.banner-container {
+    width: 100%;
+    height: 250px;
+    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('../assets/banner.jpg'); /* Ganti dengan banner kamu */
+    background-size: cover;
+    background-position: center;
+    border-radius: 12px;
+    margin-top: 16px;
+}
+
+/* 2. Channel Header */
+.channel-header {
+    display: flex;
+    padding: 24px 0;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.profile-pic {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #333;
+}
+
+.channel-details h1 {
+    font-size: 36px;
+    margin: 0;
+}
+
+.channel-stats {
+    color: #aaa;
+    font-size: 14px;
+    margin: 8px 0;
+}
+
+/* 3. Article List (Ala Featured Video) */
+.video-row {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.video-card {
+    display: flex;
+    gap: 16px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.video-card:hover {
+    background: #272727;
+}
+
+.thumbnail-mock {
+    width: 246px;
+    height: 138px;
+    background: #333;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.video-info h2 {
+    font-size: 18px;
+    margin: 0 0 8px 0;
+    line-height: 1.2;
+}
+
+.video-meta {
+    font-size: 12px;
+    color: #aaa;
+}
+.yt-header-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Jarak dirapatkan agar lebih pas */
+    margin-bottom: 25px;
+    padding: 10px 0;
+}
+
+.yt-avatar {
+    width: 65px;  /* Ukuran lebih kecil & proporsional */
+    height: 65px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #1a1a1a;
+    box-shadow: 0 0 10px rgba(139, 0, 0, 0.4);
+}
+
+.yt-channel-info h1 {
+    font-size: 1.8rem; /* Ukuran teks juga dikecilkan */
+    margin: 0;
+    color: #fff;
+}
+
+.yt-channel-info p {
+    margin: 2px 0 0 0;
+    color: #888;
+    font-size: 0.85rem;
+}
+
+/* Container khusus untuk membaca */
+.read-container {
+    max-width: 750px; /* Lebar ideal agar mata tidak cepat lelah */
+    margin: 50px auto; /* Membuat konten berada tepat di tengah */
+    padding: 0 25px;
+    background-color: #0d0d0d;
+    color: #e0e0e0;
+}
+
+.text-body {
+    white-space: pre-wrap; /* Tetap pertahankan format spasi dari Word */
+    line-height: 1.9;      /* Beri ruang napas antar baris */
+    font-size: 1.15rem;    /* Ukuran teks yang nyaman dibaca */
+    text-align: justify;   /* Rata kiri-kanan agar rapi */
+    font-family: 'Inter', 'Segoe UI', serif;
+}
