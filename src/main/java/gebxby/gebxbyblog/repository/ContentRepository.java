@@ -27,12 +27,26 @@ public class ContentRepository {
         return contentData.iterator();
     }
 
-    public Content findId(String contentId) {
+    public Content findId(UUID contentId) {
         for(Content content : contentData){
             if(content.getIdContent().equals(contentId)) {
                 return content;
             }
         }
         return null;
+    }
+
+    public Content save(Content existingContent) {
+        for (int i =0; i < contentData.size() ; i++){
+            if(contentData.get(i).getIdContent().equals(existingContent.getIdContent())){
+                contentData.set(i, existingContent);
+                return existingContent;
+            }
+        }
+        return addContent(existingContent);
+    }
+
+    public void deleteById(UUID id) {
+        contentData.removeIf(content -> content.getIdContent().equals(id));
     }
 }

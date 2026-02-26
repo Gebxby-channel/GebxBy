@@ -28,7 +28,7 @@ export default function HomePage() {
                     <p className="channel-stats">@GebxBy</p>
                     <p className="bg-red-500"> Active articles • {articles.length}  </p>
                     <p style={{ color: '#aaa', maxWidth: '600px', fontSize: '14px' }}>
-                        Hi Guys, ini adalah Website untuk sharing tulisan-tulsian gw yang bisa jadi hint untuk next video; tapi tidak semua tulisan disini bakal dibuatin video yah guys :) semoga betah baca baca di blog pribadi gw yah, salam literasi.
+                        Hi Guys, ini adalah Website untuk sharing tulisan-tulisan gw yang bisa jadi hint untuk next video; tapi tidak semua tulisan disini bakal dibuatin video yah guys :) semoga betah baca baca di blog pribadi gw yah, salam literasi.
                     </p>
                     <a href="https://www.youtube.com/@GebxBy" target="_blank" rel="noopener noreferrer">
                         <button style={{ background: '#fff', color: '#000', border: 'none', padding: '10px 20px', borderRadius: '20px', fontWeight: 'bold', marginTop: '16px', cursor: 'pointer' }}>
@@ -49,7 +49,7 @@ export default function HomePage() {
                         </div>
                         <div className="video-info">
                             <h2>{art.head}</h2>
-                            <p className="video-meta">Penulis : </p>
+                            <p className="video-meta">Penulis : {art}</p>
                             <p style={{ color: '#aaa', fontSize: '14px', marginTop: '8px' }}>
                                 {art.paragrafs.substring(0, 150)}...
                             </p>

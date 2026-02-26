@@ -12,7 +12,7 @@ export default function ReadPage() {
 
     useEffect(() => {
         // Baru di sini kamu panggil pakai ID
-        if (id) {
+        if (id ) {
             axios.get(`http://localhost:9090/content/${id}`)
                 .then(res => setContent(res.data))
                 .catch(err => console.error("Gagal ambil detail", err));

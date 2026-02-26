@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 
@@ -52,7 +53,30 @@ public class ContentServiceImpl implements ContentService{
     }
 
     @Override
-    public Content findContentById(String contentId) {
+    public Content findContentById(UUID contentId) {
         return contentRepository.findId(contentId);
+    }
+
+    @Override
+    public Content updateContent(UUID id, Content contentDetails) {
+
+        try {
+            Content existingContent = contentRepository.findId(id);
+            existingContent.setHead(contentDetails.getHead());
+            existingContent.setParagrafs(contentDetails.getParagrafs());
+
+            return contentRepository.save(existingContent);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Data tidak di temukan!");
+
+        }
+
+
+    }
+
+    @Override
+    public void deleteContent(UUID id) {
+        contentRepository.deleteById(id);
     }
 }
