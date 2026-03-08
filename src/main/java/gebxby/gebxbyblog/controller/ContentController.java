@@ -1,20 +1,21 @@
 package gebxby.gebxbyblog.controller;
+
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ContentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+// Paku Anti-CORS
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 @RestController
 @RequestMapping("/content")
-@CrossOrigin(origins = "http://localhost:5173")
 public class ContentController {
 
     private final ContentService service;
@@ -25,30 +26,34 @@ public class ContentController {
     }
 
     @PostMapping("/upload")
-    public String uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("title") String title) {
+    public ResponseEntity<?> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            // UBAH JADI STRING AGAR TIDAK CRASH:
+            @RequestParam("author") String authorName) {
         try {
+            // Kita buat objek User-nya secara manual di sini
+            User author = new User();
+            author.setName(authorName);
 
-            service.addContentFromDocx(file, title);
-            return "redirect:/content/all-content";
-        } catch (IOException e) {
-            return "error-page";
+            Content savedContent = service.addContentFromDocx(file, title, author);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedContent);
+        } catch (Exception e) {
+            e.printStackTrace(); // Biar error-nya kelihatan di console IntelliJ
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Gagal mengunggah file: " + e.getMessage());
         }
     }
 
-    @GetMapping("/upload-page")
-    public String showUploadPage() {
-        return "upload";
-    }
-
     @GetMapping("/all-content")
-    public List<Content> showAllContent(Model model) {
-        List<Content> contents = service.findAll();
-        model.addAttribute("contents", contents);
-        return contents;
-    }
-    @PutMapping("/edit/{id}")
-    public ResponseEntity<Content> updateContent(@PathVariable UUID id, @RequestBody Content contentDetails) {
-        return ResponseEntity.ok(service.updateContent(id, contentDetails));
+    public ResponseEntity<List<Content>> showAllContent() {
+        try {
+            List<Content> contents = service.findAll();
+            return ResponseEntity.ok(contents);
+        } catch (Exception e) {
+            e.printStackTrace(); // Tampilkan error 500 di console
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/{id}")
@@ -61,16 +66,20 @@ public class ContentController {
         }
     }
 
-    @DeleteMapping("/{id}") // Gunakan @DeleteMapping untuk hapus
+    @PostMapping("/add-manual")
+    public ResponseEntity<Content> addManualContent(@RequestBody Content content) {
+        Content result = service.addContent(content);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @PutMapping("/edit/{id}")
+    public ResponseEntity<Content> updateContent(@PathVariable UUID id, @RequestBody Content contentDetails) {
+        return ResponseEntity.ok(service.updateContent(id, contentDetails));
+    }
+
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteContent(@PathVariable UUID id) {
         service.deleteContent(id);
         return ResponseEntity.noContent().build();
     }
-    @PostMapping("/add-manual")
-    public ResponseEntity<Content> addManualContent(@RequestBody Content content) {
-        // Karena ID dibuat otomatis di Repository, kita tinggal simpan saja
-        Content result = service.addContent(content);
-        return ResponseEntity.ok(result);
-    }
 }
-

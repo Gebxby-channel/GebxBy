@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -9,74 +10,85 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 
 @Service
+public class ContentServiceImpl implements ContentService {
 
-public class ContentServiceImpl implements ContentService{
-    private ContentRepository contentRepository;
+    private final ContentRepository contentRepository;
+
     @Autowired
     public ContentServiceImpl(ContentRepository contentRepository) {
         this.contentRepository = contentRepository;
     }
+
     @Override
     public Content addContent(Content content) {
-        contentRepository.addContent(content);
+        // 1. Buat ID Content kalau kosong
+        if (content.getIdContent() == null) {
+            content.setIdContent(UUID.randomUUID());
+        }
 
-        return content;
+        // 2. Buat ID User kalau kosong agar tidak error di MongoDB
+        if (content.getUser() != null && content.getUser().getUserID() == null) {
+            content.getUser().setUserID(UUID.randomUUID());
+        }
+        return contentRepository.save(content);
     }
+
     @Override
-    public Content addContentFromDocx(MultipartFile file, String title) throws IOException {
-        XWPFDocument document = new XWPFDocument(file.getInputStream());
-        XWPFWordExtractor extractor = new XWPFWordExtractor(document);
-        String text = extractor.getText();
-        extractor.close();
+    public Content addContentFromDocx(MultipartFile file, String title, User author) throws IOException {
+        String text;
+        try (InputStream inputStream = file.getInputStream();
+             XWPFDocument document = new XWPFDocument(inputStream);
+             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
+            text = extractor.getText();
+        }
 
         Content newContent = new Content();
         newContent.setHead(title);
         newContent.setParagrafs(text);
 
-        // Sekarang contentRepository tidak akan null lagi
-        return contentRepository.addContent(newContent);
-    }
-    @Override
-    public List<Content> findAll() {
-
-        Iterator<Content> contentIterator;
-        contentIterator = contentRepository.findAll();
-        List<Content> allContent = new ArrayList<Content>();
-        contentIterator.forEachRemaining(allContent::add);
-        return allContent;
-    }
-
-    @Override
-    public Content findContentById(UUID contentId) {
-        return contentRepository.findId(contentId);
-    }
-
-    @Override
-    public Content updateContent(UUID id, Content contentDetails) {
-
-        try {
-            Content existingContent = contentRepository.findId(id);
-            existingContent.setHead(contentDetails.getHead());
-            existingContent.setParagrafs(contentDetails.getParagrafs());
-
-            return contentRepository.save(existingContent);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Data tidak di temukan!");
-
+        if (author != null && author.getUserID() == null) {
+            // Karena di model pakai String, kita convert UUID-nya jadi String
+            author.setUserID(UUID.randomUUID());
         }
 
+        newContent.setUser(author);
 
+        return contentRepository.save(newContent);
     }
 
     @Override
-    public void deleteContent(UUID id) {
+    public List<Content> findAll() {
+        // MongoRepository otomatis mengembalikan List<Content> secara langsung
+        return contentRepository.findAll();
+    }
+
+    @Override
+    public Content findContentById(UUID contentId) { // Ganti UUID jadi String
+        // findById() mengembalikan Optional, jadi kita pakai orElse(null)
+        return contentRepository.findById(contentId).orElse(null);
+    }
+
+    @Override
+    public Content updateContent(UUID id, Content contentDetails) { // Ganti UUID jadi String
+        Content existingContent = contentRepository.findById(id).orElse(null);
+
+        if (existingContent == null) {
+            throw new RuntimeException("Data dengan ID " + id + " tidak ditemukan!");
+        }
+
+        existingContent.setHead(contentDetails.getHead());
+        existingContent.setParagrafs(contentDetails.getParagrafs());
+
+        return contentRepository.save(existingContent);
+    }
+
+    @Override
+    public void deleteContent(UUID id) { // Ganti UUID jadi String
         contentRepository.deleteById(id);
     }
 }

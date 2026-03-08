@@ -1,4 +1,76 @@
 /* Reset & Base */
+/* ./src/index.css */
+@import "tailwindcss";
+
+/* Update pada index.css */
+@theme {
+    --color-re-red: #9a0000;
+    --color-re-dark: #080808;
+    --color-re-green: #00ff41;
+}
+
+/* Update di index.css */
+@keyframes ecg-sweep {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.ecg-line-glow {
+    /* Membuat garis vertikal hijau yang menyapu */
+    background: linear-gradient(to right,
+    transparent 0%,
+    rgba(0, 255, 65, 0.8) 50%,
+    transparent 100%);
+    width: 50px;
+    height: 100%;
+    position: absolute;
+    animation: ecg-sweep 2.5s linear infinite;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+}
+
+.scanlines-overlay {
+    background: linear-gradient(
+            rgba(18, 16, 16, 0) 50%,
+            rgba(0, 0, 0, 0.2) 50%
+    );
+    background-size: 100% 4px;
+}
+
+@keyframes pulse-opacity {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 0.4; }
+}
+
+.animate-ecg {
+    /* Membuat efek garis menyapu */
+    mask-image: linear-gradient(to right, transparent 0%, black 40%, black 60%, transparent 100%);
+    mask-size: 200% 100%;
+    animation: ecg-scan 2.5s linear infinite;
+}
+
+.ecg-grid {
+    background-size: 20px 20px;
+    background-image:
+            linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+.scanlines::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 4px, 3px 100%;
+    z-index: 50;
+    pointer-events: none;
+}
+
+@keyframes pulse-red {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.animate-re-pulse { animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 body {
     background-color: #0f0f0f; /* Warna hitam YouTube */
     color: #fff;

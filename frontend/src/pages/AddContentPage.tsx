@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-export default function AdminPage() {
-    // const [file, setFile] = useState<File | null>(null);
-    // const [title, setTitle] = useState<string>("");
+export default function AddContentPage() {
+
     const [contents, setContents] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ head: "", paragrafs: "" });
+    const [editForm, setEditForm] = useState({ head: "", paragrafs: "" , penulis : ""});
     useNavigate();
     const API_BASE = 'http://localhost:9090/content';
     const navigate = useNavigate();
@@ -24,32 +23,6 @@ export default function AdminPage() {
     useEffect(() => {
         fetchContents();
     }, []);
-
-    // const handleUpload = async () => {
-    //     if (!file || !title) {
-    //         alert("Isi judul dan pilih file dulu ya!");
-    //         return;
-    //     }
-    //
-    //     const formData = new FormData();
-    //     formData.append('file', file);
-    //     formData.append('title', title);
-    //
-    //     try {
-    //         await axios.post(`${API_BASE}/upload`, formData, {
-    //             headers: { 'Content-Type': 'multipart/form-data' }
-    //         });
-    //         alert("Upload Sukses!");
-    //         setTitle("");
-    //         setFile(null);
-    //         fetchContents();
-    //     } catch (error) {
-    //         console.error("Error detail:", error);
-    //         alert("Terjadi kesalahan saat upload.");
-    //     }
-    // };
-
-
     const handleUpdate = async (id: string) => {
         try {
 
@@ -69,7 +42,7 @@ export default function AdminPage() {
 
     const startEdit = (item: any) => {
         setEditingId(item.idContent);
-        setEditForm({ head: item.head, paragrafs: item.paragrafs });
+        setEditForm({ head: item.head, paragrafs: item.paragrafs , penulis: item.penulis});
     };
     const handleDelete = async (idContent: string) => {
         if (window.confirm("Apakah Anda yakin ingin menghapus konten ini?")) {
@@ -85,7 +58,7 @@ export default function AdminPage() {
     };
     return (
         <div style={{ padding: '20px', backgroundColor: '#1a1a1a', color: 'white', minHeight: '100vh' }}>
-            <h1>Admin Dashboard - Upload Content</h1>
+            <h1>Halaman Tambah Tulisan</h1>
             <button
                 onClick={() => navigate('/write')}
                 style={{ backgroundColor: '#8B0000', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}

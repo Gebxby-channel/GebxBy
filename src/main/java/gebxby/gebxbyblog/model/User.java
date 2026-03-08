@@ -5,15 +5,17 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.UUID;
-
 @Getter
 @Setter
-@Document(collection = "contents")
-public class Content {
-    private String head;
-    private String subtitle;
-    private String paragrafs;
-    private User user;
+@Document(collection = "users")
+public class User {
+    private String email;
+    private String name;
+    private String googleId;
+    private String role;
+    private String photo;
+    private String moto;
     @Id
-    private UUID idContent;
+    private UUID userID;
+
 }

@@ -1,20 +1,30 @@
-// App.tsx
+import './index.css';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import axios from 'axios';
 import HomePage from './pages/HomePage';
-import WritingPage from './pages/WritingPage'; // Import file yang baru kita buat
-import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
+import WritingPage from './pages/WritingPage';
 import ReadPage from './pages/ReadPage';
 
-function App() {
+export default function App() {
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        axios.get('http://localhost:9090/api/user/me', { withCredentials: true })
+            .then(res => setUser(res.data))
+            .catch(() => setUser(null));
+    }, []);
+
     return (
         <Router>
             <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/write" element={<WritingPage />} />
-                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/" element={<HomePage user={user} />} />
+                {/* Kirim data user ke Profile dan Writing Page */}
+                <Route path="/profile" element={<ProfilePage user={user} />} />
+                <Route path="/write" element={<WritingPage user={user} />} />
                 <Route path="/read/:id" element={<ReadPage />} />
             </Routes>
         </Router>
     );
 }
-export default App;

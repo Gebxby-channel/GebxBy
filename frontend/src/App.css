@@ -1,4 +1,8 @@
 /* Layout Header ala YouTube */
+/*@tailwind base;*/
+/*@tailwind components;*/
+/*@tailwind utilities;*/
+
 .yt-header-wrapper {
     display: flex;
     align-items: center;
