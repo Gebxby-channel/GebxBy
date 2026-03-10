@@ -43,7 +43,7 @@ export default function HomePage({ user }: { user: any }) {
                 {articles.map((art) => (
                     <div key={art.idContent} className="video-card" onClick={() => navigate(`/read/${art.idContent}`)} style={{ cursor: 'pointer', border: '1px solid #444', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
                         <h2>{art.head}</h2>
-                        <p style={{ color: '#aaa', fontSize: '14px' }}>Penulis : {art.penulis?.name || "Anonymous"}</p>
+                        <p style={{ color: '#aaa', fontSize: '14px' }}>Penulis : {art.user?.name || "Anonymous"}</p>
                         <p style={{ color: '#ccc', marginTop: '8px' }}>
                             {art.paragrafs ? art.paragrafs.substring(0, 150) : ""}...
                         </p>
