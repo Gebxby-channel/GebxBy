@@ -1,6 +1,13 @@
 /* Reset & Base */
 /* ./src/index.css */
 @import "tailwindcss";
+/* src/index.css */
+@font-face {
+    font-family: 'MyCustomFont'; /* Nama bebas yang akan dipanggil */
+    src: url('./assets/Angellica Signature.otf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
 
 /* Update pada index.css */
 @theme {

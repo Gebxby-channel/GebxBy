@@ -5,13 +5,12 @@ import { useNavigate } from 'react-router-dom';
 export default function WritingPage({ user }: { user: any })  {
     const navigate = useNavigate();
     const API_BASE = 'http://localhost:9090/content';
-
+    const [selectedKategori, setSelectedKategori] = useState("");
     const [mode, setMode] = useState<'manual' | 'upload'>('manual');
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [file, setFile] = useState<File | null>(null);
 
-    // --- PROTEKSI GEMBOK HALAMAN ---
     if (!user) {
         return (
             <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
@@ -37,25 +36,46 @@ export default function WritingPage({ user }: { user: any })  {
         if (!title || !content) return alert("Judul dan isi tulisan wajib ada!");
 
         try {
-            // Kita HANYA kirim data tulisan.
-            // Data user akan diambil Backend dari Session Cookie (withCredentials: true)
-            await axios.post(`${API_BASE}/add-manual`, {
-                head: title,
-                paragrafs: content
-            }, { withCredentials: true });
+            // 1. TEMBAK DATA LOGIN UNTUK VERIFIKASI SESSION
+            const userRes = await axios.get('http://localhost:9090/api/user/me', { withCredentials: true });
 
-            alert("Tulisan berhasil di-publish!");
-            navigate('/profile');
-        } catch (err) {
-            console.error(err);
-            alert("Gagal publish manual. Pastikan kamu sudah login!");
+            if (userRes.status === 200) {
+                const activeUser = userRes.data;
+                console.log("Session Terverifikasi untuk:", activeUser.name);
+
+                // 2. JIKA SESSION SAH, BARU TEMBAK TULISANNYA
+                await axios.post(`${API_BASE}/add-manual`, {
+                    head: title,       // Sesuai Content.java
+                    paragrafs: content,
+                    kategori: selectedKategori,
+                    user: {
+                        name: activeUser.name,
+                        email: activeUser.email
+                    }
+
+                }, { withCredentials: true });
+
+                alert("Tulisan berhasil di-publish!" + selectedKategori);
+                navigate('/profile');
+            }
+        } catch (err: any) {
+            console.error("Error saat verifikasi/publish:", err);
+
+            // Cek jika error karena session habis (401)
+            if (err.response?.status === 401) {
+                alert("Session kamu habis, Geb. Silakan login ulang!");
+                window.location.href = 'http://localhost:9090/oauth2/authorization/google';
+            } else {
+                alert("Gagal publish. Cek koneksi server atau CORS!");
+            }
         }
     };
     const handleUploadFile = async () => {
-        if (!file || !title) return alert("Pilih file dan isi judul!");
+        if (!file || !title || selectedKategori ) return alert("Pilih file dan isi judul!");
         const formData = new FormData();
         formData.append('file', file);
         formData.append('title', title);
+        formData.append('kategori', selectedKategori);
         formData.append('author', user.name);
         try {
             await axios.post(`${API_BASE}/upload`, formData, { withCredentials: true });
@@ -88,6 +108,21 @@ export default function WritingPage({ user }: { user: any })  {
                 <button onClick={mode === 'manual' ? handlePublishManual : handleUploadFile} className="bg-white text-black hover:bg-gray-200 px-6 py-2 rounded-full font-bold text-sm transition-all transform active:scale-95">
                     {mode === 'manual' ? 'PUBLISH' : 'UPLOAD'}
                 </button>
+                <div className="mb-6">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Pilih Kategori</label>
+                    <select
+                        value={selectedKategori}
+                        onChange={(e) => setSelectedKategori(e.target.value)}
+                        className="w-full bg-[#1a1a1a] border border-[#272727] p-4 rounded-xl text-white outline-none focus:border-red-600 transition-all"
+                    >
+                        <option value="General">General</option>
+                        <option value="Fan-Novel">Fan-Novel</option>
+                        <option value="Speculation">Spekulasi & Teori</option>
+                        <option value="Analistic Pshycologic">Analistic Pshycologic</option>
+                        <option value="Lore">Lore</option>
+                        <option value="QnA">Q&A</option>
+                    </select>
+                </div>
             </nav>
 
             <main className="max-w-3xl mx-auto mt-12 px-4 pb-20">
