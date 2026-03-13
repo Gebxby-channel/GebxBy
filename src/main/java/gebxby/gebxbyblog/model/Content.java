@@ -16,4 +16,5 @@ public class Content {
     private User user;
     @Id
     private UUID idContent;
+    private String kategori;
 }

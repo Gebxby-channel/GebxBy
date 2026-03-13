@@ -39,7 +39,7 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
-    public Content addContentFromDocx(MultipartFile file, String title, User author) throws IOException {
+    public Content addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException {
         String text;
         try (InputStream inputStream = file.getInputStream();
              XWPFDocument document = new XWPFDocument(inputStream);
@@ -50,14 +50,14 @@ public class ContentServiceImpl implements ContentService {
         Content newContent = new Content();
         newContent.setHead(title);
         newContent.setParagrafs(text);
+        newContent.setIdContent(UUID.randomUUID());
+        // Sekarang ini tidak akan merah karena parameter 'kategori' sudah ada di atas
+        newContent.setKategori(kategori != null && !kategori.isEmpty() ? kategori : "General");
 
         if (author != null && author.getUserID() == null) {
-            // Karena di model pakai String, kita convert UUID-nya jadi String
             author.setUserID(UUID.randomUUID());
         }
-
         newContent.setUser(author);
-
         return contentRepository.save(newContent);
     }
 

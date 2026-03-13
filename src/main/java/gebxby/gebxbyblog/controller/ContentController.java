@@ -29,19 +29,18 @@ public class ContentController {
     public ResponseEntity<?> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
-            // UBAH JADI STRING AGAR TIDAK CRASH:
+            @RequestParam("kategori") String kategori,
             @RequestParam("author") String authorName) {
         try {
-            // Kita buat objek User-nya secara manual di sini
             User author = new User();
             author.setName(authorName);
 
-            Content savedContent = service.addContentFromDocx(file, title, author);
+            // Panggil service dengan urutan yang sama: file, kategori, title, author
+            Content savedContent = service.addContentFromDocx(file, kategori, title, author);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedContent);
         } catch (Exception e) {
-            e.printStackTrace(); // Biar error-nya kelihatan di console IntelliJ
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Gagal mengunggah file: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 

@@ -71,19 +71,32 @@ export default function WritingPage({ user }: { user: any })  {
         }
     };
     const handleUploadFile = async () => {
-        if (!file || !title || selectedKategori ) return alert("Pilih file dan isi judul!");
+        // 1. Cek ketersediaan user agar tidak crash saat akses user.name
+        if (!user || !user.name) return alert("Sesi login habis, silakan login ulang.");
+
+        // 2. Pastikan variabel 'file' sesuai dengan nama state kamu (misal: selectedFile)
+        if (!file || !title || !selectedKategori) {
+            return alert("Lengkapi data: Judul, File, dan Kategori wajib ada!");
+        }
+
         const formData = new FormData();
+        // NAMA KEY HARUS PERSIS SAMA DENGAN @RequestParam DI BACKEND
         formData.append('file', file);
         formData.append('title', title);
         formData.append('kategori', selectedKategori);
         formData.append('author', user.name);
+
         try {
-            await axios.post(`${API_BASE}/upload`, formData, { withCredentials: true });
+            // Jangan paksa set 'Content-Type' manual, biarkan Axios yang urus boundary-nya
+            await axios.post(`${API_BASE}/upload`, formData, {
+                withCredentials: true
+            });
+
             alert("File Docx berhasil di-upload!");
             navigate('/profile');
-        } catch (err) {
-            console.error(err);
-            alert("Gagal upload file.");
+        } catch (err: any) {
+            console.error("Detail Error:", err.response?.data || err.message);
+            alert(`Gagal upload: ${err.response?.data || "Terjadi kesalahan server"}`);
         }
     };
 

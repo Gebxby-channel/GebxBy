@@ -13,7 +13,7 @@ import java.util.UUID;
 public interface ContentService {
 
     public Content addContent(Content content);
-    public Content addContentFromDocx(MultipartFile file, String title, User author) throws IOException;
+    public Content addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException;
     public List<Content>findAll();
     public Content findContentById(UUID id);
     public Content updateContent(UUID id, Content contentDetails);
