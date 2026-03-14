@@ -144,4 +144,17 @@ class ContentServiceTest {
             contentService.addContentFromDocx(file, "", "Title", author);
         });
     }
+    @Test
+    void testAddContent_WithExistingId() {
+        UUID existingId = UUID.randomUUID();
+        content.setIdContent(existingId);
+
+        when(contentRepository.save(any(Content.class))).thenReturn(content);
+
+        Content result = contentService.addContent(content);
+
+        assertEquals(existingId, result.getIdContent()); // ID tidak boleh berubah
+        verify(contentRepository, times(1)).save(content);
+    }
+
 }
