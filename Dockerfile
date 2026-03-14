@@ -5,7 +5,8 @@ WORKDIR /app
 # Copy wrapper dan config gradle duluan biar cache-nya efisien
 COPY gradlew .
 COPY gradle gradle
-COPY build.gradle settings.gradle ./
+COPY build.gradle.kts settings.gradle.kts ./
+#Nambah itu doang kok
 
 # Kasih izin eksekusi buat gradlew
 RUN chmod +x gradlew
