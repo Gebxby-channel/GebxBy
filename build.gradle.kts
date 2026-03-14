@@ -1,5 +1,20 @@
+// Pakai 'val' buat ngasih tau Gradle kalau kita mau konfigurasi task yang ada
+val jacocoTestReport by tasks.getting(JacocoReport::class) {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true)
+    }
+}
+
+tasks.test {
+    finalizedBy(jacocoTestReport)
+}
+
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "3.5.11"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -41,4 +56,16 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+tasks.jacocoTestReport {
+    dependsOn(tasks.test) // Laporan baru dibuat setelah test kelar
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true) // Ini buat lu liat hasilnya di browser
+    }
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport) // Otomatis jalanin report tiap abis ./gradlew test
 }
