@@ -31,7 +31,7 @@ export default function HomePage({ user }: { user: any }) {
                             </button>
                         </div>
                     ) : (
-                        <button onClick={() => window.location.href = 'http://localhost:9090/oauth2/authorization/google'} style={{ background: '#4285F4', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' }}>
+                        <button onClick={() => window.location.href = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/oauth2/authorization/google'} style={{ background: '#4285F4', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' }}>
                             Login with Google
                         </button>
                     )}
