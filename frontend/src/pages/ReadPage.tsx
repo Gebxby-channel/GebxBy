@@ -9,7 +9,7 @@ export default function ReadPage() {
 
     useEffect(() => {
         if (id) {
-            axios.get(`http://localhost:9090/content/${id}`)
+            axios.get(`https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all/content/${id}`)
                 .then(res => setContent(res.data))
                 .catch(err => console.error("Gagal ambil detail", err));
         }
