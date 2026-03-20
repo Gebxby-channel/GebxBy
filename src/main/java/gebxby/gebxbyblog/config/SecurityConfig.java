@@ -37,7 +37,7 @@ public class SecurityConfig {
         // TAMBAHKAN URL Vercel lu di sini barengan sama localhost
         config.setAllowedOrigins(java.util.List.of(
                 "http://localhost:5173",
-                "https://gebxby.vercel.app/"
+                "https://gebxby.vercel.app"
         ));
 
         config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
