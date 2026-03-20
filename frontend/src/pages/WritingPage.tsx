@@ -22,7 +22,7 @@ export default function WritingPage({ user }: { user: any })  {
                 <h1 className="text-3xl font-bold mb-2">ACCESS DENIED</h1>
                 <p className="text-gray-500 max-w-sm mb-8">Hanya personil terverifikasi yang bisa menulis di database ini. Silakan login terlebih dahulu.</p>
                 <button
-                    onClick={() => window.location.href = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all/oauth2/authorization/google'}
+                    onClick={() => window.location.href = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/oauth2/authorization/google'}
                     className="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-gray-200 transition-all active:scale-95"
                 >
                     Login with Google
@@ -37,7 +37,7 @@ export default function WritingPage({ user }: { user: any })  {
 
         try {
             // 1. TEMBAK DATA LOGIN UNTUK VERIFIKASI SESSION
-            const userRes = await axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all/api/user/me', { withCredentials: true });
+            const userRes = await axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/api/user/me', { withCredentials: true });
 
             if (userRes.status === 200) {
                 const activeUser = userRes.data;
