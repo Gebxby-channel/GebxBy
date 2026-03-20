@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-@CrossOrigin(origins = "https://gebxby.vercel.app/", allowCredentials = "true")
+@CrossOrigin(origins = "https://gebxby.vercel.app", allowCredentials = "true")
 @RestController
 public class UserController {
 

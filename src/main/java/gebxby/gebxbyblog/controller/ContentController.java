@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 // Paku Anti-CORS
-@CrossOrigin(origins = "https://gebxby.vercel.app/", allowCredentials = "true")
+@CrossOrigin(origins = "https://gebxby.vercel.app", allowCredentials = "true")
 @RestController
 @RequestMapping("/content")
 public class ContentController {
