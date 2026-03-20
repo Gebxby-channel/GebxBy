@@ -11,7 +11,7 @@ export default function App() {
     const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
-        axios.get('http://localhost:9090/api/user/me', { withCredentials: true })
+        axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/api/user/me', { withCredentials: true })
             .then(res => setUser(res.data))
             .catch(() => setUser(null));
     }, []);
