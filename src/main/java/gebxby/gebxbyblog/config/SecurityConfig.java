@@ -25,7 +25,7 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         // GANTI: Kalau sukses login, lempar ke Vercel, bukan localhost lagi
-                        .defaultSuccessUrl("https://gebxby.vercel.app/", true)
+                        .defaultSuccessUrl("https://gebxby.vercel.app", true)
                 );
         return http.build();
     }
