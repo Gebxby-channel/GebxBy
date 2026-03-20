@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function WritingPage({ user }: { user: any })  {
     const navigate = useNavigate();
-    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all/content';
+    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content';
     const [selectedKategori, setSelectedKategori] = useState("");
     const [mode, setMode] = useState<'manual' | 'upload'>('manual');
     const [title, setTitle] = useState("");

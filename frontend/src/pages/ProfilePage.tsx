@@ -10,7 +10,7 @@ export default function ProfilePage({ user }: { user: any }) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ head: "", paragrafs: "", kategori: "" });
     const navigate = useNavigate();
-    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all';
+    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content';
 
     useEffect(() => {
         if (!user) {

@@ -8,7 +8,7 @@ export default function AddContentPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ head: "", paragrafs: "" , penulis : ""});
     useNavigate();
-    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all';
+    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content';
     const navigate = useNavigate();
 
     const fetchContents = async () => {

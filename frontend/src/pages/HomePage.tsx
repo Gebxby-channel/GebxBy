@@ -8,7 +8,7 @@ export default function HomePage({ user }: { user: any }) {
     const navigate = useNavigate();
 
     useEffect(() => {
-        axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all/all-content', { withCredentials: true })
+        axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all-content', { withCredentials: true })
             .then(res => setArticles(Array.isArray(res.data) ? res.data : []))
             .catch(err => console.error("Gagal ambil artikel:", err));
     }, []);
