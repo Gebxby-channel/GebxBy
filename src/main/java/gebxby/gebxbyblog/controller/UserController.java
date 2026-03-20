@@ -13,13 +13,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(origins = "https://gebxby.vercel.app/", allowCredentials = "true")
 @RestController
 public class UserController {
 
     @GetMapping("/")
     public void tangkapYangNyasar(HttpServletResponse response) throws IOException {
-        response.sendRedirect("http://localhost:5173/");
+        response.sendRedirect("https://gebxby.vercel.app/");
     }
 
     // Menggunakan OAuth2User agar lebih sakti menangkap balasan Google
