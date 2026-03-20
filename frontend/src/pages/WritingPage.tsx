@@ -64,7 +64,7 @@ export default function WritingPage({ user }: { user: any })  {
             // Cek jika error karena session habis (401)
             if (err.response?.status === 401) {
                 alert("Session kamu habis, Geb. Silakan login ulang!");
-                window.location.href = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all/oauth2/authorization/google';
+                window.location.href = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/oauth2/authorization/google';
             } else {
                 alert("Gagal publish. Cek koneksi server atau CORS!");
             }
