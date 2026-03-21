@@ -2,13 +2,17 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/S.T.A.R.S._logo.webp';
-// import {Input} from "postcss";
-// import logo from '../assets/logo.png'; // Pastikan logo kamu diimport di sini
 
 export default function ProfilePage({ user }: { user: any }) {
     const [contents, setContents] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ head: "", paragrafs: "", kategori: "" });
+
+    // Fitur untuk mengisi Asignation sendiri
+    const [designation, setDesignation] = useState(() => {
+        return localStorage.getItem('user_designation') || "RECONNAISSANCE OFFICER";
+    });
+
     const navigate = useNavigate();
     const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content';
 
@@ -19,6 +23,11 @@ export default function ProfilePage({ user }: { user: any }) {
         }
         fetchMyContents();
     }, [user, navigate]);
+
+    // Simpan designation ke localstorage jika berubah
+    useEffect(() => {
+        localStorage.setItem('user_designation', designation);
+    }, [designation]);
 
     const fetchMyContents = async () => {
         try {
@@ -38,7 +47,6 @@ export default function ProfilePage({ user }: { user: any }) {
                 paragrafs: editForm.paragrafs,
                 kategori: editForm.kategori
             }, { withCredentials: true });
-            alert("Data berhasil diperbarui!");
             setEditingId(null);
             fetchMyContents();
         } catch (error) {
@@ -56,182 +64,186 @@ export default function ProfilePage({ user }: { user: any }) {
     };
 
     const handleDelete = async (idContent: string) => {
-        if (window.confirm("Apakah Anda yakin ingin menghapus konten ini?")) {
+        if (window.confirm("WARNING: Data removal is permanent. Proceed?")) {
             try {
                 await axios.delete(`${API_BASE}/${idContent}`, { withCredentials: true });
-                alert("Konten berhasil dihapus!");
                 fetchMyContents();
             } catch (error) {
-                alert("Terjadi kesalahan saat menghapus.");
+                alert("Critical Error during deletion.");
             }
         }
     };
 
     const getBadgeStyle = (cat: string) => {
         switch(cat) {
-            case 'General' : return 'bg-yellow-600/20 text-blue-400 border border-blue-600/30'
-            case 'Fan-Novel': return 'bg-blue-600/20 text-blue-400 border border-blue-600/30';
-            case 'Lore': return 'bg-red-600/20 text-red-500 border border-red-600/30';
-            case 'Analistic Pshycologic': return 'bg-pink-600/20 text-red-500 border border-red-600/30';
-            case 'Speculation': return 'bg-purple-600/20 text-purple-400 border border-purple-600/30';
-            case 'QnA': return 'bg-orange-600/20 text-orange-400 border border-orange-600/30';
-            default: return 'bg-gray-600/20 text-gray-400 border border-gray-600/30';
+            case 'Lore': return 'border-[#e60000] text-[#e60000] bg-[#e60000]/10';
+            case 'Analistic Pshycologic': return 'border-pink-600 text-pink-500 bg-pink-600/10';
+            default: return 'border-[#444] text-[#888] bg-[#1a1a1a]';
         }
     };
 
     if (!user) return null;
 
     return (
-        <div className="min-h-screen bg-[#0f0f0f] text-white font-mono p-6 lg:p-10">
-            <div className="max-w-5xl mx-auto">
-                <div className="mb-8">
-                    <button onClick={() => navigate('/')} className="group flex items-center gap-2 text-gray-400 hover:text-white transition-all duration-300">
-                        <div className="p-2 rounded-full bg-[#272727] group-hover:bg-[#3f3f3f]">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                        </div>
-                        <span className="font-medium">Kembali ke Beranda</span>
+        <div className="min-h-screen bg-[#111] text-[#eee] font-mono p-6 lg:p-10">
+            <div className="max-w-[1600px] mx-auto"> {/* Meluaskan container utama */}
+
+                {/* Back Navigation (System Style) */}
+                <div className="mb-10 border-b border-[#2a2a2a] pb-4">
+                    <button onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] hover:text-[#e60000] transition-all duration-300">
+                        <span className="font-bold tracking-widest text-xs uppercase">{"<"} Back to Command Center</span>
                     </button>
                 </div>
 
-                {/* --- START: S.T.A.R.S. ID CARD PROFILE SECTION --- */}
-                <div className="relative w-full max-w-3xl mx-auto aspect-[1.58/1] bg-white rounded-[40px] overflow-hidden flex shadow-2xl ">
+                {/* --- KONTAINER UTAMA FLEX LAYOUT --- */}
+                <div className="flex flex-col lg:flex-row gap-10 items-start">
 
-                    {/* LEFT BLUE PANEL: LOGO AREA */}
-                    <div className="w-[40%] bg-[#1a3a63] flex flex-col items-center justify-center p-6 border-r-4 border-white">
-                        {/* TEMPAT LOGO S.T.A.R.S (Ganti 'src' dengan path logo kamu) */}
-                        <div className="w-full aspect-square flex items-center justify-center">
-                            <img
-                                src={logo}
-                                alt="S.T.A.R.S. Logo"
-                                className="w-[85%] object-contain"
-                            />
-                        </div>
-                        <div className="mt-4 text-center">
-                            <h2 className="text-white text-xl font-black leading-tight tracking-tighter">SPECIAL TACTICS AND RESCUE SERVICE</h2>
-                        </div>
-                    </div>
+                    {/* === KOLOM KIRI: S.T.A.R.S. ID CARD (Dikecilkan & Sticky) === */}
+                    <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-28">
+                        <p className="text-[10px] text-[#444] mb-3 tracking-[0.3em] uppercase pl-2">Personnel Side-ID</p>
 
-                    {/* RIGHT WHITE PANEL: USER DATA AREA */}
-                    <div className="flex-1 bg-white p-6 flex flex-col relative text-[#1a3a63]">
-                        {/* Header Depan */}
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="flex flex-col">
-                                <h1 className="text-5xl font-black tracking-tighter">POLICE</h1>
-                                <p className="text-xl font-bold mt-[-8px]">RACCOON POLICE DEP.</p>
-                            </div>
-                            <div className="text-right flex flex-col items-end">
-                                {/* TEMPAT LOGO R.P.D KECIL (Opsional) */}
-                                <div className="w-12 h-12 bg-gray-200 rounded-full mb-1"></div>
-                            </div>
-                        </div>
+                        {/* Kartu ID dengan ukuran baru (max-w dilepas, aspect dipertahankan) */}
+                        <div className="relative w-full aspect-[1.58/1] bg-white rounded-xl overflow-hidden flex shadow-[0_0_40px_rgba(0,0,0,0.7)] border border-[#2a2a2a] scale-95 origin-top-left">
 
-                        {/* Data Fields */}
-                        <div className="space-y-6 mt-4">
-                            <div className="border-b-2 border-[#1a3a63] pb-1 relative">
-                                <span className="text-1xl font-bold block uppercase font-['MyCustomFont']" >{user.name}</span>
-                                <span className="absolute -bottom-5 right-0 text-[10px] font-bold opacity-70">name</span>
-                            </div>
-                            <div className="border-b-2 border-[#1a3a63] pb-1 relative">
-                                <span className="text-2xl font-bold block uppercase tracking-wide">//BUAT AGAR USER BISA MASUKKAN SENDIRI</span>
-                                <span className="absolute -bottom-5 right-0 text-[10px] font-bold opacity-70">asignation</span>
-                            </div>
-                        </div>
-
-                        {/* Photo & Signature Row */}
-                        <div className="flex mt-10 items-end justify-between">
-                            {/* USER PHOTO - BOXED AS IN SCREENSHOT */}
-                            <div className="w-32 h-40 border-2 border-gray-300 bg-gray-100 p-1 shadow-inner relative">
-                                <img
-                                    src={user.picture}
-                                    alt="Officer"
-                                    className="w-full h-full object-cover grayscale"
-                                    referrerPolicy="no-referrer"
-                                />
-                                <span className="absolute -top-6 left-0 text-[10px] font-bold opacity-70">placeholder foto</span>
+                            {/* LEFT BLUE PANEL */}
+                            <div className="w-[40%] bg-[#1a3a63] flex flex-col items-center justify-center p-4 border-r-[3px] border-white">
+                                <div className="w-full aspect-square flex items-center justify-center">
+                                    <img src={logo} alt="S.T.A.R.S. Logo" className="w-[85%] object-contain" />
+                                </div>
+                                <div className="mt-3 text-center">
+                                    <h2 className=" text-white text-[5px] font-black leading-tight tracking-tighter">SPECIAL TACTICS AND RESCUE SERVICE</h2>
+                                </div>
                             </div>
 
-                            {/* SIGNATURE & LEGAL TEXT */}
-                            <div className="flex-1 ml-8 flex flex-col items-end">
-                                <div className="text-center w-full max-w-[200px]">
-                                    <div className="font-serif italic text-3xl border-b border-[#1a3a63] pb-1 mb-1 leading-none">
-                                        {user.name?.split(' ')[0]}
+                            {/* RIGHT WHITE PANEL */}
+                            <div className="flex-1 bg-white p-4 flex flex-col relative text-[#1a3a63]">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex flex-col">
+                                        <h1 className="text-3xl font-black tracking-tighter leading-none">POLICE</h1>
+                                        <p className="text-[11px] font-bold">RACCOON POLICE DEP.</p>
                                     </div>
-                                    <span className="text-[10px] font-bold uppercase">chief of studio</span>
+                                    <div className="w-8 h-8 border border-[#1a3a63] flex items-center justify-center font-black text-xs">RPD</div>
                                 </div>
-                                <div className="mt-4 text-[7px] text-right leading-tight font-bold opacity-60">
-                                    SUCH MAY MAKE ARRESTS. CARRY FIREARMS, CARRY OUT INVESTIGATIONS AND PERFORM OTHER LAW ENFORCEMENT DUTIES AS APPROVED BY FEDERAL LAW AND REGULATION.
+
+                                <div className="space-y-4 mt-2">
+                                    <div className="border-b border-[#1a3a63] pb-0.5 relative">
+                                        <span className="text-sm font-black block uppercase truncate">{user.name}</span>
+                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold opacity-60 uppercase">Officer Name</span>
+                                    </div>
+                                    <div className="border-b border-[#1a3a63] pb-0.5 relative group">
+                                        <input
+                                            type="text"
+                                            value={designation}
+                                            onChange={(e) => setDesignation(e.target.value.toUpperCase())}
+                                            className="w-full bg-transparent text-xs font-black uppercase tracking-tight outline-none focus:text-red-600 transition-colors"
+                                            placeholder="INPUT DESIGNATION..."
+                                        />
+                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold opacity-60 uppercase">Asignation (Editable)</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex mt-5 items-end justify-between">
+                                    <div className="w-16 h-20 border border-[#1a3a63] bg-gray-100 p-0.5 relative shadow-md">
+                                        <img src={user.picture} alt="Officer" className="w-full h-full object-cover grayscale contrast-125" referrerPolicy="no-referrer" />
+                                    </div>
+
+                                    <div className="flex-1 ml-3 flex flex-col items-end">
+                                        <div className="text-center w-full max-w-[100px]">
+                                            <div className="font-serif italic text-sm border-b border-[#1a3a63] pb-0.5 mb-0.5 leading-none truncate">
+                                                {/*{user.name?.split(' ')[0]}*/}
+                                                GEBXBY
+                                            </div>
+                                            <span className="text-[7px] font-black uppercase">Authorized Signature</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    {/* === END KOLOM KIRI === */}
 
-                        {/* Vertically oriented text sidebar (S.T.A.R.S text on image) */}
-                        <div className="absolute left-0 bottom-1/2 translate-y-1/2 -rotate-90 origin-left text-[8px] font-bold tracking-[0.2em] opacity-40 ml-2">
-                            SPECIAL TACTICS AND RESCUE SERVICE
+
+                    {/* === KOLOM KANAN: INFORMASI & ARSIP (Luas) === */}
+                    <div className="flex-1 w-full">
+                        {/* Header Bagian Actions */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 border-b border-[#2a2a2a] pb-6">
+                            <div>
+                                <h2 className="text-2xl font-black text-white uppercase tracking-widest">Personal Archives</h2>
+                                <p className="text-[#888] text-xs font-mono">Managing {contents.length} secure data entries within this sector.</p>
+                            </div>
+                            <button
+                                onClick={() => navigate('/write')}
+                                className="bg-[#e60000] text-white hover:bg-white hover:text-[#e60000] font-black py-3 px-8 transition-all duration-300 uppercase text-xs tracking-tighter shadow-[4px_4px_0px_#444] whitespace-nowrap"
+                            >
+                                + Create New Entry
+                            </button>
+                        </div>
+
+                        {/* Koleksi Tulisan (Database Card Style) */}
+                        <div className="grid gap-6">
+                            {contents.length === 0 ? (
+                                <div className="text-center py-20 border border-dashed border-[#2a2a2a] text-[#444] font-mono">
+                                    [ NO DATA RECORDED IN THIS SECTOR ]
+                                </div>
+                            ) : (
+                                contents.map((item) => (
+                                    <div key={item.idContent} className="group bg-[#181818] border border-[#2a2a2a] p-6 hover:border-[#e60000] transition-all duration-300 relative shadow-inner">
+                                        {/* Aksen visual pada hover */}
+                                        <div className="absolute top-0 left-0 w-[2px] h-full bg-[#e60000] scale-y-0 group-hover:scale-y-100 transition-transform origin-top"></div>
+
+                                        {editingId === item.idContent ? (
+                                            <div className="space-y-4">
+                                                <input className="w-full bg-[#111] border border-[#333] p-3 text-white font-mono outline-none focus:border-[#e60000]" value={editForm.head} onChange={(e) => setEditForm({...editForm, head: e.target.value})} />
+                                                <select
+                                                    className="w-full bg-[#111] border border-[#333] p-3 text-white font-mono outline-none"
+                                                    value={editForm.kategori}
+                                                    onChange={(e) => setEditForm({...editForm, kategori: e.target.value})}
+                                                >
+                                                    <option value="General">General</option>
+                                                    <option value="Fan-Novel">Fan-Novel</option>
+                                                    <option value="Speculation">Speculation</option>
+                                                    <option value="Analistic Pshycologic">Analistic Pshycologic</option>
+                                                    <option value="Lore">Lore</option>
+                                                    <option value="QnA">Q&A</option>
+                                                </select>
+                                                <textarea className="w-full h-32 bg-[#111] border border-[#333] p-3 text-white font-mono outline-none focus:border-[#e60000]" value={editForm.paragrafs} onChange={(e) => setEditForm({...editForm, paragrafs: e.target.value})} />
+                                                <div className="flex gap-3">
+                                                    <button onClick={() => handleUpdate(item.idContent)} className="bg-[#e60000] px-6 py-2 font-bold text-xs uppercase">Confirm Update</button>
+                                                    <button onClick={() => setEditingId(null)} className="bg-[#333] px-6 py-2 font-bold text-xs uppercase">Abort</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-4 mb-2">
+                                                        <span className="text-[10px] text-[#e60000] font-bold font-mono">
+                                                            ENTRY ID: {item.idContent && item.idContent.length > 8 ? `${item.idContent.substring(0, 8)}...` : item.idContent}
+                                                        </span>
+                                                        <span className={`text-[9px] font-black px-3 py-0.5 border uppercase tracking-widest ${getBadgeStyle(item.kategori)}`}>
+                                                            {item.kategori}
+                                                        </span>
+                                                    </div>
+                                                    <h3 className="text-xl font-black uppercase text-white group-hover:text-[#e60000] transition-colors mb-2 tracking-tight">{item.head}</h3>
+                                                    <p className="text-[#bbb] text-sm line-clamp-2 font-sans opacity-90 leading-relaxed max-w-3xl">
+                                                        {item.paragrafs.substring(0, 180)}...
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto flex-shrink-0">
+                                                    <button onClick={() => startEdit(item)} className="flex-1 md:w-28 border border-[#333] hover:border-white text-white px-5 py-2 text-[10px] font-bold uppercase transition-all">Edit File</button>
+                                                    <button onClick={() => handleDelete(item.idContent)} className="flex-1 md:w-28 border border-[#333] hover:bg-[#e60000] hover:border-[#e60000] text-white px-5 py-2 text-[10px] font-bold uppercase transition-all">Delete</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
-                </div>
-                {/* --- END: S.T.A.R.S. ID CARD PROFILE SECTION --- */}
+                    {/* === END KOLOM KANAN === */}
 
-                {/* Bagian Actions */}
-                <div className="flex justify-center mb-12">
-                    <button onClick={() => navigate('/write')} className="bg-red-600 text-white hover:bg-white hover:text-black font-black py-4 px-10 rounded-none transform skew-x-[-12deg] transition-all duration-300 shadow-[4px_4px_0px_white]">
-                        + BUAT TULISAN BARU
-                    </button>
                 </div>
+                {/* --- END KONTAINER UTAMA --- */}
 
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold border-l-4 border-red-600 pl-4 uppercase tracking-widest mb-8">Koleksi Tulisan</h2>
-                    {contents.length === 0 ? (
-                        <div className="text-center py-20 bg-[#1a1a1a] rounded-3xl border border-dashed border-[#333]">
-                            <p className="text-gray-500 text-lg">Kamu belum punya tulisan.</p>
-                        </div>
-                    ) : (
-                        <div className="grid gap-4">
-                            {contents.map((item) => (
-                                <div key={item.idContent} className="group relative bg-[#1a1a1a] border border-[#272727] p-6 rounded-2xl hover:border-red-600/50 transition-all duration-300">
-                                    {editingId === item.idContent ? (
-                                        <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                                            <input className="w-full bg-[#272727] border border-[#333] rounded-xl p-4 text-white outline-none focus:ring-2 focus:ring-red-600" value={editForm.head} onChange={(e) => setEditForm({...editForm, head: e.target.value})} />
-                                            <select
-                                                className="w-full bg-[#272727] border border-[#333] rounded-xl p-4 text-white outline-none focus:ring-2 focus:ring-red-600"
-                                                value={editForm.kategori}
-                                                onChange={(e) => setEditForm({...editForm, kategori: e.target.value})}
-                                            >
-                                                <option value="General">General</option>
-                                                <option value="Fan-Novel">Fan-Novel</option>
-                                                <option value="Speculation">Spekulasi & Teori</option>
-                                                <option value="Analistic Pshycologic">Analistic Pshycologic</option>
-                                                <option value="Lore">Lore</option>
-                                                <option value="QnA">Q&A</option>
-                                            </select>
-                                            <textarea className="w-full h-32 bg-[#272727] border border-[#333] rounded-xl p-4 text-white outline-none focus:ring-2 focus:ring-red-600 resize-none" value={editForm.paragrafs} onChange={(e) => setEditForm({...editForm, paragrafs: e.target.value})} />
-                                            <div className="flex gap-3">
-                                                <button onClick={() => handleUpdate(item.idContent)} className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-full font-bold transition-all">Simpan</button>
-                                                <button onClick={() => setEditingId(null)} className="bg-[#333] hover:bg-[#444] px-6 py-2 rounded-full font-bold transition-all">Batal</button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <h3 className="text-xl font-bold group-hover:text-red-500 transition-colors">{item.head}</h3>
-                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${getBadgeStyle(item.kategori)}`}>
-                                                        {item.kategori}
-                                                    </span>
-                                                </div>
-                                                <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed italic">"{item.paragrafs.substring(0, 150)}..."</p>
-                                            </div>
-                                            <div className="flex gap-3 w-full md:w-auto">
-                                                <button onClick={() => startEdit(item)} className="flex-1 md:flex-none bg-[#272727] hover:bg-blue-600 text-white px-5 py-2 rounded-xl transition-all duration-300 font-medium">Edit</button>
-                                                <button onClick={() => handleDelete(item.idContent)} className="flex-1 md:flex-none bg-[#272727] hover:bg-red-600 text-white px-5 py-2 rounded-xl transition-all duration-300 font-medium">Hapus</button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
             </div>
         </div>
     );

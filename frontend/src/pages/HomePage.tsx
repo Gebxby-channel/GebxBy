@@ -1,54 +1,49 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-// import logo from '../assets/logo.png';
+import ContentCard from '../components/ContentCard'; // Pastikan path ini benar
 
+// Di sini kita tambahkan { user } di parameter fungsi agar App.tsx nggak merah lagi
 export default function HomePage({ user }: { user: any }) {
     const [articles, setArticles] = useState<any[]>([]);
-    const navigate = useNavigate();
 
     useEffect(() => {
+        // Ambil semua konten dari database
         axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all-content', { withCredentials: true })
-            .then(res => setArticles(Array.isArray(res.data) ? res.data : []))
+            .then(res => {
+                setArticles(Array.isArray(res.data) ? res.data : []);
+            })
             .catch(err => console.error("Gagal ambil artikel:", err));
     }, []);
 
     return (
-        <div className="main-layout">
-            {/* Header Simple */}
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: '1px solid #333' }}>
-                <div>
-                    <h1 style={{ margin: 0 }}>GebxBy Blog</h1>
-                    <p style={{ margin: 0, color: '#aaa' }}>Explore all contents</p>
+        <div className="min-h-screen bg-[#0f0f0f] p-6 md:p-12 selection:bg-red-900/30">
+            <div className="max-w-7xl mx-auto">
+                {/* Header Visual Database */}
+                <div className="mb-10 border-l-4 border-[#e60000] pl-4 animate-in fade-in slide-in-from-left duration-700">
+                    <h1 className="text-white text-3xl font-mono font-black uppercase tracking-widest">
+                        Database_Logs
+                    </h1>
+                    <p className="text-[#666] text-xs font-mono uppercase tracking-tight">
+                        Authorized Access Only // Scan Complete
+                    </p>
                 </div>
 
-                <div>
-                    {user ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <img src={user.picture} alt="Profile" style={{ width: '40px', borderRadius: '50%' }} referrerPolicy="no-referrer" />
-                            <button onClick={() => navigate('/profile')} style={{ background: '#fff', color: '#000', border: 'none', padding: '10px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                My Profile
-                            </button>
-                        </div>
-                    ) : (
-                        <button onClick={() => window.location.href = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/oauth2/authorization/google'} style={{ background: '#4285F4', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            Login with Google
-                        </button>
-                    )}
-                </div>
-            </header>
-
-            {/* Menampilkan SEMUA Artikel */}
-            <div className="video-row" style={{ padding: '20px' }}>
-                {articles.map((art) => (
-                    <div key={art.idContent} className="video-card" onClick={() => navigate(`/read/${art.idContent}`)} style={{ cursor: 'pointer', border: '1px solid #444', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-                        <h2>{art.head}</h2>
-                        <p style={{ color: '#aaa', fontSize: '14px' }}>Penulis : {art.user?.name || "Anonymous"}</p>
-                        <p style={{ color: '#ccc', marginTop: '8px' }}>
-                            {art.paragrafs ? art.paragrafs.substring(0, 150) : ""}...
-                        </p>
+                {/* Grid Menampilkan SEMUA Artikel menggunakan ContentCard */}
+                {articles.length === 0 ? (
+                    <div className="text-center py-20 border border-dashed border-[#2a2a2a] text-[#444] font-mono">
+                        [ NO ACCESSIBLE DATA FOUND IN CLUSTER ]
                     </div>
-                ))}
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {articles.map((art) => (
+                            <ContentCard
+                                key={art.idContent}
+                                art={art}
+                                user={user} // Oper data user login ke tiap card
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

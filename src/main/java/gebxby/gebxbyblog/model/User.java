@@ -15,6 +15,7 @@ public class User {
     private String role;
     private String photo;
     private String moto;
+    private String designation;
     @Id
     private UUID userID;
 
