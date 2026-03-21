@@ -5,7 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.UUID;
-
+import java.time.LocalDateTime;
 @Getter
 @Setter
 @Document(collection = "contents")
@@ -17,4 +17,5 @@ public class Content {
     @Id
     private UUID idContent;
     private String kategori;
+    private LocalDateTime createdAt;
 }

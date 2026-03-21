@@ -7,6 +7,7 @@ export default function ReadPage() {
     const [content, setContent] = useState<any>(null);
     const navigateBack = useNavigate();
 
+
     useEffect(() => {
         if (id) {
             axios.get(`https://federal-wasp-gebxby-18a594b4.koyeb.app/content/${id}`)
@@ -97,9 +98,13 @@ export default function ReadPage() {
                     </header>
 
                     {/* Isi Artikel */}
-                    <article className="p-8 md:p-12 text-lg leading-relaxed text-[#ccc] whitespace-pre-wrap font-sans text-justify selection:bg-[#e60000] selection:text-white">
-                        {content.paragrafs}
-                    </article>
+                    {/*<article className="p-8 md:p-12 text-lg leading-relaxed text-[#ccc] whitespace-pre-wrap font-sans text-justify selection:bg-[#e60000] selection:text-white">*/}
+                    {/*    {content.paragrafs}*/}
+                    {/*</article>*/}
+                    <div
+                        className="font-sans text-[#bbb] leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: content.paragrafs }}
+                    />
 
                     {/* Footer Dokumen */}
                     <footer className="p-8 border-t border-[#2a2a2a] bg-[#1a1a1a]/50 flex flex-col md:flex-row justify-between items-center gap-4">

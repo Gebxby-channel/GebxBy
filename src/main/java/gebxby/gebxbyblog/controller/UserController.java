@@ -1,5 +1,6 @@
 package gebxby.gebxbyblog.controller;
 
+import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,19 +39,23 @@ public class UserController {
 
     // Menggunakan OAuth2User agar lebih sakti menangkap balasan Google
     @GetMapping("/api/user/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User user) {
-        if (user == null) {
-            return ResponseEntity.status(401).body("Not Authenticated");
-        }
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) return ResponseEntity.status(401).body("Not Authenticated");
+
+        String googleId = principal.getAttribute("sub"); // ID asli Google
+
+        // CARI USER DI DB (Pakai logika Hybrid yang kita bahas tadi)
+        User dbUser = userService.processUserLogin(principal);
 
         Map<String, Object> userInfo = new HashMap<>();
-        userInfo.put("name", user.getAttribute("name"));
-        userInfo.put("email", user.getAttribute("email"));
+        userInfo.put("name", dbUser.getName());
+        userInfo.put("email", dbUser.getEmail());
+        userInfo.put("picture", dbUser.getPhoto());
 
-        // Ambil foto langsung dari atribut mentah Google
-        String picture = user.getAttribute("picture");
-        userInfo.put("picture", picture);
-        userInfo.put("userID", user.getAttribute("sub"));
+        // PENTING: Kirim userID yang berupa UUID hasil generate Database
+        // Bukan lagi 'sub' dari Google!
+        userInfo.put("userID", dbUser.getUserID().toString());
+        userInfo.put("designation", dbUser.getDesignation());
 
         return ResponseEntity.ok(userInfo);
     }

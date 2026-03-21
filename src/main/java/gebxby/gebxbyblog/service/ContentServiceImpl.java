@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +31,9 @@ public class ContentServiceImpl implements ContentService {
         if (content.getIdContent() == null) {
             content.setIdContent(UUID.randomUUID());
         }
-
+        if (content.getCreatedAt() == null) {
+            content.setCreatedAt(LocalDateTime.now());
+        }
         // 2. Buat ID User kalau kosong agar tidak error di MongoDB
         if (content.getUser() != null && content.getUser().getUserID() == null) {
             content.getUser().setUserID(UUID.randomUUID());

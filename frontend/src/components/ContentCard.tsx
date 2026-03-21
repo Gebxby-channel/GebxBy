@@ -2,24 +2,27 @@ import { useNavigate } from 'react-router-dom';
 
 interface ContentCardProps {
     art: any;
-    user: any; // Tambahkan ini agar bisa membandingkan ID
+    user: any;
 }
 
 export default function ContentCard({ art, user }: ContentCardProps) {
     const navigate = useNavigate();
 
-    const handleAuthorClick = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Mencegah klik tembus ke halaman baca artikel
+    // Fungsi pembantu format tanggal
+    const formatDate = (dateString: string) => {
+        if (!dateString) return "UNKNOWN DATE";
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit', month: 'short', year: 'numeric'
+        }).toUpperCase();
+    };
 
-        // Pastikan userID tidak null/undefined sebelum dibandingin
-        if (art.user.userID === user.userID) {
-            console.log("Ini punya gue, ke /profile");
+    const handleAuthorClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (art.user?.userID === user?.userID) {
             navigate('/profile');
         } else if (art.user?.userID) {
-            console.log("Ini punya orang, ke /profile/" + art.user.userID);
             navigate(`/profile/${art.user.userID}`);
-        } else {
-            console.log("ID Penulis gak ketemu, fallback ke profile general atau diem");
         }
     };
 
@@ -30,20 +33,27 @@ export default function ContentCard({ art, user }: ContentCardProps) {
         >
             <div className="absolute top-0 left-0 w-1 h-full bg-[#e60000] scale-y-0 group-hover:scale-y-100 transition-transform origin-top"></div>
 
-            {/* Metadata Atas */}
+            {/* Metadata Atas (Penambahan Tanggal di sini) */}
             <div className="flex justify-between items-center mb-1">
                 <p className="text-[#888] text-[9px] font-mono tracking-wider">
                     ENTRY ID: <span className="text-white font-bold">{art.idContent?.substring(0, 8) || "N/A"}</span>
                 </p>
+                <p className="text-[#444] text-[9px] font-mono font-bold uppercase">
+                    {formatDate(art.createdAt)}
+                </p>
+            </div>
+
+            {/* Kategori Badge */}
+            <div className="mb-3">
                 <span className="text-[9px] font-mono font-black px-2 py-0.5 rounded-sm border border-[#e60000]/30 text-[#e60000] bg-[#e60000]/5 uppercase tracking-tighter">
                     {art.kategori || "GENERAL"}
                 </span>
             </div>
 
-            {/* Author Section (Clickable) */}
+            {/* Author Section */}
             <div className="mb-4">
                 <p className="text-[#888] text-[9px] font-mono tracking-wider uppercase">
-                    AUTHOR:
+                    Author:
                     <span
                         onClick={handleAuthorClick}
                         className="text-white font-bold ml-1 hover:text-[#e60000] hover:underline transition-all cursor-pointer"
@@ -58,7 +68,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
             </h2>
 
             <p className="text-[#bbb] text-sm leading-relaxed mb-6 font-sans line-clamp-3 flex-grow">
-                {art.paragrafs ? art.paragrafs.substring(0, 150) : "No File Content Preview Available."}...
+                {art.paragrafs ? art.paragrafs.replace(/<[^>]*>/g, '').substring(0, 150) : "No File Content Preview Available."}...
             </p>
 
             <div className="flex justify-end pt-3 border-t border-[#2a2a2a]">
