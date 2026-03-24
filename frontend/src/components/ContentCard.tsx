@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { Bookmark, MoreHorizontal, MessageSquare } from 'lucide-react';
 
 interface ContentCardProps {
     art: any;
@@ -8,12 +9,11 @@ interface ContentCardProps {
 export default function ContentCard({ art, user }: ContentCardProps) {
     const navigate = useNavigate();
 
-    // Fungsi pembantu format tanggal
     const formatDate = (dateString: string) => {
-        if (!dateString) return "UNKNOWN DATE";
+        if (!dateString) return "JAN 01, 2026";
         const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', {
-            day: '2-digit', month: 'short', year: 'numeric'
+        return date.toLocaleDateString('en-US', {
+            month: 'short', day: '2-digit'
         }).toUpperCase();
     };
 
@@ -28,53 +28,77 @@ export default function ContentCard({ art, user }: ContentCardProps) {
 
     return (
         <div
-            className="bg-[#181818] border border-[#2a2a2a] p-6 rounded-sm cursor-pointer hover:border-[#e60000] group transition-all duration-300 transform hover:-translate-y-1 relative shadow-inner shadow-black/30 h-full flex flex-col"
+            className="group flex flex-col md:flex-row gap-6 py-8 border-b border-[#222] cursor-pointer hover:bg-[#111]/50 transition-all duration-300 px-4"
             onClick={() => navigate(`/read/${art.idContent}`)}
         >
-            <div className="absolute top-0 left-0 w-1 h-full bg-[#e60000] scale-y-0 group-hover:scale-y-100 transition-transform origin-top"></div>
+            {/* Left Section: Content */}
+            <div className="flex-[2] flex flex-col">
+                {/* Author Info Area */}
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 bg-[#e60000] rounded-full flex items-center justify-center overflow-hidden border border-[#333]">
+                        {art.user?.picture ? (
+                            <img src={art.user.picture} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="text-[10px] text-white font-black">U</span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-tight">
+                        <span
+                            onClick={handleAuthorClick}
+                            className="text-white font-bold hover:text-[#e60000] hover:underline uppercase transition-colors"
+                        >
+                            {art.user?.name || "ANONYMOUS_OFFICER"}
+                        </span>
+                        <span className="text-[#444]">IN</span>
+                        <span className="text-[#e60000] font-bold uppercase">{art.kategori || "UNASSIGNED"}</span>
+                    </div>
+                </div>
 
-            {/* Metadata Atas (Penambahan Tanggal di sini) */}
-            <div className="flex justify-between items-center mb-1">
-                <p className="text-[#888] text-[9px] font-mono tracking-wider">
-                    ENTRY ID: <span className="text-white font-bold">{art.idContent?.substring(0, 8) || "N/A"}</span>
+                {/* Title & Description */}
+                <h2 className="text-xl md:text-2xl font-black text-white mb-2 leading-tight uppercase tracking-tighter group-hover:text-[#e60000] transition-colors font-mono line-clamp-2">
+                    {art.head || "NO_SUBJECT_FOUND"}
+                </h2>
+
+                <p className="text-[#888] text-sm font-sans leading-relaxed line-clamp-2 mb-6 max-w-2xl">
+                    {art.paragrafs ? art.paragrafs.replace(/<[^>]*>/g, '') : "No encrypted data preview available for this terminal entry..."}
                 </p>
-                <p className="text-[#444] text-[9px] font-mono font-bold uppercase">
-                    {formatDate(art.createdAt)}
-                </p>
+
+                {/* Footer Interaction (Ala Medium) */}
+                <div className="mt-auto flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-[#444]">
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold">
+                            <span className="text-[#e60000]">●</span> {formatDate(art.createdAt)}
+                        </div>
+                        <div className="flex items-center gap-1 hover:text-white transition-colors">
+                            <MessageSquare size={14} />
+                            <span className="text-[10px] font-bold font-mono">12</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-[#444]">
+                        <Bookmark size={16} className="hover:text-[#e60000] transition-colors" />
+                        <MoreHorizontal size={16} className="hover:text-white transition-colors" />
+                    </div>
+                </div>
             </div>
 
-            {/* Kategori Badge */}
-            <div className="mb-3">
-                <span className="text-[9px] font-mono font-black px-2 py-0.5 rounded-sm border border-[#e60000]/30 text-[#e60000] bg-[#e60000]/5 uppercase tracking-tighter">
-                    {art.kategori || "GENERAL"}
-                </span>
-            </div>
+            {/* Right Section: Thumbnail (Tactical Square) */}
+            <div className="flex-1 hidden md:block max-w-[200px]">
+                <div className="relative aspect-square w-full bg-[#111] border border-[#222] overflow-hidden group-hover:border-[#e60000]/50 transition-colors">
+                    {/* Placeholder Grid Pattern ala Tactical Map */}
+                    <div className="absolute inset-0 opacity-10 pointer-events-none"
+                         style={{ backgroundImage: 'linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px)', backgroundSize: '10px 10px' }}>
+                    </div>
 
-            {/* Author Section */}
-            <div className="mb-4">
-                <p className="text-[#888] text-[9px] font-mono tracking-wider uppercase">
-                    Author:
-                    <span
-                        onClick={handleAuthorClick}
-                        className="text-white font-bold ml-1 hover:text-[#e60000] hover:underline transition-all cursor-pointer"
-                    >
-                        {art.user?.name ? art.user.name.toUpperCase() : "ANONYMOUS"}
-                    </span>
-                </p>
-            </div>
+                    {/* Image Placeholder / Actual Image */}
+                    <div className="w-full h-full flex items-center justify-center bg-[#050505]">
+                        <span className="text-[8px] font-black text-[#222] tracking-[0.3em] rotate-90">DATA_VISUAL</span>
+                    </div>
 
-            <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-tight group-hover:text-[#e60000] transition-colors font-mono line-clamp-2">
-                {art.head}
-            </h2>
-
-            <p className="text-[#bbb] text-sm leading-relaxed mb-6 font-sans line-clamp-3 flex-grow">
-                {art.paragrafs ? art.paragrafs.replace(/<[^>]*>/g, '').substring(0, 150) : "No File Content Preview Available."}...
-            </p>
-
-            <div className="flex justify-end pt-3 border-t border-[#2a2a2a]">
-                <span className="text-xs text-[#e60000] font-bold group-hover:underline uppercase tracking-wider">
-                    Read Full File →
-                </span>
+                    {/* Corner Accents */}
+                    <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-[#e60000]/40"></div>
+                    <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-[#e60000]/40"></div>
+                </div>
             </div>
         </div>
     );

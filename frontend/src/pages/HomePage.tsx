@@ -24,38 +24,41 @@ export default function HomePage({ user }: { user: any }) {
     }, [sortOrder]);
 
     return (
-        <div className="min-h-screen bg-[#0f0f0f] p-6 md:p-12">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex justify-between items-end mb-10 border-l-4 border-[#e60000] pl-4">
-                    <div>
-                        <h1 className="text-white text-3xl font-mono font-black uppercase tracking-widest">Database Logs</h1>
-                        <p className="text-[#666] text-xs font-mono uppercase tracking-tight">Authorized Access Only // Scan Complete</p>
-                    </div>
-
-                    {/* DROPDOWN SORTIR */}
-                    <div className="flex flex-col items-end gap-1">
-                        <span className="text-[8px] text-[#444] font-bold uppercase tracking-widest">Sort Protocol</span>
-                        <select
-                            value={sortOrder}
-                            onChange={(e) => setSortOrder(e.target.value as any)}
-                            className="bg-[#111] border border-[#333] text-[#e60000] text-[10px] font-bold p-2 px-4 uppercase outline-none focus:border-[#e60000] cursor-pointer"
-                        >
-                            <option value="newest">Newest Entry</option>
-                            <option value="oldest">Oldest Entry</option>
-                        </select>
-                    </div>
+        <div className="w-full">
+            {/* Header Section */}
+            <div className="flex justify-between items-end mb-12 border-l-4 border-[#e60000] pl-6">
+                <div>
+                    <h1 className="text-white text-4xl font-mono font-black uppercase tracking-[0.2em]">Database Logs</h1>
+                    <p className="text-[#666] text-xs font-mono uppercase tracking-widest mt-1">
+                        Authorized Access Only // Terminal_ID: {Math.random().toString(36).substring(7).toUpperCase()}
+                    </p>
                 </div>
 
-                {articles.length === 0 ? (
-                    <div className="text-center py-20 border border-dashed border-[#2a2a2a] text-[#444] font-mono">[ NO DATA FOUND ]</div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {articles.map((art) => (
-                            <ContentCard key={art.idContent} art={art} user={user} />
-                        ))}
-                    </div>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                    <span className="text-[10px] text-[#444] font-black uppercase tracking-widest">Filter_Protocol</span>
+                    <select
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value as any)}
+                        className="bg-[#111] border border-[#333] text-[#e60000] text-[10px] font-bold p-2 px-4 uppercase outline-none focus:border-[#e60000] cursor-pointer transition-colors"
+                    >
+                        <option value="newest">Recent_Entries</option>
+                        <option value="oldest">Archived_Files</option>
+                    </select>
+                </div>
             </div>
+
+            {/* List View Section - Tidak pakai Grid lagi, tapi Flex Column */}
+            {articles.length === 0 ? (
+                <div className="text-center py-40 border border-dashed border-[#222] text-[#333] font-mono tracking-[0.5em] uppercase">
+                    [ No_Data_Found_In_Sector ]
+                </div>
+            ) : (
+                <div className="flex flex-col">
+                    {articles.map((art) => (
+                        <ContentCard key={art.idContent} art={art} user={user} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
