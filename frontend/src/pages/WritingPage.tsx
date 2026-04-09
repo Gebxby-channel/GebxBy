@@ -8,7 +8,7 @@ interface UserProps {
     name: string;
     email: string;
     picture?: string;
-    userID: string;
+    userID?: string;
 }
 
 export default function WritingPage({ user }: { user: UserProps | null }) {
