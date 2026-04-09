@@ -4,24 +4,31 @@ import ContentCard from '../components/ContentCard';
 
 export default function HomePage({ user }: { user: any }) {
     const [articles, setArticles] = useState<any[]>([]);
-    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest'); // State Sortir
+    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
     useEffect(() => {
         axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all-content', { withCredentials: true })
             .then(res => {
                 let data = Array.isArray(res.data) ? res.data : [];
-
-                // LOGIKA SORTIR: Membandingkan waktu createdAt
                 data.sort((a, b) => {
                     const dateA = new Date(a.createdAt || 0).getTime();
                     const dateB = new Date(b.createdAt || 0).getTime();
                     return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
                 });
-
                 setArticles(data);
             })
             .catch(err => console.error("Gagal ambil artikel:", err));
     }, [sortOrder]);
+
+    const handleTerminate = async () => {
+        localStorage.removeItem('manualUser');
+        try {
+            await axios.post('https://federal-wasp-gebxby-18a594b4.koyeb.app/logout', {}, { withCredentials: true });
+        } catch (err) {
+            console.warn("Sesi backend sudah berakhir.");
+        }
+        window.location.href = '/';
+    };
 
     return (
         <div className="w-full">
@@ -32,6 +39,12 @@ export default function HomePage({ user }: { user: any }) {
                     <p className="text-[#666] text-xs font-mono uppercase tracking-widest mt-1">
                         Authorized Access Only // Terminal_ID: {Math.random().toString(36).substring(7).toUpperCase()}
                     </p>
+                    <button
+                        onClick={handleTerminate}
+                        className="mt-4 bg-transparent border border-[#e60000] text-[#e60000] hover:bg-[#e60000] hover:text-black transition-all duration-300 px-4 py-1.5 font-bold font-mono uppercase tracking-widest text-[10px]"
+                    >
+                        [ Terminate_Connection ]
+                    </button>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
@@ -47,7 +60,7 @@ export default function HomePage({ user }: { user: any }) {
                 </div>
             </div>
 
-            {/* List View Section - Tidak pakai Grid lagi, tapi Flex Column */}
+            {/* List View */}
             {articles.length === 0 ? (
                 <div className="text-center py-40 border border-dashed border-[#222] text-[#333] font-mono tracking-[0.5em] uppercase">
                     [ No_Data_Found_In_Sector ]

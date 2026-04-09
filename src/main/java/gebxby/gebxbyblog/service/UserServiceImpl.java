@@ -49,5 +49,22 @@ public class UserServiceImpl implements UserService {
             return userRepository.save(newUser);
         });
     }
+    @Override
+    public User createUser(User user) {
+        // Generate UUID jika belum ada
+        if (user.getUserID() == null) {
+            user.setUserID(UUID.randomUUID());
+        }
+        // Beri nilai default jika kosong
+        if (user.getDesignation() == null) {
+            user.setDesignation("RECONNAISSANCE OFFICER");
+        }
+        return userRepository.save(user);
+    }
 
+    @Override
+    public User getUserById(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User tidak ditemukan"));
+    }
 }

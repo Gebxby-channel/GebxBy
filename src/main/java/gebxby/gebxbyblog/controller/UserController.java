@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 
 @CrossOrigin(origins = "https://gebxby.vercel.app", allowCredentials = "true")
@@ -58,5 +59,34 @@ public class UserController {
         userInfo.put("designation", dbUser.getDesignation());
 
         return ResponseEntity.ok(userInfo);
+    }
+    // Endpoint untuk mendaftarkan user manual ke DB
+    @PostMapping("/api/user/create")
+    public ResponseEntity<?> createUser(@RequestBody User user) {
+        try {
+            User newUser = userService.createUser(user);
+            return ResponseEntity.ok(newUser);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Gagal membuat user: " + e.getMessage());
+        }
+    }
+
+    // Endpoint publik agar user lain bisa melihat profil berdasarkan userID
+    @GetMapping("/api/user/{id}")
+    public ResponseEntity<?> getUserProfile(@PathVariable UUID id) {
+        try {
+            User dbUser = userService.getUserById(id);
+
+            // Buat response khusus profil publik agar aman
+            Map<String, Object> publicProfile = new HashMap<>();
+            publicProfile.put("name", dbUser.getName());
+            publicProfile.put("photo", dbUser.getPhoto());
+            publicProfile.put("designation", dbUser.getDesignation());
+            publicProfile.put("moto", dbUser.getMoto());
+
+            return ResponseEntity.ok(publicProfile);
+        } catch (Exception e) {
+            return ResponseEntity.status(404).body("User tidak ditemukan");
+        }
     }
 }

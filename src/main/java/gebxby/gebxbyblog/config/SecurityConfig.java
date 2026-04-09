@@ -20,11 +20,12 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/", "/api/user/me", "/content/**", "/error").permitAll()
+                        // Memastikan endpoint profile publik bisa diakses tanpa login
+                        .requestMatchers("/", "/api/user/me", "/api/user/create", "/api/user/{id}", "/content/**", "/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        // GANTI: Kalau sukses login, lempar ke Vercel, bukan localhost lagi
+                        // Redirect kembali ke halaman utama Vercel setelah berhasil lewat gerbang Google
                         .defaultSuccessUrl("https://gebxby.vercel.app", true)
                 );
         return http.build();
@@ -34,7 +35,6 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // TAMBAHKAN URL Vercel lu di sini barengan sama localhost
         config.setAllowedOrigins(java.util.List.of(
                 "http://localhost:5173",
                 "https://gebxby.vercel.app"

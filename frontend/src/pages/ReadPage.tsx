@@ -102,7 +102,7 @@ export default function ReadPage() {
                     {/*    {content.paragrafs}*/}
                     {/*</article>*/}
                     <div
-                        className="font-sans text-[#bbb] leading-relaxed"
+                        className="p-8 md:p-12 text-lg leading-relaxed text-[#ccc] whitespace-pre-wrap font-sans text-justify selection:bg-[#e60000] selection:text-whited"
                         dangerouslySetInnerHTML={{ __html: content.paragrafs }}
                     />
 
