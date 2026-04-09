@@ -7,7 +7,7 @@ import 'react-quill-new/dist/quill.snow.css';
 interface UserProps {
     name: string;
     email: string;
-    picture: string;
+    picture?: string;
     userID: string;
 }
 
