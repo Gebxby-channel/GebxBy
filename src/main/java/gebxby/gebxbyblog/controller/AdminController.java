@@ -1,11 +1,14 @@
 package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
+import gebxby.gebxbyblog.dto.AdminNotificationRequest;
+import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.dto.SuspendUserRequest;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.NotificationService;
 import gebxby.gebxbyblog.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,15 +31,18 @@ public class AdminController {
     private final UserService userService;
     private final ContentService contentService;
     private final CommentService commentService;
+    private final NotificationService notificationService;
     private final ForumMapper mapper;
 
     public AdminController(UserService userService,
                            ContentService contentService,
                            CommentService commentService,
+                           NotificationService notificationService,
                            ForumMapper mapper) {
         this.userService = userService;
         this.contentService = contentService;
         this.commentService = commentService;
+        this.notificationService = notificationService;
         this.mapper = mapper;
     }
 
@@ -85,5 +91,14 @@ public class AdminController {
         User admin = userService.getCurrentUser(principal);
         commentService.deleteComment(contentId, commentId, admin);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/users/{userId}/notifications")
+    public ResponseEntity<NotificationResponse> sendNotification(
+            @PathVariable UUID userId,
+            @RequestBody AdminNotificationRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(notificationService.sendAdminMessage(userId, request, admin));
     }
 }

@@ -35,6 +35,8 @@ class CommentServiceImplTest {
     private ContentRepository contentRepository;
     @Mock
     private UserService userService;
+    @Mock
+    private NotificationService notificationService;
 
     private CommentServiceImpl commentService;
     private User author;
@@ -43,7 +45,7 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper());
+        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(), notificationService);
 
         author = new User();
         author.setUserID(UUID.randomUUID());
@@ -77,6 +79,7 @@ class CommentServiceImplTest {
         assertEquals(1, content.getCommentCount());
         verify(userService).ensureActive(author);
         verify(contentRepository).save(content);
+        verify(notificationService).notifyCommentOnContent(any(Content.class), any(Comment.class));
     }
 
     @Test

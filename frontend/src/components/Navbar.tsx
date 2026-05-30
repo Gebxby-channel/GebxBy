@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { BarChart2, Database, Folder, LogOut, PenTool, User } from 'lucide-react';
 import { logout, oauthLoginUrl } from '../lib/api';
 import type { CurrentUser } from '../types/forum';
+import NotificationBell from './NotificationBell';
 
 interface NavbarProps {
     user: CurrentUser | null;
@@ -63,6 +64,7 @@ export default function Navbar({ user }: NavbarProps) {
                 <div className="flex items-center gap-3">
                     {user ? (
                         <>
+                            <NotificationBell />
                             <button
                                 type="button"
                                 className="flex items-center gap-3 border border-[#2a2a2a] bg-[#181818] p-1.5 pr-4 transition-colors hover:border-[#e60000]/50"

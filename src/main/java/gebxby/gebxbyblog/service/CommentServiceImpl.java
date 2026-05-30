@@ -28,15 +28,18 @@ public class CommentServiceImpl implements CommentService {
     private final ContentRepository contentRepository;
     private final UserService userService;
     private final ForumMapper mapper;
+    private final NotificationService notificationService;
 
     public CommentServiceImpl(CommentRepository commentRepository,
                               ContentRepository contentRepository,
                               UserService userService,
-                              ForumMapper mapper) {
+                              ForumMapper mapper,
+                              NotificationService notificationService) {
         this.commentRepository = commentRepository;
         this.contentRepository = contentRepository;
         this.userService = userService;
         this.mapper = mapper;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -74,7 +77,10 @@ public class CommentServiceImpl implements CommentService {
         content.setUpdatedAt(now);
         contentRepository.save(content);
 
-        return toResponse(commentRepository.save(comment), List.of());
+        Comment savedComment = commentRepository.save(comment);
+        notificationService.notifyCommentOnContent(content, savedComment);
+
+        return toResponse(savedComment, List.of());
     }
 
     @Override

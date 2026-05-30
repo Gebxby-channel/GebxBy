@@ -40,7 +40,7 @@ public class ApiOriginFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String uri = request.getRequestURI();
         boolean unsafe = "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method) || "DELETE".equals(method);
-        boolean api = uri.startsWith("/content/") || uri.startsWith("/api/");
+        boolean api = uri.startsWith("/content/") || uri.startsWith("/api/") || uri.equals("/logout");
         return unsafe && api;
     }
 

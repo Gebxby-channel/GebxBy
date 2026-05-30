@@ -62,3 +62,21 @@ export interface AnalyticsPayload {
   mostUpvoted: ContentItem[];
   weeklyLeaderboard: LeaderboardEntry[];
 }
+
+export type NotificationType = 'COMMENT' | 'ADMIN_MESSAGE';
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  actorUserId?: string;
+  actorName?: string;
+  actorPhoto?: string;
+  contentId?: string;
+  contentTitle?: string;
+  commentId?: string;
+  read: boolean;
+  createdAt?: string;
+  expiresAt?: string;
+}
