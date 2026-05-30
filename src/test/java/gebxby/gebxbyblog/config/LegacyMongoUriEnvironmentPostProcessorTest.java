@@ -5,9 +5,12 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyMongoUriEnvironmentPostProcessorTest {
     @Test
@@ -41,5 +44,16 @@ class LegacyMongoUriEnvironmentPostProcessorTest {
                 .postProcessEnvironment(environment, new SpringApplication());
 
         assertEquals("mongodb://mongo.example/explicit", environment.getProperty("spring.data.mongodb.uri"));
+    }
+
+    @Test
+    void isRegisteredForSpringBootStartup() throws IOException {
+        try (var stream = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("META-INF/spring.factories")) {
+            String factories = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(factories.contains("org.springframework.boot.env.EnvironmentPostProcessor"));
+            assertTrue(factories.contains(LegacyMongoUriEnvironmentPostProcessor.class.getName()));
+        }
     }
 }
