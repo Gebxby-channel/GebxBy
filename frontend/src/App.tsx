@@ -55,6 +55,11 @@ export default function App() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (window.location.pathname === '/login') {
+            setLoading(false);
+            return;
+        }
+
         api.get<CurrentUser>('/api/user/me')
             .then(res => setUser(res.data))
             .catch(() => {
