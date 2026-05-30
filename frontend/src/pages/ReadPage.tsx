@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare, Trash2 } from 'lucide-react';
+import axios from 'axios';
 import api, { oauthLoginUrl } from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
 import type { CommentItem, ContentItem, ContentStats, CurrentUser, VoteDirection } from '../types/forum';
@@ -65,6 +66,8 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         try {
             const response = await api.post<ContentStats>(`/content/${id}/vote`, { vote });
             setStats(response.data);
+        } catch (error) {
+            handleMutationError(error);
         } finally {
             setBusy(false);
         }
@@ -78,17 +81,25 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         }
         const payload = (body ?? commentBody).trim();
         if (!payload) return;
-        await api.post(`/content/${id}/comments`, { body: payload, parentId });
-        setCommentBody('');
-        await fetchComments();
-        await fetchStats();
+        try {
+            await api.post(`/content/${id}/comments`, { body: payload, parentId });
+            setCommentBody('');
+            await fetchComments();
+            await fetchStats();
+        } catch (error) {
+            handleMutationError(error);
+        }
     };
 
     const handleDeleteComment = async (commentId: string) => {
         if (!id) return;
-        await api.delete(`/content/${id}/comments/${commentId}`);
-        await fetchComments();
-        await fetchStats();
+        try {
+            await api.delete(`/content/${id}/comments/${commentId}`);
+            await fetchComments();
+            await fetchStats();
+        } catch (error) {
+            handleMutationError(error);
+        }
     };
 
     if (!content) {
@@ -214,6 +225,14 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             </div>
         </div>
     );
+}
+
+function handleMutationError(error: unknown) {
+    if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+        window.alert('Session atau token keamanan tidak valid. Silakan login ulang lalu coba lagi.');
+        return;
+    }
+    window.alert('Request gagal diproses. Coba beberapa saat lagi.');
 }
 
 function Meta({ label, value, danger }: { label: string; value: string; danger?: boolean }) {

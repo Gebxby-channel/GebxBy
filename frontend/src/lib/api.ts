@@ -1,4 +1,4 @@
-import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 
 interface CsrfPayload {
   headerName: string;
@@ -33,16 +33,36 @@ export async function getCsrfToken() {
   return csrfPayload;
 }
 
+export function resetCsrfToken() {
+  csrfPayload = null;
+}
+
 api.interceptors.request.use(async (config) => {
   if (needsCsrf(config.method)) {
     const token = await getCsrfToken();
-    if (!config.headers) {
-      config.headers = new AxiosHeaders();
-    }
+    config.headers = AxiosHeaders.from(config.headers);
     config.headers.set(token.headerName, token.token);
+    config.headers.set('X-CSRF-TOKEN', token.token);
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _csrfRetry?: boolean }) | undefined;
+    if (error.response?.status === 403 && originalRequest && needsCsrf(originalRequest.method) && !originalRequest._csrfRetry) {
+      originalRequest._csrfRetry = true;
+      resetCsrfToken();
+      const token = await getCsrfToken();
+      originalRequest.headers = AxiosHeaders.from(originalRequest.headers);
+      originalRequest.headers.set(token.headerName, token.token);
+      originalRequest.headers.set('X-CSRF-TOKEN', token.token);
+      return api.request(originalRequest);
+    }
+    return Promise.reject(error);
+  },
+);
 
 export async function postWithCsrf<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
   return api.post<T>(url, data, config);
@@ -50,7 +70,7 @@ export async function postWithCsrf<T>(url: string, data?: unknown, config?: Axio
 
 export async function logout() {
   await postWithCsrf('/logout');
-  csrfPayload = null;
+  resetCsrfToken();
 }
 
 export function oauthLoginUrl() {
