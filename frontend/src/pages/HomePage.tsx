@@ -3,11 +3,11 @@ import api from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
-export default function HomePage({ user }: { user: CurrentUser }) {
+export default function HomePage({ user }: { user: CurrentUser | null }) {
     const [articles, setArticles] = useState<ContentItem[]>([]);
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
     const [loading, setLoading] = useState(true);
-    const terminalId = useMemo(() => user.userID.replaceAll('-', '').substring(0, 6).toUpperCase(), [user.userID]);
+    const terminalId = useMemo(() => user ? user.userID.replaceAll('-', '').substring(0, 6).toUpperCase() : 'GUEST', [user]);
 
     useEffect(() => {
         api.get<ContentItem[]>('/content/all-content')
@@ -22,7 +22,7 @@ export default function HomePage({ user }: { user: CurrentUser }) {
                 <div>
                     <h1 className="font-mono text-4xl font-black uppercase tracking-normal text-white">Database Logs</h1>
                     <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#666]">
-                        Authorized Access Only // Terminal_ID: {terminalId}
+                        {user ? 'Authorized Access' : 'Guest Read Access'} // Terminal_ID: {terminalId}
                     </p>
                     <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#888]">
                         Registry aktif untuk semua entry yang sudah masuk ke database forum.

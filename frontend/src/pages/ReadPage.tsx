@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare, Trash2 } from 'lucide-react';
 import axios from 'axios';
-import api, { oauthLoginUrl } from '../lib/api';
+import api from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
 import type { CommentItem, ContentItem, ContentStats, CurrentUser, VoteDirection } from '../types/forum';
 
@@ -59,7 +59,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const handleVote = async (vote: VoteDirection) => {
         if (!id) return;
         if (!user) {
-            window.location.href = oauthLoginUrl();
+            window.alert('Guest hanya bisa membaca. Login dulu untuk vote.');
             return;
         }
         setBusy(true);
@@ -76,7 +76,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const handleComment = async (parentId?: string, body?: string) => {
         if (!id) return;
         if (!user) {
-            window.location.href = oauthLoginUrl();
+            window.alert('Guest hanya bisa membaca. Login dulu untuk komentar.');
             return;
         }
         const payload = (body ?? commentBody).trim();
@@ -325,7 +325,7 @@ function CommentNode({
                 {!comment.deleted && (
                     <button
                         type="button"
-                        onClick={() => user ? setReplyOpen(!replyOpen) : (window.location.href = oauthLoginUrl())}
+                        onClick={() => user ? setReplyOpen(!replyOpen) : window.alert('Guest hanya bisa membaca. Login dulu untuk membalas komentar.')}
                         className="mt-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:text-white"
                     >
                         Reply

@@ -1,15 +1,21 @@
-import { Home, User, PenTool, BarChart2, Terminal, Folder } from 'lucide-react';
+import { Home, User, PenTool, BarChart2, Terminal, Folder, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { CurrentUser } from '../types/forum';
 
-export default function Sidebar({ active }: { active: string }) {
+export default function Sidebar({ active, user }: { active: string; user: CurrentUser | null }) {
     const navigate = useNavigate();
 
     const navItems = [
         { id: 'home', icon: Home, label: 'DATABASE', path: '/' },
-        { id: 'write', icon: PenTool, label: 'WRITE', path: '/write' },
-        { id: 'profile', icon: User, label: 'BIO-DATA', path: '/profile' },
-        { id: 'analytics', icon: BarChart2, label: 'ANALYTICS', path: '/analytics' },
         { id: 'category', icon: Folder, label: 'CATEGORY', path: '/category' },
+        ...(user ? [
+            { id: 'write', icon: PenTool, label: 'WRITE', path: '/write' },
+            { id: 'profile', icon: User, label: 'BIO-DATA', path: '/profile' },
+            { id: 'analytics', icon: BarChart2, label: 'ANALYTICS', path: '/analytics' },
+        ] : []),
+        ...(user?.role === 'ADMIN' ? [
+            { id: 'control-room', icon: ShieldCheck, label: 'COMMAND', path: '/control-room' },
+        ] : []),
     ];
 
     return (

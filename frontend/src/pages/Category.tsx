@@ -4,7 +4,7 @@ import ContentCard from '../components/ContentCard';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
-export default function CategoryPage({ user }: { user: CurrentUser }) {
+export default function CategoryPage({ user }: { user: CurrentUser | null }) {
     const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
     const [articles, setArticles] = useState<ContentItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');

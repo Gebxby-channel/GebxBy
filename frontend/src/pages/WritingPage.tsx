@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Send, Upload } from 'lucide-react';
-import api, { oauthLoginUrl } from '../lib/api';
+import api from '../lib/api';
 import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
@@ -158,7 +158,7 @@ function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick
 function handleSubmitError(error: unknown) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
         window.alert('Sesi akses berakhir. Silakan login ulang.');
-        window.location.href = oauthLoginUrl();
+        window.location.href = '/login';
         return;
     }
     if (axios.isAxiosError(error) && error.response?.status === 423) {

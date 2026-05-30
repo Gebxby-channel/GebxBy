@@ -11,6 +11,7 @@ public interface UserService {
     User updateProfile(OAuth2User principal, ProfileUpdateRequest request);
     User processUserLogin(OAuth2User principal);
     User getCurrentUser(OAuth2User principal);
+    User loginWithEmailPassword(String email, String password);
     User createManualUser(User user);
     User getUserById(UUID userId);
     List<User> getAllUsers(User admin);

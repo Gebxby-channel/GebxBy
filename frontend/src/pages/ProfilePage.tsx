@@ -6,7 +6,6 @@ import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
-import AdminMessagePanel from '../components/AdminMessagePanel';
 
 interface EditForm {
     head: string;
@@ -120,8 +119,6 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                     </div>
 
                     <div className="w-full flex-1">
-                        {user.role === 'ADMIN' && <AdminMessagePanel />}
-
                         <div className="mb-10 flex flex-col items-start justify-between gap-4 border-b border-[#2a2a2a] pb-6 md:flex-row md:items-center">
                             <div>
                                 <h2 className="text-2xl font-black uppercase tracking-widest text-white">Personal Archives</h2>

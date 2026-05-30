@@ -1,30 +1,39 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart2, Database, Folder, LogOut, PenTool, User } from 'lucide-react';
-import { logout, oauthLoginUrl } from '../lib/api';
+import { BarChart2, Database, Folder, LogIn, LogOut, PenTool, ShieldCheck, User } from 'lucide-react';
+import { logout } from '../lib/api';
 import type { CurrentUser } from '../types/forum';
 import NotificationBell from './NotificationBell';
 
 interface NavbarProps {
     user: CurrentUser | null;
+    onLogout: () => void;
 }
 
-const menuItems = [
+const publicMenuItems = [
     { label: 'Database', path: '/', icon: Database },
-    { label: 'Write', path: '/write', icon: PenTool },
-    { label: 'Biodata', path: '/profile', icon: User },
-    { label: 'Analisis', path: '/analytics', icon: BarChart2 },
     { label: 'Kategori', path: '/category', icon: Folder },
 ];
 
-export default function Navbar({ user }: NavbarProps) {
+const memberMenuItems = [
+    { label: 'Write', path: '/write', icon: PenTool },
+    { label: 'Biodata', path: '/profile', icon: User },
+    { label: 'Analisis', path: '/analytics', icon: BarChart2 },
+];
+
+export default function Navbar({ user, onLogout }: NavbarProps) {
     const navigate = useNavigate();
+    const menuItems = [
+        ...publicMenuItems,
+        ...(user ? memberMenuItems : []),
+        ...(user?.role === 'ADMIN' ? [{ label: 'Command', path: '/control-room', icon: ShieldCheck }] : []),
+    ];
 
     const handleLogout = async () => {
         try {
             await logout();
         } finally {
-            navigate('/login', { replace: true });
-            window.location.reload();
+            onLogout();
+            navigate('/', { replace: true });
         }
     };
 
@@ -92,13 +101,20 @@ export default function Navbar({ user }: NavbarProps) {
                             </button>
                         </>
                     ) : (
-                        <button
-                            type="button"
-                            onClick={() => { window.location.href = oauthLoginUrl(); }}
-                            className="border-2 border-[#e60000] bg-transparent px-6 py-2 font-mono text-xs font-bold uppercase tracking-widest text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white"
-                        >
-                            Initiate Access
-                        </button>
+                        <>
+                            <div className="border border-[#2a2a2a] bg-[#181818] px-3 py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">
+                                Guest
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/login')}
+                                className="flex h-9 items-center gap-2 border border-[#e60000] px-3 font-mono text-[10px] font-bold uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white"
+                                title="Open login"
+                            >
+                                <LogIn size={14} />
+                                Login
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

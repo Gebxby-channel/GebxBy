@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,10 +32,12 @@ class UserServiceImplTest {
     private UserRepository userRepository;
 
     private UserServiceImpl userService;
+    private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(userRepository, "admin@example.com");
+        passwordEncoder = new BCryptPasswordEncoder();
+        userService = new UserServiceImpl(userRepository, "admin@example.com", "admin@example.com", passwordEncoder.encode("secret"), passwordEncoder);
     }
 
     @Test
@@ -92,6 +96,25 @@ class UserServiceImplTest {
         user.setSuspendedUntil(LocalDateTime.now().plusHours(1));
 
         assertThrows(ResponseStatusException.class, () -> userService.ensureActive(user));
+    }
+
+    @Test
+    void loginWithEmailPasswordCreatesConfiguredAdminSessionUser() {
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User admin = userService.loginWithEmailPassword(" Admin@Example.com ", "secret");
+
+        assertEquals("admin@example.com", admin.getEmail());
+        assertEquals("ADMIN", admin.getRole());
+        assertEquals("manual:admin@example.com", admin.getGoogleId());
+    }
+
+    @Test
+    void loginWithEmailPasswordRejectsInvalidCredential() {
+        assertThrows(ResponseStatusException.class, () ->
+                userService.loginWithEmailPassword("admin@example.com", "wrong")
+        );
     }
 
     private OAuth2User principal(String sub, String email, String name, String picture) {

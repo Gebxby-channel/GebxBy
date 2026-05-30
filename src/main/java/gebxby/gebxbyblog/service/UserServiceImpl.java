@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -22,18 +23,28 @@ import java.util.stream.Collectors;
 @Service
 public class UserServiceImpl implements UserService {
     private static final String DEFAULT_DESIGNATION = "RECONNAISSANCE OFFICER";
+    private static final String MANUAL_SUB_PREFIX = "manual:";
 
     private final UserRepository userRepository;
     private final Set<String> adminEmails;
+    private final String adminLoginEmail;
+    private final String adminLoginPasswordHash;
+    private final PasswordEncoder passwordEncoder;
 
     public UserServiceImpl(UserRepository userRepository,
-                           @Value("${app.admin-emails:}") String adminEmails) {
+                           @Value("${app.admin-emails:}") String adminEmails,
+                           @Value("${app.admin-login-email:}") String adminLoginEmail,
+                           @Value("${app.admin-login-password-hash:}") String adminLoginPasswordHash,
+                           PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.adminEmails = Arrays.stream(adminEmails.split(","))
                 .map(String::trim)
                 .filter(StringUtils::hasText)
                 .map(email -> email.toLowerCase(Locale.ROOT))
                 .collect(Collectors.toUnmodifiableSet());
+        this.adminLoginEmail = normalizeEmail(adminLoginEmail);
+        this.adminLoginPasswordHash = adminLoginPasswordHash;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -60,7 +71,7 @@ public class UserServiceImpl implements UserService {
         }
 
         String googleId = principal.getAttribute("sub");
-        String email = principal.getAttribute("email");
+        String email = normalizeEmail(principal.getAttribute("email"));
         String name = principal.getAttribute("name");
         String picture = principal.getAttribute("picture");
 
@@ -96,18 +107,47 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public User loginWithEmailPassword(String email, String password) {
+        String normalizedEmail = normalizeEmail(email);
+        if (!StringUtils.hasText(normalizedEmail)
+                || !StringUtils.hasText(password)
+                || !normalizedEmail.equals(adminLoginEmail)
+                || !StringUtils.hasText(adminLoginPasswordHash)
+                || !passwordEncoder.matches(password, adminLoginPasswordHash)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email atau password tidak valid");
+        }
+
+        User user = userRepository.findByEmail(normalizedEmail).orElseGet(User::new);
+        LocalDateTime now = LocalDateTime.now();
+        if (user.getUserID() == null) {
+            user.setUserID(UUID.randomUUID());
+            user.setCreatedAt(now);
+        }
+        user.setEmail(normalizedEmail);
+        user.setGoogleId(MANUAL_SUB_PREFIX + normalizedEmail);
+        user.setName(StringUtils.hasText(user.getName()) ? trimToLength(user.getName(), 80) : "Jill Valentine");
+        user.setDesignation(StringUtils.hasText(user.getDesignation())
+                ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
+                : "ADMINISTRATOR");
+        user.setRole("ADMIN");
+        user.setUpdatedAt(now);
+        return userRepository.save(user);
+    }
+
+    @Override
     public User createManualUser(User user) {
         if (!StringUtils.hasText(user.getEmail()) || !StringUtils.hasText(user.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nama dan email wajib diisi");
         }
-        User existing = userRepository.findByEmail(user.getEmail()).orElse(user);
+        String email = normalizeEmail(user.getEmail());
+        User existing = userRepository.findByEmail(email).orElse(user);
         LocalDateTime now = LocalDateTime.now();
         if (existing.getUserID() == null) {
             existing.setUserID(UUID.randomUUID());
             existing.setCreatedAt(now);
         }
         existing.setName(trimToLength(user.getName(), 80));
-        existing.setEmail(user.getEmail().trim().toLowerCase(Locale.ROOT));
+        existing.setEmail(email);
         existing.setDesignation(StringUtils.hasText(user.getDesignation())
                 ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
                 : DEFAULT_DESIGNATION);
@@ -173,7 +213,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private String resolveRole(String email, String currentRole) {
-        if (email != null && adminEmails.contains(email.toLowerCase(Locale.ROOT))) {
+        if (email != null && adminEmails.contains(normalizeEmail(email))) {
             return "ADMIN";
         }
         return StringUtils.hasText(currentRole) ? currentRole : "USER";
@@ -188,5 +228,9 @@ public class UserServiceImpl implements UserService {
     private String trimToLength(String value, int maxLength) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }
