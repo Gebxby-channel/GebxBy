@@ -1,132 +1,359 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare, Trash2 } from 'lucide-react';
+import api, { oauthLoginUrl } from '../lib/api';
+import { sanitizeArticle } from '../utils/sanitize';
+import type { CommentItem, ContentItem, ContentStats, CurrentUser, VoteDirection } from '../types/forum';
 
-export default function ReadPage() {
+export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const { id } = useParams();
-    const [content, setContent] = useState<any>(null);
-    const navigateBack = useNavigate();
+    const navigate = useNavigate();
+    const [content, setContent] = useState<ContentItem | null>(null);
+    const [stats, setStats] = useState<ContentStats | null>(null);
+    const [comments, setComments] = useState<CommentItem[]>([]);
+    const [commentBody, setCommentBody] = useState('');
+    const [busy, setBusy] = useState(false);
 
-
-    useEffect(() => {
-        if (id) {
-            axios.get(`https://federal-wasp-gebxby-18a594b4.koyeb.app/content/${id}`)
-                .then(res => setContent(res.data))
-                .catch(err => console.error("Gagal ambil detail", err));
-        }
+    const fetchComments = useCallback(() => {
+        if (!id) return Promise.resolve();
+        return api.get<CommentItem[]>(`/content/${id}/comments`)
+            .then(res => setComments(Array.isArray(res.data) ? res.data : []));
     }, [id]);
 
-    if (!content) return (
-        <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-[#e60000] font-mono">
-            <div className="animate-pulse flex flex-col items-center">
-                <p className="mb-2 tracking-[0.5em]">[ DECRYPTING_SECURE_FILE ]</p>
-                <div className="w-48 h-1 bg-[#1a1a1a] relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[#e60000] animate-[loading_2s_infinite]"></div>
+    const fetchStats = useCallback(() => {
+        if (!id) return Promise.resolve();
+        return api.get<ContentStats>(`/content/${id}/stats`)
+            .then(res => setStats(res.data));
+    }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+        api.get<ContentItem>(`/content/${id}`)
+            .then(res => {
+                setContent(res.data);
+                setStats({
+                    idContent: res.data.idContent,
+                    viewCount: res.data.viewCount,
+                    upCount: res.data.upCount,
+                    downCount: res.data.downCount,
+                    commentCount: res.data.commentCount,
+                    userVote: res.data.userVote,
+                });
+            })
+            .catch(() => setContent(null));
+        void fetchComments();
+    }, [id, fetchComments]);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => {
+            void fetchStats();
+            void fetchComments();
+        }, 5000);
+        return () => window.clearInterval(timer);
+    }, [fetchComments, fetchStats]);
+
+    const safeBody = useMemo(() => sanitizeArticle(content?.paragrafs), [content?.paragrafs]);
+
+    const handleVote = async (vote: VoteDirection) => {
+        if (!id) return;
+        if (!user) {
+            window.location.href = oauthLoginUrl();
+            return;
+        }
+        setBusy(true);
+        try {
+            const response = await api.post<ContentStats>(`/content/${id}/vote`, { vote });
+            setStats(response.data);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleComment = async (parentId?: string, body?: string) => {
+        if (!id) return;
+        if (!user) {
+            window.location.href = oauthLoginUrl();
+            return;
+        }
+        const payload = (body ?? commentBody).trim();
+        if (!payload) return;
+        await api.post(`/content/${id}/comments`, { body: payload, parentId });
+        setCommentBody('');
+        await fetchComments();
+        await fetchStats();
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!id) return;
+        await api.delete(`/content/${id}/comments/${commentId}`);
+        await fetchComments();
+        await fetchStats();
+    };
+
+    if (!content) {
+        return (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center bg-[#0a0a0a] font-mono text-[#e60000]">
+                <div className="flex animate-pulse flex-col items-center">
+                    <p className="mb-2 tracking-[0.5em]">[ DECRYPTING_SECURE_FILE ]</p>
+                    <div className="relative h-1 w-48 overflow-hidden bg-[#1a1a1a]">
+                        <div className="absolute inset-0 animate-[loading_2s_infinite] bg-[#e60000]" />
+                    </div>
                 </div>
+                <style>{`
+                    @keyframes loading {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(100%); }
+                    }
+                `}</style>
             </div>
-            <style>{`
-                @keyframes loading {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-            `}</style>
-        </div>
-    );
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-[#111] text-[#eee] font-mono p-4 md:p-12 relative overflow-hidden">
+        <div className="relative min-h-screen overflow-hidden bg-[#111] p-4 font-mono text-[#eee] md:p-10">
+            <div className="pointer-events-none fixed inset-0 z-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,3px_100%]" />
 
-            {/* Background Overlay (Efek Scanline Halus) */}
-            <div className="pointer-events-none fixed inset-0 z-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,3px_100%]"></div>
-
-            <div className="max-w-4xl mx-auto relative z-20">
-
-                {/* Status Bar Atas */}
-                <div className="flex justify-between items-center mb-6 text-[#444] text-[10px] border-b border-[#222] pb-2">
-                    <div className="flex gap-4">
-                        <span className="text-[#e60000] font-bold">STATUS: ENCRYPTED_ACCESS</span>
+            <div className="relative z-20 mx-auto max-w-4xl">
+                <div className="mb-6 flex items-center justify-between border-b border-[#222] pb-2 text-[10px] text-[#444]">
+                    <div className="flex flex-wrap gap-4">
+                        <span className="font-bold text-[#e60000]">STATUS: ENCRYPTED_ACCESS</span>
                         <span>CLEARANCE: LEVEL_4</span>
                     </div>
-                    <div className="hidden md:block">
-                        TERMINAL_ID: CXA-00{id?.substring(0,2)}
-                    </div>
+                    <div className="hidden md:block">TERMINAL_ID: CXA-00{id?.substring(0, 2)}</div>
                 </div>
 
-                {/* Tombol Kembali (Abort) */}
                 <button
-                    onClick={() => navigateBack('/')}
-                    className="group mb-8 flex items-center gap-2 text-[#888] hover:text-white transition-all"
+                    type="button"
+                    onClick={() => navigate('/')}
+                    className="group mb-8 flex items-center gap-2 text-[#888] transition-all hover:text-white"
                 >
-                    <span className="text-[#e60000] group-hover:animate-ping inline-block">●</span>
-                    <span className="text-xs font-black tracking-widest uppercase">{"[<]"} Return to Database</span>
+                    <span className="h-2 w-2 bg-[#e60000] group-hover:animate-pulse" />
+                    <span className="text-xs font-black uppercase tracking-widest">{'[<]'} Return to Database</span>
                 </button>
 
-                {/* Kontainer Dokumen Utama */}
-                <main className="bg-[#181818] border border-[#2a2a2a] relative shadow-2xl">
-
-                    {/* Aksen Sudut Merah Umbrella */}
-
-
-                    {/* Header Dokumen */}
-                    <header className="p-8 md:p-12 border-b border-[#2a2a2a]">
+                <main className="border border-[#2a2a2a] bg-[#181818] shadow-2xl">
+                    <header className="border-b border-[#2a2a2a] p-8 md:p-12">
                         <div className="mb-4">
-                            <span className="bg-[#e60000] text-white text-[9px] font-black px-2 py-1 uppercase tracking-widest">
-                                {content.kategori || "Classified"}
+                            <span className="bg-[#e60000] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white">
+                                {content.kategori || 'Classified'}
                             </span>
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white mb-6 leading-none tracking-tighter uppercase break-words">
+                        <h1 className="mb-6 break-words text-3xl font-black uppercase leading-none tracking-normal text-white md:text-5xl">
                             {content.head}
                         </h1>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[9px] text-[#666] uppercase font-bold">
-                            <div className="flex flex-col">
-                                <span>Subject_ID</span>
-                                <span className="text-white">#{id?.substring(0, 8)}...</span>
-                            </div>
-                            <div className="flex flex-col">
-                                <span>Author_Ref</span>
-                                <span className="text-white">{content.user?.name || "Unknown"}</span>
-                            </div>
-                            <div className="flex flex-col">
-                                <span>Format</span>
-                                <span className="text-white">Digital_Archive</span>
-                            </div>
-                            <div className="flex flex-col text-right">
-                                <span>Encryption</span>
-                                <span className="text-[#e60000]">Active</span>
-                            </div>
+                        <div className="grid grid-cols-2 gap-4 text-[9px] font-bold uppercase text-[#666] md:grid-cols-4">
+                            <Meta label="Subject_ID" value={`#${id?.substring(0, 8)}...`} />
+                            <Meta label="Author_Ref" value={content.user?.name || 'Unknown'} />
+                            <Meta label="Format" value="Digital_Archive" />
+                            <Meta label="Encryption" value="Active" danger />
                         </div>
                     </header>
 
-                    {/* Isi Artikel */}
-                    {/*<article className="p-8 md:p-12 text-lg leading-relaxed text-[#ccc] whitespace-pre-wrap font-sans text-justify selection:bg-[#e60000] selection:text-white">*/}
-                    {/*    {content.paragrafs}*/}
-                    {/*</article>*/}
                     <div
-                        className="p-8 md:p-12 text-lg leading-relaxed text-[#ccc] whitespace-pre-wrap font-sans text-justify selection:bg-[#e60000] selection:text-whited"
-                        dangerouslySetInnerHTML={{ __html: content.paragrafs }}
+                        className="whitespace-pre-wrap p-8 text-justify font-sans text-lg leading-relaxed text-[#ccc] selection:bg-[#e60000] selection:text-white md:p-12"
+                        dangerouslySetInnerHTML={{ __html: safeBody }}
                     />
 
-                    {/* Footer Dokumen */}
-                    <footer className="p-8 border-t border-[#2a2a2a] bg-[#1a1a1a]/50 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <p className="text-[10px] text-[#444] font-bold uppercase tracking-[0.4em]">
-                            End_Of_Transmission // {new Date().toLocaleDateString()}
-                        </p>
-                        <div className="text-[9px] text-[#e60000]/40 font-black animate-pulse uppercase">
-                            Warning: Unauthorized duplication is punishable by termination
+                    <footer className="flex flex-col gap-4 border-t border-[#2a2a2a] bg-[#1a1a1a]/50 p-6 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-wrap items-center gap-4 text-[#777]">
+                            <Counter icon={<Eye size={16} />} label="READ" value={stats?.viewCount ?? content.viewCount} />
+                            <VoteButton active={stats?.userVote === 'UP'} disabled={busy} icon={<ArrowBigUp size={18} />} value={stats?.upCount ?? content.upCount} onClick={() => void handleVote('UP')} />
+                            <VoteButton active={stats?.userVote === 'DOWN'} disabled={busy} icon={<ArrowBigDown size={18} />} value={stats?.downCount ?? content.downCount} onClick={() => void handleVote('DOWN')} />
+                            <Counter icon={<MessageSquare size={16} />} label="COMMENTS" value={stats?.commentCount ?? content.commentCount} />
                         </div>
+                        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-[#444]">
+                            End_Of_Transmission
+                        </p>
                     </footer>
                 </main>
 
-                {/* Navigasi Tambahan Bawah */}
-                <div className="mt-8 flex justify-center">
-                    <button
-                        onClick={() => window.print()}
-                        className="text-[10px] text-[#444] hover:text-white border border-[#2a2a2a] px-4 py-2 uppercase tracking-widest transition-all"
-                    >
-                        Hardcopy_Printout [P]
-                    </button>
-                </div>
+                <section className="mt-8 border border-[#2a2a2a] bg-[#151515] p-6">
+                    <div className="mb-6 flex items-center justify-between border-b border-[#2a2a2a] pb-4">
+                        <h2 className="font-mono text-lg font-black uppercase tracking-widest text-white">Comment Thread</h2>
+                        <span className="font-mono text-[10px] font-bold text-[#666]">{stats?.commentCount ?? 0} ACTIVE</span>
+                    </div>
+
+                    <div className="mb-8 flex flex-col gap-3">
+                        <textarea
+                            value={commentBody}
+                            onChange={(event) => setCommentBody(event.target.value)}
+                            placeholder={user ? 'Add field note...' : 'Login required to comment...'}
+                            disabled={!user}
+                            className="min-h-24 w-full resize-y border border-[#333] bg-[#0f0f0f] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#e60000] disabled:opacity-50"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => void handleComment()}
+                            disabled={!user || !commentBody.trim()}
+                            className="self-end border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
+                        >
+                            Dispatch Comment
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {comments.length === 0 ? (
+                            <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-xs uppercase tracking-widest text-[#444]">
+                                [ Thread_Empty ]
+                            </div>
+                        ) : (
+                            comments.map(comment => (
+                                <CommentNode
+                                    key={comment.id}
+                                    comment={comment}
+                                    user={user}
+                                    depth={0}
+                                    onReply={handleComment}
+                                    onDelete={handleDeleteComment}
+                                />
+                            ))
+                        )}
+                    </div>
+                </section>
             </div>
         </div>
     );
+}
+
+function Meta({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
+    return (
+        <div className="flex flex-col">
+            <span>{label}</span>
+            <span className={danger ? 'text-[#e60000]' : 'text-white'}>{value}</span>
+        </div>
+    );
+}
+
+function Counter({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
+    return (
+        <div className="flex items-center gap-2 font-mono text-[10px] font-black uppercase" title={label}>
+            {icon}
+            <span>{value}</span>
+        </div>
+    );
+}
+
+function VoteButton({ active, disabled, icon, value, onClick }: { active: boolean; disabled: boolean; icon: ReactNode; value: number; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            disabled={disabled}
+            onClick={onClick}
+            className={`flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-black transition-all disabled:cursor-wait ${
+                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-white'
+            }`}
+        >
+            {icon}
+            {value}
+        </button>
+    );
+}
+
+function CommentNode({
+    comment,
+    user,
+    depth,
+    onReply,
+    onDelete,
+}: {
+    comment: CommentItem;
+    user: CurrentUser | null;
+    depth: number;
+    onReply: (parentId?: string, body?: string) => Promise<void>;
+    onDelete: (commentId: string) => Promise<void>;
+}) {
+    const [replyOpen, setReplyOpen] = useState(false);
+    const [replyBody, setReplyBody] = useState('');
+    const canDelete = Boolean(user && !comment.deleted && (user.role === 'ADMIN' || user.userID === comment.user?.userID));
+
+    const submitReply = async () => {
+        if (!replyBody.trim()) return;
+        await onReply(comment.id, replyBody);
+        setReplyBody('');
+        setReplyOpen(false);
+    };
+
+    return (
+        <div className="border-l border-[#333] pl-4" style={{ marginLeft: depth > 0 ? 12 : 0 }}>
+            <div className="bg-[#111] p-4">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 overflow-hidden border border-[#333] bg-[#222]">
+                            {comment.user?.picture ? (
+                                <img src={comment.user.picture} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                            ) : null}
+                        </div>
+                        <div>
+                            <p className="m-0 font-mono text-[11px] font-black uppercase text-white">{comment.user?.name || 'UNKNOWN'}</p>
+                            <p className="m-0 font-mono text-[9px] uppercase text-[#555]">{formatCommentDate(comment.createdAt)}</p>
+                        </div>
+                    </div>
+                    {canDelete && (
+                        <button
+                            type="button"
+                            onClick={() => void onDelete(comment.id)}
+                            className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000]"
+                        >
+                            <Trash2 size={12} />
+                            Delete
+                        </button>
+                    )}
+                </div>
+                <p className={`whitespace-pre-wrap font-sans text-sm leading-6 ${comment.deleted ? 'text-[#555]' : 'text-[#ccc]'}`}>
+                    {comment.body}
+                </p>
+                {!comment.deleted && (
+                    <button
+                        type="button"
+                        onClick={() => user ? setReplyOpen(!replyOpen) : (window.location.href = oauthLoginUrl())}
+                        className="mt-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:text-white"
+                    >
+                        Reply
+                    </button>
+                )}
+                {replyOpen && (
+                    <div className="mt-3 flex flex-col gap-2">
+                        <textarea
+                            value={replyBody}
+                            onChange={(event) => setReplyBody(event.target.value)}
+                            className="min-h-20 resize-y border border-[#333] bg-[#0b0b0b] p-3 font-sans text-sm text-white outline-none focus:border-[#e60000]"
+                            placeholder="Write reply..."
+                        />
+                        <button
+                            type="button"
+                            onClick={() => void submitReply()}
+                            className="self-end border border-[#e60000] px-4 py-1.5 font-mono text-[9px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                        >
+                            Send Reply
+                        </button>
+                    </div>
+                )}
+            </div>
+            {comment.replies?.length > 0 && (
+                <div className="mt-3 space-y-3">
+                    {comment.replies.map(reply => (
+                        <CommentNode
+                            key={reply.id}
+                            comment={reply}
+                            user={user}
+                            depth={Math.min(depth + 1, 5)}
+                            onReply={onReply}
+                            onDelete={onDelete}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function formatCommentDate(dateString?: string) {
+    if (!dateString) return 'NO DATE';
+    return new Date(dateString).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }

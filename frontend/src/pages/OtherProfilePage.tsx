@@ -1,177 +1,140 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ShieldAlert } from 'lucide-react';
+import api from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
+import { getCategoryColor } from '../utils/categoryColors';
+import { stripHtml } from '../utils/sanitize';
+import type { ContentItem, CurrentUser, PublicUser } from '../types/forum';
 
-export default function OtherProfilePage({ user }: { user: any }) {
+export default function OtherProfilePage({ user }: { user: CurrentUser | null }) {
     const { userId } = useParams();
-    const [contents, setContents] = useState<any[]>([]);
-    const [viewedUser, setViewedUser] = useState<any>(null);
-    // const [ setLoading] = useState(true);
-
-    const [designation, setDesignation] = useState(() => {
-        return localStorage.getItem('user_designation') || "RECONNAISSANCE OFFICER";
-    });
-
+    const [contents, setContents] = useState<ContentItem[]>([]);
+    const [viewedUser, setViewedUser] = useState<PublicUser | null>(null);
     const navigate = useNavigate();
-    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content';
+    const isMyOwnProfile = String(user?.userID) === String(userId);
 
-    // LOGIKA PERBAIKAN: Pastikan membandingkan tipe data yang sama (String)
-    // Cek apakah field-nya 'userID' atau 'id' sesuai dengan objek user kamu
-    const isMyOwnProfile = String(user?.userID || user?.id) === String(userId);
+    const fetchProfileData = useCallback(async (targetUserId: string) => {
+        const [profileRes, contentRes] = await Promise.all([
+            api.get<PublicUser>(`/api/user/${targetUserId}`),
+            api.get<ContentItem[]>('/content/all-content'),
+        ]);
+        setViewedUser(profileRes.data);
+        setContents((Array.isArray(contentRes.data) ? contentRes.data : []).filter(item => item.user?.userID === targetUserId));
+    }, []);
 
     useEffect(() => {
-        if (!user) {
-            navigate('/');
-            return;
-        }
-        fetchProfileData();
-    }, [user, userId]);
+        if (!userId) return;
+        void fetchProfileData(userId);
+    }, [fetchProfileData, userId]);
 
-    const fetchProfileData = async () => {
-        // setLoading(true);
-        try {
-            const res = await axios.get(`${API_BASE}/all-content`, { withCredentials: true });
-            const allData = Array.isArray(res.data) ? res.data : [];
-
-            // FILTER: Mencocokkan konten dengan userId di URL
-            const targetData = allData.filter(item => String(item.user?.userID) === String(userId));
-            setContents(targetData);
-
-            // LOGIKA IF: Set viewedUser jika data ditemukan
-            if (targetData.length > 0) {
-                console.log("Data ditemukan, mengatur viewedUser:", targetData[0].user);
-                setViewedUser(targetData[0].user);
-            } else {
-                console.warn("Tidak ada konten ditemukan untuk ID ini.");
-            }
-        } catch (error) {
-            console.error("Critical Failure: Data fetch aborted.", error);
-        } finally {
-            // setLoading(false);
-        }
-    };
-
-    const getBadgeStyle = (cat: string) => {
-        switch(cat) {
-            case 'Lore': return 'border-[#e60000] text-[#e60000] bg-[#e60000]/10';
-            case 'Analistic Pshycologic': return 'border-pink-600 text-pink-500 bg-pink-600/10';
-            default: return 'border-[#444] text-[#888] bg-[#1a1a1a]';
-        }
-    };
-
-    // Fallback Image jika foto user atau placeholder mati
-    const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=1a3a63&color=fff&name=" + (viewedUser?.name || "User");
-
-    if (!user) return null;
+    const displayUser = isMyOwnProfile && user ? user : viewedUser;
+    const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(displayUser?.name || 'User')}`;
 
     return (
-        <div className="min-h-screen bg-[#111] text-[#eee] font-mono p-6 lg:p-10">
-            <div className="max-w-[1600px] mx-auto">
-                <div className="mb-10 border-b border-[#2a2a2a] pb-4 flex justify-between items-center">
-                    <button onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] hover:text-[#e60000] transition-all">
-                        <span className="font-bold tracking-widest text-xs uppercase">{"<"} Back to Command Center</span>
+        <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
+            <div className="mx-auto max-w-[1600px]">
+                <div className="mb-10 flex items-center justify-between border-b border-[#2a2a2a] pb-4">
+                    <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] transition-all hover:text-[#e60000]">
+                        <span className="text-xs font-bold uppercase tracking-widest">{'<'} Back to Command Center</span>
                     </button>
-                    <div className="text-[10px] text-[#444] uppercase tracking-tighter">
-                        Mode: <span className={isMyOwnProfile ? "text-green-500" : "text-yellow-500"}>
-                            {isMyOwnProfile ? "ADMIN_ACCESS" : "GUEST_RESTRICTED"}
+                    <div className="text-[10px] uppercase tracking-normal text-[#444]">
+                        Mode: <span className={isMyOwnProfile ? 'text-green-500' : 'text-yellow-500'}>
+                            {isMyOwnProfile ? 'SELF_ACCESS' : 'GUEST_RESTRICTED'}
                         </span>
                     </div>
                 </div>
 
-                <div className="flex flex-col lg:flex-row gap-10 items-start">
-                    {/* KOLOM KIRI: S.T.A.R.S. ID CARD */}
-                    <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-28">
-                        <div className="relative w-full aspect-[1.58/1] bg-white rounded-xl overflow-hidden flex shadow-2xl border border-[#2a2a2a] scale-95 origin-top-left">
-                            <div className="w-[40%] bg-[#1a3a63] flex flex-col items-center justify-center p-4 border-r-[3px] border-white text-center">
-                                <img src={logo} alt="STARS" className="w-[80%] mb-2" />
-                                <h2 className="text-white text-[10px] font-black leading-tight uppercase">SPECIAL TACTICS AND RESCUE SERVICE</h2>
+                <div className="flex flex-col items-start gap-10 lg:flex-row">
+                    <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
+                        <div className="relative flex aspect-[1.58/1] w-full origin-top-left scale-95 overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
+                            <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4 text-center">
+                                <img src={logo} alt="STARS" className="mb-2 w-[80%]" />
+                                <h2 className="text-[10px] font-black uppercase leading-tight text-white">SPECIAL TACTICS AND RESCUE SERVICE</h2>
                             </div>
 
-                            <div className="flex-1 bg-white p-4 flex flex-col relative text-[#1a3a63]">
-                                <div className="flex justify-between items-start mb-2">
+                            <div className="relative flex flex-1 flex-col bg-white p-4 text-[#1a3a63]">
+                                <div className="mb-2 flex items-start justify-between">
                                     <div className="flex flex-col">
                                         <h1 className="text-3xl font-black leading-none">POLICE</h1>
-                                        <p className="text-[10px] font-bold">RACCOON POLICE DEP.</p>
+                                        <p className="text-[10px] font-bold">CENTRAL ARCHIVE DEP.</p>
                                     </div>
-                                    <div className="w-8 h-8 border border-[#1a3a63] flex items-center justify-center font-black text-xs italic">RPD</div>
+                                    <div className="flex h-8 w-8 items-center justify-center border border-[#1a3a63] text-xs font-black italic">RPD</div>
                                 </div>
 
-                                <div className="space-y-4 mt-2">
-                                    <div className="border-b border-[#1a3a63] pb-0.5 relative">
-                                        <span className="text-sm font-black block uppercase truncate">
-                                            {isMyOwnProfile ? user.name : (viewedUser?.name || "N/A")}
-                                        </span>
-                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold opacity-60 uppercase">Officer Name</span>
-                                    </div>
-                                    <div className="border-b border-[#1a3a63] pb-0.5 relative">
-                                        <input
-                                            type="text"
-                                            value={isMyOwnProfile ? designation : "ACCESS_RESTRICTED"}
-                                            disabled={!isMyOwnProfile}
-                                            onChange={(e) => setDesignation(e.target.value.toUpperCase())}
-                                            className="w-full bg-transparent text-[10px] font-black uppercase outline-none"
-                                        />
-                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold opacity-60 uppercase">Designation</span>
-                                    </div>
+                                <div className="mt-2 space-y-4">
+                                    <ProfileField label="Officer Name" value={displayUser?.name || 'N/A'} />
+                                    <ProfileField label="Designation" value={displayUser?.designation || 'ACCESS_RESTRICTED'} />
                                 </div>
 
-                                <div className="flex mt-4 items-end justify-between">
-                                    {/* FOTO USER DENGAN FALLBACK TERJAMIN */}
-                                    <div className="w-16 h-20 border border-[#1a3a63] bg-gray-200 p-0.5">
+                                <div className="mt-4 flex items-end justify-between">
+                                    <div className="h-20 w-16 border border-[#1a3a63] bg-gray-200 p-0.5">
                                         <img
-                                            src={isMyOwnProfile ? user.picture : (viewedUser?.picture || DEFAULT_AVATAR)}
+                                            src={displayUser?.picture || defaultAvatar}
                                             alt="Photo"
-                                            className="w-full h-full object-cover grayscale contrast-125"
-                                            onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                                            className="h-full w-full object-cover grayscale contrast-125"
+                                            onError={(event) => { event.currentTarget.src = defaultAvatar; }}
                                             referrerPolicy="no-referrer"
                                         />
                                     </div>
-                                    <div className="flex-1 ml-3 flex flex-col items-end">
-                                        <div className="text-center w-full max-w-[100px]">
-                                            <div className="font-serif italic text-sm border-b border-[#1a3a63] pb-0.5 mb-0.5 leading-none truncate">
-                                                {/*{user.name?.split(' ')[0]}*/}
-                                                GEBXBY
-                                            </div>
+                                    <div className="ml-3 flex flex-1 flex-col items-end">
+                                        <div className="w-full max-w-[100px] text-center">
+                                            <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic leading-none">GEBXBY</div>
                                             <span className="text-[7px] font-black uppercase">Authorized Signature</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        {displayUser?.suspensionMarked && (
+                            <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
+                                <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+                                    <ShieldAlert size={16} />
+                                    <span className="font-mono text-[10px] font-black uppercase tracking-widest">Suspension Mark Placeholder</span>
+                                </div>
+                                <div className="h-24 border border-dashed border-[#e60000]/40 bg-[#100]" />
+                            </div>
+                        )}
                     </div>
 
-                    {/* KOLOM KANAN: DATA ENTRIES */}
-                    <div className="flex-1 w-full">
+                    <div className="w-full flex-1">
                         <div className="mb-10 border-b border-[#2a2a2a] pb-6">
-                            <h2 className="text-2xl font-black uppercase tracking-widest">
-                                {isMyOwnProfile ? "Personal Archives" : "Remote Sector Data"}
-                            </h2>
-                            <p className="text-[#888] text-xs font-mono">
-                                Viewing {contents.length} remote entries for subject: {userId?.substring(0,8)}...
-                            </p>
+                            <h2 className="text-2xl font-black uppercase tracking-widest">{isMyOwnProfile ? 'Personal Archives' : 'Remote Sector Data'}</h2>
+                            <p className="font-mono text-xs text-[#888]">Viewing {contents.length} remote entries for subject: {userId?.substring(0, 8)}...</p>
                         </div>
 
                         <div className="grid gap-6">
-                            {contents.map((item) => (
-                                <div key={item.idContent} onClick={() => navigate(`/read/${item.idContent}`)} className="group bg-[#181818] border border-[#2a2a2a] p-6 hover:border-[#e60000] cursor-pointer transition-all relative">
-                                    <div className="absolute top-0 left-0 w-[2px] h-full bg-[#e60000] scale-y-0 group-hover:scale-y-100 transition-transform origin-top"></div>
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-4 mb-2">
-                                                <span className="text-[10px] text-[#e60000] font-bold">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
-                                                <span className={`text-[9px] font-black px-3 py-0.5 border uppercase tracking-widest ${getBadgeStyle(item.kategori)}`}>{item.kategori}</span>
+                            {contents.map(item => {
+                                const color = getCategoryColor(item.kategori);
+                                return (
+                                    <div key={item.idContent} onClick={() => navigate(`/read/${item.idContent}`)} className="group cursor-pointer border border-[#2a2a2a] bg-[#181818] p-6 transition-all hover:border-[#e60000]">
+                                        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+                                            <div className="flex-1">
+                                                <div className="mb-2 flex flex-wrap items-center gap-4">
+                                                    <span className="text-[10px] font-bold text-[#e60000]">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
+                                                    <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: color, color, backgroundColor: `${color}15` }}>{item.kategori}</span>
+                                                </div>
+                                                <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
+                                                <p className="line-clamp-2 text-sm text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                                             </div>
-                                            <h3 className="text-xl font-black uppercase text-white group-hover:text-[#e60000] mb-2">{item.head}</h3>
-                                            <p className="text-[#bbb] text-sm line-clamp-2 opacity-90">{item.paragrafs.substring(0, 180)}...</p>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="relative border-b border-[#1a3a63] pb-0.5">
+            <span className="block truncate text-sm font-black uppercase">{value}</span>
+            <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">{label}</span>
         </div>
     );
 }

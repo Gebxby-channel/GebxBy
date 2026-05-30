@@ -1,160 +1,142 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ShieldAlert } from 'lucide-react';
+import api from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
-import { getCategoryColor } from '../utils/categoryColors';
+import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
+import { stripHtml } from '../utils/sanitize';
+import type { ContentItem, CurrentUser } from '../types/forum';
 
-export default function ProfilePage({ user }: { user: any }) {
-    const [contents, setContents] = useState<any[]>([]);
+interface EditForm {
+    head: string;
+    paragrafs: string;
+    kategori: string;
+}
+
+export default function ProfilePage({ user }: { user: CurrentUser }) {
+    const [contents, setContents] = useState<ContentItem[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ head: "", paragrafs: "", kategori: "" });
+    const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-
-    const [designation, setDesignation] = useState(() => {
-        return localStorage.getItem('user_designation') || "RECONNAISSANCE OFFICER";
-    });
+    const [designation, setDesignation] = useState(user.designation || 'RECONNAISSANCE OFFICER');
 
     const navigate = useNavigate();
-    const API_BASE = 'https://federal-wasp-gebxby-18a594b4.koyeb.app/content';
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return "NO DATA";
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', {
-            day: '2-digit', month: 'short', year: 'numeric'
-        }).toUpperCase();
-    };
-
-    useEffect(() => {
-        if (!user) {
-            navigate('/');
-            return;
-        }
-        fetchMyContents();
-        localStorage.setItem('user_designation', designation);
-    }, [user, sortOrder, designation, navigate]);
-
-    const fetchMyContents = async () => {
-        try {
-            const res = await axios.get(`${API_BASE}/all-content`, { withCredentials: true });
-            const allData = Array.isArray(res.data) ? res.data : [];
-            let myData = allData.filter(item => item.user?.name === user.name);
-            myData.sort((a, b) => {
+    const fetchMyContents = useCallback(async () => {
+        const res = await api.get<ContentItem[]>('/content/all-content');
+        const allData = Array.isArray(res.data) ? res.data : [];
+        const myData = allData
+            .filter(item => item.user?.userID === user.userID)
+            .sort((a, b) => {
                 const dateA = new Date(a.createdAt || 0).getTime();
                 const dateB = new Date(b.createdAt || 0).getTime();
                 return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
             });
-            setContents(myData);
-        } catch (error) {
-            console.error("Gagal sinkronisasi arsip:", error);
-        }
+        setContents(myData);
+    }, [sortOrder, user.userID]);
+
+    useEffect(() => {
+        void fetchMyContents();
+    }, [fetchMyContents]);
+
+    const handleSaveDesignation = async () => {
+        await api.put('/api/user/update', { designation });
     };
 
     const handleUpdate = async (id: string) => {
-        try {
-            await axios.put(`${API_BASE}/edit/${id}`, {
-                head: editForm.head,
-                paragrafs: editForm.paragrafs,
-                kategori: editForm.kategori
-            }, { withCredentials: true });
-            setEditingId(null);
-            fetchMyContents();
-        } catch (error) {
-            alert("Gagal memperbarui data.");
-        }
+        await api.put(`/content/edit/${id}`, editForm);
+        setEditingId(null);
+        await fetchMyContents();
     };
 
-    const startEdit = (item: any) => {
+    const startEdit = (item: ContentItem) => {
         setEditingId(item.idContent);
-        setEditForm({ head: item.head, paragrafs: item.paragrafs, kategori: item.kategori || "" });
+        setEditForm({ head: item.head, paragrafs: stripHtml(item.paragrafs), kategori: item.kategori || 'General' });
     };
 
     const handleDelete = async (idContent: string) => {
-        if (window.confirm("WARNING: Data removal is permanent. Proceed?")) {
-            try {
-                await axios.delete(`${API_BASE}/${idContent}`, { withCredentials: true });
-                fetchMyContents();
-            } catch (error) {
-                alert("Critical Error during deletion.");
-            }
-        }
+        if (!window.confirm('WARNING: Data removal is permanent. Proceed?')) return;
+        await api.delete(`/content/${idContent}`);
+        await fetchMyContents();
     };
 
-    if (!user) return null;
-
     return (
-        <div className="min-h-screen bg-[#111] text-[#eee] font-mono p-6 lg:p-10">
-            <div className="max-w-[1600px] mx-auto">
-
-                {/* Navigation */}
+        <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
+            <div className="mx-auto max-w-[1600px]">
                 <div className="mb-10 border-b border-[#2a2a2a] pb-4">
-                    <button onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] hover:text-[#e60000] transition-all duration-300">
-                        <span className="font-bold tracking-widest text-xs uppercase">{"<"} Back to Command Center</span>
+                    <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] transition-all duration-300 hover:text-[#e60000]">
+                        <span className="text-xs font-bold uppercase tracking-widest">{'<'} Back to Command Center</span>
                     </button>
                 </div>
 
-                <div className="flex flex-col lg:flex-row gap-10 items-start">
-
-                    {/* === KOLOM KIRI: ID CARD === */}
-                    <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-28">
-                        <p className="text-[10px] text-[#444] mb-3 tracking-[0.3em] uppercase pl-2">Personnel Side ID</p>
-                        <div className="relative w-full aspect-[1.58/1] bg-white rounded-xl overflow-hidden flex shadow-2xl border border-[#2a2a2a] scale-95 origin-top-left">
-                            <div className="w-[40%] bg-[#1a3a63] flex flex-col items-center justify-center p-4 border-r-[3px] border-white">
+                <div className="flex flex-col items-start gap-10 lg:flex-row">
+                    <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
+                        <p className="mb-3 pl-2 text-[10px] uppercase tracking-[0.3em] text-[#444]">Personnel Side ID</p>
+                        <div className="relative flex aspect-[1.58/1] w-full origin-top-left scale-95 overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
+                            <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4">
                                 <img src={logo} alt="S.T.A.R.S. Logo" className="w-[85%] object-contain" />
-                                <h2 className="text-white text-[5px] font-black leading-tight tracking-tighter text-center mt-3 uppercase">Special Tactics and Rescue Service</h2>
+                                <h2 className="mt-3 text-center text-[5px] font-black uppercase leading-tight tracking-normal text-white">Special Tactics and Rescue Service</h2>
                             </div>
-                            <div className="flex-1 bg-white p-4 flex flex-col relative text-[#1a3a63]">
-                                <h1 className="text-3xl font-black tracking-tighter leading-none">POLICE</h1>
-                                <p className="text-[11px] font-bold">RACCOON POLICE DEP.</p>
-                                <div className="space-y-4 mt-2">
-                                    <div className="border-b border-[#1a3a63] pb-0.5 relative">
-                                        <span className="text-sm font-black block uppercase truncate">{user.name}</span>
-                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold opacity-60 uppercase">Officer Name</span>
-                                    </div>
-                                    <div className="border-b border-[#1a3a63] pb-0.5 relative">
+                            <div className="relative flex flex-1 flex-col bg-white p-4 text-[#1a3a63]">
+                                <h1 className="text-3xl font-black leading-none tracking-normal">POLICE</h1>
+                                <p className="text-[11px] font-bold">CENTRAL ARCHIVE DEP.</p>
+                                <div className="mt-2 space-y-4">
+                                    <Field label="Officer Name" value={user.name} />
+                                    <div className="relative border-b border-[#1a3a63] pb-0.5">
                                         <input
                                             type="text"
                                             value={designation}
-                                            onChange={(e) => setDesignation(e.target.value.toUpperCase())}
-                                            className="w-full bg-transparent text-xs font-black uppercase tracking-tight outline-none focus:text-red-600 transition-colors"
+                                            onBlur={() => void handleSaveDesignation()}
+                                            onChange={(event) => setDesignation(event.target.value.toUpperCase())}
+                                            className="w-full bg-transparent text-xs font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
                                         />
-                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold opacity-60 uppercase">Asignation</span>
+                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Asignation</span>
                                     </div>
                                 </div>
-                                <div className="flex mt-5 items-end justify-between">
-                                    <div className="w-16 h-20 border border-[#1a3a63] bg-gray-100 p-0.5 shadow-md">
-                                        <img src={user.picture} alt="Officer" className="w-full h-full object-cover grayscale contrast-125" referrerPolicy="no-referrer" />
+                                <div className="mt-5 flex items-end justify-between">
+                                    <div className="h-20 w-16 border border-[#1a3a63] bg-gray-100 p-0.5 shadow-md">
+                                        <img src={user.picture} alt="Officer" className="h-full w-full object-cover grayscale contrast-125" referrerPolicy="no-referrer" />
                                     </div>
-                                    <div className="flex-1 ml-3 flex flex-col items-end">
-                                        <div className="text-center w-full max-w-[100px]">
-                                            <div className="font-serif italic text-sm border-b border-[#1a3a63] pb-0.5 mb-0.5 truncate">GEBXBY</div>
+                                    <div className="ml-3 flex flex-1 flex-col items-end">
+                                        <div className="w-full max-w-[100px] text-center">
+                                            <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic">GEBXBY</div>
                                             <span className="text-[7px] font-black uppercase">Authorized Signature</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        {user.suspensionMarked && (
+                            <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
+                                <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+                                    <ShieldAlert size={16} />
+                                    <span className="font-mono text-[10px] font-black uppercase tracking-widest">Suspension Mark Placeholder</span>
+                                </div>
+                                <div className="h-24 border border-dashed border-[#e60000]/40 bg-[#100]" />
+                            </div>
+                        )}
                     </div>
 
-                    {/* === KOLOM KANAN: ARSIP === */}
-                    <div className="flex-1 w-full">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 border-b border-[#2a2a2a] pb-6">
+                    <div className="w-full flex-1">
+                        <div className="mb-10 flex flex-col items-start justify-between gap-4 border-b border-[#2a2a2a] pb-6 md:flex-row md:items-center">
                             <div>
-                                <h2 className="text-2xl font-black text-white uppercase tracking-widest">Personal Archives</h2>
-                                <p className="text-[#888] text-xs font-mono">Managing {contents.length} secure data entries within this sector.</p>
+                                <h2 className="text-2xl font-black uppercase tracking-widest text-white">Personal Archives</h2>
+                                <p className="font-mono text-xs text-[#888]">Managing {contents.length} secure data entries within this sector.</p>
                             </div>
-                            <div className="flex items-center gap-4 w-full md:w-auto">
+                            <div className="flex w-full items-center gap-4 md:w-auto">
                                 <select
                                     value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value as any)}
-                                    className="bg-[#111] border border-[#333] text-[#e60000] text-[10px] font-bold p-3 uppercase outline-none focus:border-[#e60000] cursor-pointer"
+                                    onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}
+                                    className="cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]"
                                 >
                                     <option value="newest">Newest Entry</option>
                                     <option value="oldest">Oldest Entry</option>
                                 </select>
                                 <button
+                                    type="button"
                                     onClick={() => navigate('/write')}
-                                    className="bg-[#e60000] text-white hover:bg-white hover:text-[#e60000] font-black py-3 px-8 transition-all duration-300 uppercase text-xs tracking-tighter shadow-[4px_4px_0px_#444] whitespace-nowrap flex-1 md:flex-none"
+                                    className="flex-1 bg-[#e60000] px-8 py-3 text-xs font-black uppercase tracking-normal text-white shadow-[4px_4px_0px_#444] transition-all duration-300 hover:bg-white hover:text-[#e60000] md:flex-none"
                                 >
                                     + Create New Entry
                                 </button>
@@ -163,102 +145,21 @@ export default function ProfilePage({ user }: { user: any }) {
 
                         <div className="grid gap-6">
                             {contents.length === 0 ? (
-                                <div className="text-center py-20 border border-dashed border-[#2a2a2a] text-[#444] font-mono">[ NO DATA RECORDED ]</div>
+                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO DATA RECORDED ]</div>
                             ) : (
-                                contents.map((item) => {
-                                    const themeColor = getCategoryColor(item.kategori);
-                                    return (
-                                        <div
-                                            key={item.idContent}
-                                            className="group bg-[#181818] border border-[#2a2a2a] p-6 transition-all duration-300 relative shadow-inner"
-                                            style={{ borderLeft: `3px solid ${themeColor}` }}
-                                            onMouseEnter={e => (e.currentTarget.style.borderColor = themeColor)}
-                                            onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a2a')}
-                                        >
-                                            {editingId === item.idContent ? (
-                                                <div className="space-y-4">
-                                                    <input
-                                                        className="w-full bg-[#111] border border-[#333] p-3 text-white font-mono outline-none focus:border-[#e60000]"
-                                                        value={editForm.head}
-                                                        onChange={(e) => setEditForm({ ...editForm, head: e.target.value })}
-                                                    />
-                                                    <select
-                                                        className="w-full bg-[#111] border border-[#333] p-3 text-white font-mono outline-none"
-                                                        value={editForm.kategori}
-                                                        onChange={(e) => setEditForm({ ...editForm, kategori: e.target.value })}
-                                                    >
-                                                        <option value="General">General</option>
-                                                        <option value="Lore">Lore</option>
-                                                        <option value="Fan-Novel">Fan-Novel</option>
-                                                        <option value="Speculation">Speculation</option>
-                                                        <option value="Analistic Pshycologic">Analytic Psychological</option>
-                                                        <option value="QnA">QnA</option>
-                                                    </select>
-                                                    <textarea
-                                                        className="w-full h-32 bg-[#111] border border-[#333] p-3 text-white font-mono outline-none"
-                                                        value={editForm.paragrafs}
-                                                        onChange={(e) => setEditForm({ ...editForm, paragrafs: e.target.value })}
-                                                    />
-                                                    <div className="flex gap-3">
-                                                        <button onClick={() => handleUpdate(item.idContent)} className="bg-[#e60000] px-6 py-2 font-bold text-xs uppercase">Confirm</button>
-                                                        <button onClick={() => setEditingId(null)} className="bg-[#333] px-6 py-2 font-bold text-xs uppercase">Abort</button>
-                                                    </div>
-                                                </div>
-
-
-                                                ////jhdbubweuifqgweufgkuewjsdfguiqdaskfgeurkiwyg
-                                            ) : (
-                                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-4 mb-2 flex-wrap">
-                                                            <span className="text-[10px] font-bold font-mono" style={{ color: themeColor }}>
-                                                                ENTRY ID: {item.idContent?.substring(0, 8)}
-                                                            </span>
-                                                            <span className="text-[9px] text-[#444] font-mono font-bold uppercase">
-                                                                FILE DATE: {formatDate(item.createdAt)}
-                                                            </span>
-                                                            {/* Badge kategori dengan warna dinamis */}
-                                                            <span
-                                                                className="text-[9px] font-black px-3 py-0.5 border uppercase tracking-widest"
-                                                                style={{
-                                                                    color: themeColor,
-                                                                    borderColor: themeColor,
-                                                                    backgroundColor: themeColor + '15',
-                                                                }}
-                                                            >
-                                                                {item.kategori}
-                                                            </span>
-                                                        </div>
-                                                        <h3
-                                                            className="text-xl font-black uppercase text-white transition-colors mb-2"
-                                                            onMouseEnter={e => (e.currentTarget.style.color = themeColor)}
-                                                            onMouseLeave={e => (e.currentTarget.style.color = 'white')}
-                                                        >
-                                                            {item.head}
-                                                        </h3>
-                                                        <p className="text-[#bbb] text-sm line-clamp-2 font-sans opacity-90 leading-relaxed max-w-3xl">
-                                                            {item.paragrafs.replace(/<[^>]*>/g, '').substring(0, 180)}...
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto">
-                                                        <button
-                                                            onClick={() => startEdit(item)}
-                                                            className="flex-1 md:w-28 border border-[#333] hover:border-white text-white px-5 py-2 text-[10px] font-bold uppercase transition-all"
-                                                        >
-                                                            Edit File
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(item.idContent)}
-                                                            className="flex-1 md:w-28 border border-[#333] hover:bg-[#e60000] hover:border-[#e60000] text-white px-5 py-2 text-[10px] font-bold uppercase transition-all"
-                                                        >
-                                                            Delete
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
+                                contents.map(item => (
+                                    <ArchiveItem
+                                        key={item.idContent}
+                                        item={item}
+                                        editing={editingId === item.idContent}
+                                        editForm={editForm}
+                                        setEditForm={setEditForm}
+                                        onEdit={() => startEdit(item)}
+                                        onCancel={() => setEditingId(null)}
+                                        onSave={() => void handleUpdate(item.idContent)}
+                                        onDelete={() => void handleDelete(item.idContent)}
+                                    />
+                                ))
                             )}
                         </div>
                     </div>
@@ -266,4 +167,77 @@ export default function ProfilePage({ user }: { user: any }) {
             </div>
         </div>
     );
+}
+
+function Field({ label, value }: { label: string; value?: string }) {
+    return (
+        <div className="relative border-b border-[#1a3a63] pb-0.5">
+            <span className="block truncate text-sm font-black uppercase">{value}</span>
+            <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">{label}</span>
+        </div>
+    );
+}
+
+function ArchiveItem({
+    item,
+    editing,
+    editForm,
+    setEditForm,
+    onEdit,
+    onCancel,
+    onSave,
+    onDelete,
+}: {
+    item: ContentItem;
+    editing: boolean;
+    editForm: EditForm;
+    setEditForm: (form: EditForm) => void;
+    onEdit: () => void;
+    onCancel: () => void;
+    onSave: () => void;
+    onDelete: () => void;
+}) {
+    const themeColor = getCategoryColor(item.kategori);
+    return (
+        <div className="bg-[#181818] p-6 shadow-inner transition-all duration-300" style={{ border: `1px solid #2a2a2a`, borderLeft: `3px solid ${themeColor}` }}>
+            {editing ? (
+                <div className="space-y-4">
+                    <input className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none focus:border-[#e60000]" value={editForm.head} onChange={(event) => setEditForm({ ...editForm, head: event.target.value })} />
+                    <select className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.kategori} onChange={(event) => setEditForm({ ...editForm, kategori: event.target.value })}>
+                        {DEFAULT_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                    <textarea className="h-40 w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.paragrafs} onChange={(event) => setEditForm({ ...editForm, paragrafs: event.target.value })} />
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onSave} className="bg-[#e60000] px-6 py-2 text-xs font-bold uppercase">Confirm</button>
+                        <button type="button" onClick={onCancel} className="bg-[#333] px-6 py-2 text-xs font-bold uppercase">Abort</button>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+                    <div className="flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-4">
+                            <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
+                            <span className="font-mono text-[9px] font-bold uppercase text-[#444]">FILE DATE: {formatDate(item.createdAt)}</span>
+                            <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                        </div>
+                        <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
+                        <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
+                    </div>
+                    <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
+                        <button type="button" onClick={onEdit} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-white md:w-28">Edit File</button>
+                        <button type="button" onClick={onDelete} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-[#e60000] hover:bg-[#e60000] md:w-28">Delete</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function formatDate(dateString?: string) {
+    if (!dateString) return 'NO DATA';
+    return new Date(dateString).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).toUpperCase();
 }

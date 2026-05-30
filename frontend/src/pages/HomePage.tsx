@@ -1,68 +1,54 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { useEffect, useMemo, useState } from 'react';
+import api from '../lib/api';
 import ContentCard from '../components/ContentCard';
+import type { ContentItem, CurrentUser } from '../types/forum';
 
-export default function HomePage({ user }: { user: any }) {
-    const [articles, setArticles] = useState<any[]>([]);
-    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+export default function HomePage({ user }: { user: CurrentUser }) {
+    const [articles, setArticles] = useState<ContentItem[]>([]);
+    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
+    const [loading, setLoading] = useState(true);
+    const terminalId = useMemo(() => user.userID.replaceAll('-', '').substring(0, 6).toUpperCase(), [user.userID]);
 
     useEffect(() => {
-        axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all-content', { withCredentials: true })
-            .then(res => {
-                let data = Array.isArray(res.data) ? res.data : [];
-                data.sort((a, b) => {
-                    const dateA = new Date(a.createdAt || 0).getTime();
-                    const dateB = new Date(b.createdAt || 0).getTime();
-                    return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-                });
-                setArticles(data);
-            })
-            .catch(err => console.error("Gagal ambil artikel:", err));
+        api.get<ContentItem[]>('/content/all-content')
+            .then(res => setArticles(sortArticles(Array.isArray(res.data) ? res.data : [], sortOrder)))
+            .catch(() => setArticles([]))
+            .finally(() => setLoading(false));
     }, [sortOrder]);
-
-    const handleTerminate = async () => {
-        localStorage.removeItem('manualUser');
-        try {
-            await axios.post('https://federal-wasp-gebxby-18a594b4.koyeb.app/logout', {}, { withCredentials: true });
-        } catch (err) {
-            console.warn("Sesi backend sudah berakhir.");
-        }
-        window.location.href = '/';
-    };
 
     return (
         <div className="w-full">
-            {/* Header Section */}
-            <div className="flex justify-between items-end mb-12 border-l-4 border-[#e60000] pl-6">
+            <div className="mb-12 flex flex-col gap-6 border-l-4 border-[#e60000] pl-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <h1 className="text-white text-4xl font-mono font-black uppercase tracking-[0.2em]">Database Logs</h1>
-                    <p className="text-[#666] text-xs font-mono uppercase tracking-widest mt-1">
-                        Authorized Access Only // Terminal_ID: {Math.random().toString(36).substring(7).toUpperCase()}
+                    <h1 className="font-mono text-4xl font-black uppercase tracking-normal text-white">Database Logs</h1>
+                    <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#666]">
+                        Authorized Access Only // Terminal_ID: {terminalId}
                     </p>
-                    <button
-                        onClick={handleTerminate}
-                        className="mt-4 bg-transparent border border-[#e60000] text-[#e60000] hover:bg-[#e60000] hover:text-black transition-all duration-300 px-4 py-1.5 font-bold font-mono uppercase tracking-widest text-[10px]"
-                    >
-                        [ Terminate_Connection ]
-                    </button>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#888]">
+                        Registry aktif untuk semua entry yang sudah masuk ke database forum.
+                    </p>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                    <span className="text-[10px] text-[#444] font-black uppercase tracking-widest">Filter_Protocol</span>
+                <div className="flex flex-col items-start gap-2 lg:items-end">
+                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#444]">Filter_Protocol</span>
                     <select
                         value={sortOrder}
-                        onChange={(e) => setSortOrder(e.target.value as any)}
-                        className="bg-[#111] border border-[#333] text-[#e60000] text-[10px] font-bold p-2 px-4 uppercase outline-none focus:border-[#e60000] cursor-pointer transition-colors"
+                        onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest' | 'popular')}
+                        className="cursor-pointer border border-[#333] bg-[#111] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none transition-colors focus:border-[#e60000]"
                     >
                         <option value="newest">Recent_Entries</option>
                         <option value="oldest">Archived_Files</option>
+                        <option value="popular">Most_UP</option>
                     </select>
                 </div>
             </div>
 
-            {/* List View */}
-            {articles.length === 0 ? (
-                <div className="text-center py-40 border border-dashed border-[#222] text-[#333] font-mono tracking-[0.5em] uppercase">
+            {loading ? (
+                <div className="border border-dashed border-[#222] py-32 text-center font-mono text-xs uppercase tracking-[0.4em] text-[#444]">
+                    [ Syncing_Database ]
+                </div>
+            ) : articles.length === 0 ? (
+                <div className="border border-dashed border-[#222] py-40 text-center font-mono uppercase tracking-[0.4em] text-[#333]">
                     [ No_Data_Found_In_Sector ]
                 </div>
             ) : (
@@ -74,4 +60,15 @@ export default function HomePage({ user }: { user: any }) {
             )}
         </div>
     );
+}
+
+function sortArticles(articles: ContentItem[], sortOrder: 'newest' | 'oldest' | 'popular') {
+    return [...articles].sort((a, b) => {
+        if (sortOrder === 'popular') {
+            return b.upCount - a.upCount || b.viewCount - a.viewCount;
+        }
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
 }

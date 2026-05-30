@@ -1,91 +1,80 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import ContentCard from '../components/ContentCard';
+import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
+import type { ContentItem, CurrentUser } from '../types/forum';
 
-const CATEGORIES = [
-    "General",
-    "Fan-Novel",
-    "Spekulasi & Teori",
-    "Analistic Pshycologic",
-    "Lore",
-    "QNA"
-];
-
-export default function CategoryPage({ user }: { user: any }) {
-    const [allArticles, setAllArticles] = useState<any[]>([]);
-    const [filteredArticles, setFilteredArticles] = useState<any[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<string>("General");
-    const [loading, setLoading] = useState<boolean>(true);
+export default function CategoryPage({ user }: { user: CurrentUser }) {
+    const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+    const [articles, setArticles] = useState<ContentItem[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<string>('All');
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setLoading(true);
-        axios.get('https://federal-wasp-gebxby-18a594b4.koyeb.app/content/all-content', { withCredentials: true })
+        api.get<string[]>('/content/categories')
             .then(res => {
-                const data = Array.isArray(res.data) ? res.data : [];
-                setAllArticles(data);
-
-                // Filter awal berdasarkan kategori default (General)
-                const filtered = data.filter((art: any) =>
-                    (art.kategori || "General").toLowerCase() === "general"
-                );
-                setFilteredArticles(filtered);
-                setLoading(false);
+                const merged = Array.from(new Set(['All', ...DEFAULT_CATEGORIES, ...res.data]));
+                setCategories(merged);
             })
-            .catch(err => {
-                console.error("Gagal ambil data kategori:", err);
-                setLoading(false);
-            });
+            .catch(() => setCategories(['All', ...DEFAULT_CATEGORIES]));
     }, []);
 
-    // Logika ketika user mengganti kategori
-    const handleCategoryChange = (category: string) => {
+    useEffect(() => {
+        api.get<ContentItem[]>('/content/all-content', {
+            params: selectedCategory === 'All' ? undefined : { category: selectedCategory },
+        })
+            .then(res => setArticles(Array.isArray(res.data) ? res.data : []))
+            .catch(() => setArticles([]))
+            .finally(() => setLoading(false));
+    }, [selectedCategory]);
+
+    const selectCategory = (category: string) => {
+        setLoading(true);
         setSelectedCategory(category);
-        const filtered = allArticles.filter((art: any) => {
-            // Kita buat case-insensitive supaya aman
-            const artCat = art.kategori || "General";
-            return artCat.toLowerCase() === category.toLowerCase();
-        });
-        setFilteredArticles(filtered);
     };
 
     return (
         <div className="w-full">
-            {/* Header Kategori */}
             <div className="mb-12 border-l-4 border-[#e60000] pl-6">
-                <h1 className="text-white text-3xl font-mono font-black uppercase tracking-widest">Category Archive</h1>
-                <p className="text-[#666] text-xs font-mono uppercase tracking-tight mt-1">Sorting Data by Sector // Filter Active</p>
+                <h1 className="font-mono text-3xl font-black uppercase tracking-widest text-white">Category Archive</h1>
+                <p className="mt-1 font-mono text-xs uppercase tracking-tight text-[#666]">Sorting Data by Sector // Filter Active</p>
 
-                {/* Selector Kategori ala Tactical Menu */}
                 <div className="mt-8 flex flex-wrap gap-3">
-                    {CATEGORIES.map((cat) => (
-                        <button
-                            key={cat}
-                            onClick={() => handleCategoryChange(cat)}
-                            className={`px-4 py-2 font-mono text-[10px] font-black uppercase transition-all border ${
-                                selectedCategory === cat
-                                    ? 'bg-[#e60000] border-[#e60000] text-white shadow-[0_0_15px_rgba(230,0,0,0.4)]'
-                                    : 'bg-[#111] border-[#333] text-[#444] hover:border-[#e60000]/50 hover:text-white'
-                            }`}
-                        >
-                            {cat}
-                        </button>
-                    ))}
+                    {categories.map((category) => {
+                        const active = selectedCategory === category;
+                        const color = category === 'All' ? '#e60000' : getCategoryColor(category);
+                        return (
+                            <button
+                                key={category}
+                                type="button"
+                                onClick={() => selectCategory(category)}
+                                className="border px-4 py-2 font-mono text-[10px] font-black uppercase transition-all"
+                                style={{
+                                    borderColor: active ? color : '#333',
+                                    color: active ? '#fff' : '#666',
+                                    backgroundColor: active ? color : '#111',
+                                    boxShadow: active ? `0 0 16px ${color}55` : 'none',
+                                }}
+                            >
+                                {category}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* List Artikel yang Terfilter */}
-            <div className="flex flex-col min-h-[400px]">
+            <div className="flex min-h-[400px] flex-col">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                        <div className="w-8 h-8 border-2 border-t-[#e60000] border-[#222] rounded-full animate-spin"></div>
-                        <span className="text-[10px] text-[#444] font-mono animate-pulse">SCANNING_DATABASE...</span>
+                    <div className="flex flex-col items-center justify-center gap-3 py-20">
+                        <div className="h-8 w-8 animate-spin border-2 border-[#222] border-t-[#e60000]" />
+                        <span className="font-mono text-[10px] text-[#444]">SCANNING_DATABASE...</span>
                     </div>
-                ) : filteredArticles.length === 0 ? (
-                    <div className="text-center py-20 border border-dashed border-[#222] text-[#444] font-mono tracking-widest">
+                ) : articles.length === 0 ? (
+                    <div className="border border-dashed border-[#222] py-20 text-center font-mono tracking-widest text-[#444]">
                         [ NO_FILES_FOUND_IN_{selectedCategory.toUpperCase().replace(/\s/g, '_')} ]
                     </div>
                 ) : (
-                    filteredArticles.map((art) => (
+                    articles.map((art) => (
                         <ContentCard key={art.idContent} art={art} user={user} />
                     ))
                 )}

@@ -1,17 +1,3 @@
-// Pakai 'val' buat ngasih tau Gradle kalau kita mau konfigurasi task yang ada
-val jacocoTestReport by tasks.getting(JacocoReport::class) {
-    dependsOn(tasks.test)
-    reports {
-        xml.required.set(true)
-        csv.required.set(false)
-        html.required.set(true)
-    }
-}
-
-tasks.test {
-    finalizedBy(jacocoTestReport)
-}
-
 plugins {
     java
     jacoco
@@ -41,31 +27,33 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
-    compileOnly("org.projectlombok:lombok")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-    annotationProcessor("org.projectlombok:lombok")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("org.jsoup:jsoup:1.18.3")
+
+    compileOnly("org.projectlombok:lombok")
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
+    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+    annotationProcessor("org.projectlombok:lombok")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
 }
+
 tasks.jacocoTestReport {
-    dependsOn(tasks.test) // Laporan baru dibuat setelah test kelar
+    dependsOn(tasks.test)
     reports {
         xml.required.set(true)
         csv.required.set(false)
-        html.required.set(true) // Ini buat lu liat hasilnya di browser
+        html.required.set(true)
     }
-}
-
-tasks.test {
-    finalizedBy(tasks.jacocoTestReport) // Otomatis jalanin report tiap abis ./gradlew test
 }

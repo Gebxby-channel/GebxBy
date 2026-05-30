@@ -10,3 +10,12 @@ export const categoryColors: Record<string, string> = {
 export const getCategoryColor = (kategori?: string): string => {
     return categoryColors[kategori?.toUpperCase() ?? ''] ?? '#ffffff';
 };
+
+export const DEFAULT_CATEGORIES = [
+    'General',
+    'Lore',
+    'Speculation',
+    'Analistic Pshycologic',
+    'Fan-Novel',
+    'QNA',
+];

@@ -1,4 +1,4 @@
-import { Home, User, PenTool, BarChart2, Terminal } from 'lucide-react';
+import { Home, User, PenTool, BarChart2, Terminal, Folder } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Sidebar({ active }: { active: string }) {
@@ -6,9 +6,10 @@ export default function Sidebar({ active }: { active: string }) {
 
     const navItems = [
         { id: 'home', icon: Home, label: 'DATABASE', path: '/' },
-        { id: 'stories', icon: PenTool, label: 'WRITE', path: '/write' },
+        { id: 'write', icon: PenTool, label: 'WRITE', path: '/write' },
         { id: 'profile', icon: User, label: 'BIO-DATA', path: '/profile' },
-        { id: 'stats', icon: BarChart2, label: 'ANALYTICS', path: '#' }, // Belum ada page-nya
+        { id: 'analytics', icon: BarChart2, label: 'ANALYTICS', path: '/analytics' },
+        { id: 'category', icon: Folder, label: 'CATEGORY', path: '/category' },
     ];
 
     return (
@@ -31,13 +32,8 @@ export default function Sidebar({ active }: { active: string }) {
                     <div
                         key={item.id}
                         className="relative flex flex-col items-center group cursor-pointer"
-                        onClick={() => {
-                            if (item.path !== '#') {
-                                navigate(item.path);
-                            }
-                        }}
+                        onClick={() => navigate(item.path)}
                     >
-                        {/* Indikator Merah di samping (seperti di screenshot kamu) */}
                         {active === item.id && (
                             <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-[#e60000] shadow-[4px_0_15px_rgba(230,0,0,0.8)]"></div>
                         )}

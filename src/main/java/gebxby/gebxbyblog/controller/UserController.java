@@ -1,92 +1,79 @@
 package gebxby.gebxbyblog.controller;
 
+import gebxby.gebxbyblog.dto.CurrentUserResponse;
+import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.dto.PublicUserResponse;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
-
-@CrossOrigin(origins = "https://gebxby.vercel.app", allowCredentials = "true")
 @RestController
 public class UserController {
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final ForumMapper mapper;
+    private final String frontendUrl;
+    private final boolean manualLoginEnabled;
+
+    public UserController(UserService userService,
+                          ForumMapper mapper,
+                          @Value("${app.frontend-url}") String frontendUrl,
+                          @Value("${app.manual-login-enabled:false}") boolean manualLoginEnabled) {
+        this.userService = userService;
+        this.mapper = mapper;
+        this.frontendUrl = frontendUrl;
+        this.manualLoginEnabled = manualLoginEnabled;
+    }
 
     @PutMapping("/api/user/update")
-    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> updates,
-                                           @AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) return ResponseEntity.status(401).body("Unauthorized");
-
-        String email = principal.getAttribute("email");
-        String newName = updates.get("name");
-        String newDesignation = updates.get("designation");
-
-        gebxby.gebxbyblog.model.User updatedUser = userService.updateProfile(email, newName, newDesignation);
-        return ResponseEntity.ok(updatedUser);
+    public ResponseEntity<CurrentUserResponse> updateProfile(
+            @RequestBody ProfileUpdateRequest updates,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User updatedUser = userService.updateProfile(principal, updates);
+        return ResponseEntity.ok(mapper.toCurrentUser(updatedUser));
     }
+
     @GetMapping("/")
-    public void tangkapYangNyasar(HttpServletResponse response) throws IOException {
-        response.sendRedirect("https://gebxby.vercel.app/");
+    public void redirectRoot(HttpServletResponse response) throws IOException {
+        response.sendRedirect(frontendUrl);
     }
 
-    // Menggunakan OAuth2User agar lebih sakti menangkap balasan Google
     @GetMapping("/api/user/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) return ResponseEntity.status(401).body("Not Authenticated");
-
-        String googleId = principal.getAttribute("sub"); // ID asli Google
-
-        // CARI USER DI DB (Pakai logika Hybrid yang kita bahas tadi)
+    public ResponseEntity<CurrentUserResponse> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+        }
         User dbUser = userService.processUserLogin(principal);
-
-        Map<String, Object> userInfo = new HashMap<>();
-        userInfo.put("name", dbUser.getName());
-        userInfo.put("email", dbUser.getEmail());
-        userInfo.put("picture", dbUser.getPhoto());
-
-        // PENTING: Kirim userID yang berupa UUID hasil generate Database
-        // Bukan lagi 'sub' dari Google!
-        userInfo.put("userID", dbUser.getUserID().toString());
-        userInfo.put("designation", dbUser.getDesignation());
-
-        return ResponseEntity.ok(userInfo);
+        return ResponseEntity.ok(mapper.toCurrentUser(dbUser));
     }
-    // Endpoint untuk mendaftarkan user manual ke DB
+
     @PostMapping("/api/user/create")
-    public ResponseEntity<?> createUser(@RequestBody User user) {
-        try {
-            User newUser = userService.createUser(user);
-            return ResponseEntity.ok(newUser);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Gagal membuat user: " + e.getMessage());
+    public ResponseEntity<CurrentUserResponse> createUser(@RequestBody User user) {
+        if (!manualLoginEnabled) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Manual login dinonaktifkan di environment ini");
         }
+        User newUser = userService.createManualUser(user);
+        return ResponseEntity.ok(mapper.toCurrentUser(newUser));
     }
 
-    // Endpoint publik agar user lain bisa melihat profil berdasarkan userID
     @GetMapping("/api/user/{id}")
-    public ResponseEntity<?> getUserProfile(@PathVariable UUID id) {
-        try {
-            User dbUser = userService.getUserById(id);
-
-            // Buat response khusus profil publik agar aman
-            Map<String, Object> publicProfile = new HashMap<>();
-            publicProfile.put("name", dbUser.getName());
-            publicProfile.put("photo", dbUser.getPhoto());
-            publicProfile.put("designation", dbUser.getDesignation());
-            publicProfile.put("moto", dbUser.getMoto());
-
-            return ResponseEntity.ok(publicProfile);
-        } catch (Exception e) {
-            return ResponseEntity.status(404).body("User tidak ditemukan");
-        }
+    public ResponseEntity<PublicUserResponse> getUserProfile(@PathVariable UUID id) {
+        User dbUser = userService.getUserById(id);
+        return ResponseEntity.ok(mapper.toPublicUser(dbUser));
     }
 }
