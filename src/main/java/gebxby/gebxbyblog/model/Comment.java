@@ -31,4 +31,5 @@ public class Comment {
     private boolean deleted;
     private UUID deletedByUserId;
     private boolean deletedByAdmin;
+    private boolean adminHighlighted;
 }

@@ -15,7 +15,7 @@ export default function AdminMessagePanel() {
             .then((response) => {
                 const data = Array.isArray(response.data) ? response.data : [];
                 setUsers(data);
-                setRecipientId(data[0]?.userID ?? '');
+                setRecipientId('ALL');
             })
             .catch(() => setUsers([]));
     }, []);
@@ -24,10 +24,11 @@ export default function AdminMessagePanel() {
         if (!recipientId || !message.trim()) return;
         setSending(true);
         try {
-            await api.post(`/api/admin/users/${recipientId}/notifications`, {
-                title,
-                message,
-            });
+            if (recipientId === 'ALL') {
+                await api.post('/api/admin/notifications/broadcast', { title, message });
+            } else {
+                await api.post(`/api/admin/users/${recipientId}/notifications`, { title, message });
+            }
             setMessage('');
             window.alert('Pesan admin berhasil dikirim.');
         } finally {
@@ -48,6 +49,7 @@ export default function AdminMessagePanel() {
                     onChange={(event) => setRecipientId(event.target.value)}
                     className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
                 >
+                    <option value="ALL">All users - broadcast</option>
                     {users.map((target) => (
                         <option key={target.userID} value={target.userID}>
                             {target.name} - {target.email}

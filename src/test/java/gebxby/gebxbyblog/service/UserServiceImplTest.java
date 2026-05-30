@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +67,7 @@ class UserServiceImplTest {
         when(userRepository.findByGoogleId("google-2")).thenReturn(Optional.of(existing));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.updateProfile(principal, new ProfileUpdateRequest("New Name", "field officer", "Ready"));
+        User updated = userService.updateProfile(principal, new ProfileUpdateRequest("New Name", "field officer", "Ready", null));
 
         assertEquals("New Name", updated.getName());
         assertEquals("FIELD OFFICER", updated.getDesignation());
@@ -87,7 +89,26 @@ class UserServiceImplTest {
         User suspended = userService.suspendUser(target.getUserID(), Duration.ofHours(2), admin);
 
         assertTrue(suspended.isSuspensionMarked());
+        assertTrue(suspended.isCriminalMarked());
         assertTrue(suspended.getSuspendedUntil().isAfter(LocalDateTime.now()));
+    }
+
+    @Test
+    void moderatorSuspendIsOneHourAndDoesNotMarkCriminal() {
+        User moderator = new User();
+        moderator.setUserID(UUID.randomUUID());
+        moderator.getManualBadges().add(BadgeCode.MODERATOR);
+        User target = new User();
+        target.setUserID(UUID.randomUUID());
+
+        when(userRepository.findById(target.getUserID())).thenReturn(Optional.of(target));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User suspended = userService.moderatorSuspendUser(target.getUserID(), moderator);
+
+        assertTrue(suspended.isSuspensionMarked());
+        assertTrue(suspended.getSuspendedUntil().isBefore(LocalDateTime.now().plusMinutes(61)));
+        assertFalse(suspended.isCriminalMarked());
     }
 
     @Test

@@ -6,6 +6,7 @@ import logo from '../assets/S.T.A.R.S._logo.webp';
 import { getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser, PublicUser } from '../types/forum';
+import BadgeStrip from '../components/BadgeStrip';
 
 export default function OtherProfilePage({ user }: { user: CurrentUser | null }) {
     const { userId } = useParams();
@@ -30,6 +31,52 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
 
     const displayUser = isMyOwnProfile && user ? user : viewedUser;
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(displayUser?.name || 'User')}`;
+    const canModerate = Boolean(user?.badges?.some((badge) => badge.code === 'MODERATOR' || badge.code === 'ADMIN'));
+    const isAdminViewer = user?.role === 'ADMIN';
+
+    const suspendByModerator = async () => {
+        if (!displayUser || displayUser.userID === user?.userID) return;
+        await api.post(`/api/moderation/users/${displayUser.userID}/suspend`);
+        window.alert('Suspend 1 jam berhasil dikirim.');
+    };
+
+    const reportAdmin = async () => {
+        if (!displayUser) return;
+        const message = window.prompt('Tulis laporan untuk admin ini:');
+        if (!message?.trim()) return;
+        await api.post(`/api/moderation/admins/${displayUser.userID}/report`, {
+            title: 'Laporan moderator',
+            message,
+        });
+        window.alert('Laporan terkirim ke notifikasi admin.');
+    };
+
+    const adminAction = async () => {
+        if (!displayUser) return;
+        const action = window.prompt('Admin action: view, suspend, delete, badge, revoke')?.toLowerCase();
+        if (!action || action === 'view') return;
+        if (action === 'suspend') {
+            await api.post(`/api/admin/users/${displayUser.userID}/suspend`, { hours: 24 });
+            window.alert('User disuspend 24 jam.');
+            return;
+        }
+        if (action === 'delete') {
+            if (!window.confirm(`Delete account ${displayUser.name}?`)) return;
+            await api.delete(`/api/admin/users/${displayUser.userID}`);
+            navigate('/');
+            return;
+        }
+        if (action === 'badge' || action === 'revoke') {
+            const badge = window.prompt('Badge code: MODERATOR, WRITERS, MEDIA_TEC, CRIMINAL, SPEED, SMILE, REQUIEM')?.toUpperCase();
+            if (!badge) return;
+            if (action === 'badge') {
+                await api.post(`/api/admin/users/${displayUser.userID}/badges/${badge}`);
+            } else {
+                await api.delete(`/api/admin/users/${displayUser.userID}/badges/${badge}`);
+            }
+            await fetchProfileData(displayUser.userID);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
@@ -47,7 +94,21 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
 
                 <div className="flex flex-col items-start gap-10 lg:flex-row">
                     <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
-                        <div className="relative flex aspect-[1.58/1] w-full origin-top-left scale-95 overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
+                        <div
+                            className="relative flex aspect-[1.58/1] w-full origin-top-left scale-95 overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl"
+                            onContextMenu={(event) => {
+                                if (!canModerate || !displayUser) return;
+                                event.preventDefault();
+                                if (isAdminViewer) {
+                                    void adminAction();
+                                } else if (displayUser.badges?.some((badge) => badge.code === 'ADMIN')) {
+                                    void reportAdmin();
+                                } else {
+                                    void suspendByModerator();
+                                }
+                            }}
+                            title={canModerate ? 'Right click for moderation action' : undefined}
+                        >
                             <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4 text-center">
                                 <img src={logo} alt="STARS" className="mb-2 w-[80%]" />
                                 <h2 className="text-[10px] font-black uppercase leading-tight text-white">SPECIAL TACTICS AND RESCUE SERVICE</h2>
@@ -85,6 +146,9 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        <div className="mt-3">
+                            <BadgeStrip badges={displayUser?.badges} />
                         </div>
 
                         {displayUser?.suspensionMarked && (

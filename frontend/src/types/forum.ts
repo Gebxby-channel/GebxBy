@@ -1,5 +1,25 @@
 export type VoteDirection = 'UP' | 'DOWN' | 'NONE';
 
+export type BadgeCode =
+  | 'ADMIN'
+  | 'MODERATOR'
+  | 'WRITERS'
+  | 'SURVIVOR'
+  | 'MEDIA_TEC'
+  | 'LIGA'
+  | 'CRIMINAL'
+  | 'SPEED'
+  | 'SMILE'
+  | 'REQUIEM';
+
+export interface Badge {
+  code: BadgeCode;
+  label: string;
+  description: string;
+  icon: string;
+  automatic: boolean;
+}
+
 export interface PublicUser {
   userID: string;
   name: string;
@@ -8,6 +28,7 @@ export interface PublicUser {
   moto?: string;
   suspensionMarked?: boolean;
   suspendedUntil?: string;
+  badges?: Badge[];
 }
 
 export interface CurrentUser extends PublicUser {
@@ -49,6 +70,7 @@ export interface CommentItem {
   createdAt?: string;
   updatedAt?: string;
   deleted: boolean;
+  adminHighlighted?: boolean;
   replies: CommentItem[];
 }
 

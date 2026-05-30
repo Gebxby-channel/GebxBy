@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
     private static final String DEFAULT_DESIGNATION = "RECONNAISSANCE OFFICER";
     private static final String MANUAL_SUB_PREFIX = "manual:";
+    private static final int MAX_PROFILE_IMAGE_LENGTH = 350_000;
 
     private final UserRepository userRepository;
     private final Set<String> adminEmails;
@@ -51,6 +53,9 @@ public class UserServiceImpl implements UserService {
     public User updateProfile(OAuth2User principal, ProfileUpdateRequest request) {
         User user = getCurrentUser(principal);
         ensureActive(user);
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload profil wajib diisi");
+        }
         if (StringUtils.hasText(request.name())) {
             user.setName(trimToLength(request.name(), 80));
         }
@@ -59,6 +64,9 @@ public class UserServiceImpl implements UserService {
         }
         if (request.moto() != null) {
             user.setMoto(trimToLength(request.moto(), 160));
+        }
+        if (StringUtils.hasText(request.picture())) {
+            user.setPhoto(validateProfilePicture(request.picture()));
         }
         user.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(user);
@@ -181,6 +189,23 @@ public class UserServiceImpl implements UserService {
         target.setSuspendedUntil(LocalDateTime.now().plus(duration));
         target.setSuspensionCount(target.getSuspensionCount() + 1);
         target.setSuspensionMarked(true);
+        target.setCriminalMarked(true);
+        target.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(target);
+    }
+
+    @Override
+    public User moderatorSuspendUser(UUID userId, User moderator) {
+        if (!isModerator(moderator)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Moderator badge required");
+        }
+        User target = getUserById(userId);
+        if (target.isAdmin() || target.getUserID().equals(moderator.getUserID())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Target tidak bisa disuspend moderator");
+        }
+        target.setSuspendedUntil(LocalDateTime.now().plusHours(1));
+        target.setSuspensionCount(target.getSuspensionCount() + 1);
+        target.setSuspensionMarked(true);
         target.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(target);
     }
@@ -200,6 +225,13 @@ public class UserServiceImpl implements UserService {
     @Override
     public boolean isAdmin(User user) {
         return user != null && user.isAdmin();
+    }
+
+    @Override
+    public boolean isModerator(User user) {
+        return isAdmin(user) || (user != null
+                && user.getManualBadges() != null
+                && user.getManualBadges().contains(BadgeCode.MODERATOR));
     }
 
     @Override
@@ -228,6 +260,22 @@ public class UserServiceImpl implements UserService {
     private String trimToLength(String value, int maxLength) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
+    }
+
+    private String validateProfilePicture(String value) {
+        String picture = value.trim();
+        if (picture.length() > MAX_PROFILE_IMAGE_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Foto profil terlalu besar");
+        }
+        String lower = picture.toLowerCase(Locale.ROOT);
+        boolean dataImage = lower.startsWith("data:image/png;base64,")
+                || lower.startsWith("data:image/jpeg;base64,")
+                || lower.startsWith("data:image/webp;base64,");
+        boolean remoteImage = lower.startsWith("https://");
+        if (!dataImage && !remoteImage) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Format foto profil tidak valid");
+        }
+        return picture;
     }
 
     private String normalizeEmail(String email) {

@@ -16,8 +16,10 @@ public interface UserService {
     User getUserById(UUID userId);
     List<User> getAllUsers(User admin);
     User suspendUser(UUID userId, Duration duration, User admin);
+    User moderatorSuspendUser(UUID userId, User moderator);
     void deleteUser(UUID userId, User admin);
     boolean isAdmin(User user);
+    boolean isModerator(User user);
     void ensureActive(User user);
 }
 

@@ -8,6 +8,7 @@ import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.NotificationRepository;
+import gebxby.gebxbyblog.repository.UserRepository;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
 import org.springframework.data.domain.PageRequest;
@@ -29,10 +30,14 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserService userService;
+    private final UserRepository userRepository;
 
-    public NotificationServiceImpl(NotificationRepository notificationRepository, UserService userService) {
+    public NotificationServiceImpl(NotificationRepository notificationRepository,
+                                   UserService userService,
+                                   UserRepository userRepository) {
         this.notificationRepository = notificationRepository;
         this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -129,6 +134,52 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setActorUserId(admin.getUserID());
         notification.setActorName(admin.getName());
         notification.setActorPhoto(admin.getPhoto());
+        return toResponse(notificationRepository.save(notification));
+    }
+
+    @Override
+    public List<NotificationResponse> sendAdminBroadcast(AdminNotificationRequest request, User admin) {
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        }
+        String title = sanitize(request == null ? null : request.title(), MAX_TITLE_LENGTH);
+        String message = sanitize(request == null ? null : request.message(), MAX_MESSAGE_LENGTH);
+        if (!StringUtils.hasText(message)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pesan broadcast wajib diisi");
+        }
+        return userRepository.findAll().stream()
+                .map(recipient -> {
+                    Notification notification = baseNotification(recipient.getUserID(), NotificationType.ADMIN_MESSAGE);
+                    notification.setTitle(StringUtils.hasText(title) ? title : "Broadcast admin");
+                    notification.setMessage(message);
+                    notification.setActorUserId(admin.getUserID());
+                    notification.setActorName(admin.getName());
+                    notification.setActorPhoto(admin.getPhoto());
+                    return toResponse(notificationRepository.save(notification));
+                })
+                .toList();
+    }
+
+    @Override
+    public NotificationResponse sendModeratorReport(UUID adminUserId, AdminNotificationRequest request, User moderator) {
+        if (!userService.isModerator(moderator)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Moderator badge required");
+        }
+        User admin = userService.getUserById(adminUserId);
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target laporan harus admin");
+        }
+        String message = sanitize(request == null ? null : request.message(), MAX_MESSAGE_LENGTH);
+        if (!StringUtils.hasText(message)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Isi laporan wajib diisi");
+        }
+
+        Notification notification = baseNotification(admin.getUserID(), NotificationType.ADMIN_MESSAGE);
+        notification.setTitle("Laporan moderator");
+        notification.setMessage(message);
+        notification.setActorUserId(moderator.getUserID());
+        notification.setActorName(moderator.getName());
+        notification.setActorPhoto(moderator.getPhoto());
         return toResponse(notificationRepository.save(notification));
     }
 

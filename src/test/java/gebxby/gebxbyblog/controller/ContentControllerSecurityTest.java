@@ -81,6 +81,7 @@ class ContentControllerSecurityTest {
                 LocalDateTime.now(),
                 LocalDateTime.now(),
                 false,
+                false,
                 List.of()
         ));
 

@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -35,6 +37,8 @@ public class User {
     private LocalDateTime suspendedUntil;
     private int suspensionCount;
     private boolean suspensionMarked;
+    private boolean criminalMarked;
+    private Set<BadgeCode> manualBadges = new LinkedHashSet<>();
 
     public boolean isAdmin() {
         return "ADMIN".equalsIgnoreCase(role);

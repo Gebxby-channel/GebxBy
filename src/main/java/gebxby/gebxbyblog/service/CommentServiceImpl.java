@@ -70,6 +70,7 @@ public class CommentServiceImpl implements CommentService {
         comment.setParentId(parentId);
         comment.setUser(author);
         comment.setBody(body);
+        comment.setAdminHighlighted(userService.isAdmin(author));
         comment.setCreatedAt(now);
         comment.setUpdatedAt(now);
 
@@ -128,6 +129,7 @@ public class CommentServiceImpl implements CommentService {
                 comment.getCreatedAt(),
                 comment.getUpdatedAt(),
                 comment.isDeleted(),
+                comment.isAdminHighlighted(),
                 sortedReplies
         );
     }

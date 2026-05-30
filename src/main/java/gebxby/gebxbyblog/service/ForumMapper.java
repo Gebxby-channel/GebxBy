@@ -11,6 +11,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ForumMapper {
+    private final BadgeService badgeService;
+
+    public ForumMapper(BadgeService badgeService) {
+        this.badgeService = badgeService;
+    }
+
     public PublicUserResponse toPublicUser(User user) {
         if (user == null) {
             return null;
@@ -22,7 +28,8 @@ public class ForumMapper {
                 user.getDesignation(),
                 user.getMoto(),
                 user.isSuspensionMarked(),
-                user.getSuspendedUntil()
+                user.getSuspendedUntil(),
+                badgeService.effectiveBadges(user)
         );
     }
 
@@ -36,7 +43,8 @@ public class ForumMapper {
                 user.getMoto(),
                 user.getRole(),
                 user.isSuspensionMarked(),
-                user.getSuspendedUntil()
+                user.getSuspendedUntil(),
+                badgeService.effectiveBadges(user)
         );
     }
 

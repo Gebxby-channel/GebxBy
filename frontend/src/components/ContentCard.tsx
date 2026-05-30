@@ -4,6 +4,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import { getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
+import BadgeStrip from './BadgeStrip';
 
 interface ContentCardProps {
     art: ContentItem;
@@ -73,6 +74,9 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                             {art.kategori || 'UNASSIGNED'}
                         </span>
                     </div>
+                </div>
+                <div className="mb-3">
+                    <BadgeStrip badges={art.user?.badges} compact />
                 </div>
 
                 <h2

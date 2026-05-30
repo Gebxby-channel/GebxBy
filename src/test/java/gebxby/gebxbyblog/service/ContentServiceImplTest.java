@@ -46,6 +46,8 @@ class ContentServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private UserService userService;
+    @Mock
+    private BadgeService badgeService;
 
     private ContentServiceImpl contentService;
     private User author;
@@ -59,7 +61,7 @@ class ContentServiceImplTest {
                 commentRepository,
                 userRepository,
                 userService,
-                new ForumMapper(),
+                new ForumMapper(badgeService),
                 5_242_880
         );
         author = new User();

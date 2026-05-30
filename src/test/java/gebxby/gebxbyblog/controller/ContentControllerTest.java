@@ -88,10 +88,11 @@ class ContentControllerTest {
                 commentId,
                 contentId,
                 null,
-                new PublicUserResponse(UUID.randomUUID(), "User", null, null, null, false, null),
+                new PublicUserResponse(UUID.randomUUID(), "User", null, null, null, false, null, List.of()),
                 "Hello",
                 LocalDateTime.now(),
                 LocalDateTime.now(),
+                false,
                 false,
                 List.of()
         )));
@@ -108,7 +109,7 @@ class ContentControllerTest {
                 "Title",
                 null,
                 "<p>Body</p>",
-                new PublicUserResponse(userId, "Author", null, "Officer", null, false, null),
+                new PublicUserResponse(userId, "Author", null, "Officer", null, false, null, List.of()),
                 "General",
                 LocalDateTime.now(),
                 LocalDateTime.now(),

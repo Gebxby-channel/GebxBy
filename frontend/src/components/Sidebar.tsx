@@ -19,7 +19,7 @@ export default function Sidebar({ active, user }: { active: string; user: Curren
     ];
 
     return (
-        <div className="fixed left-0 top-0 h-screen w-20 flex flex-col items-center py-6 border-r border-[#222] bg-[#0a0a0a] z-[60] shadow-[10px_0_30px_rgba(0,0,0,0.5)]">
+        <div className="fixed left-0 top-0 z-[60] hidden h-screen w-20 flex-col items-center border-r border-[#222] bg-[#0a0a0a] py-6 shadow-[10px_0_30px_rgba(0,0,0,0.5)] md:flex xl:hidden">
 
             {/* Logo Section */}
             <div

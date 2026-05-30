@@ -295,7 +295,7 @@ function CommentNode({
 
     return (
         <div className="border-l border-[#333] pl-4" style={{ marginLeft: depth > 0 ? 12 : 0 }}>
-            <div className="bg-[#111] p-4">
+            <div className={`p-4 ${comment.adminHighlighted ? 'border border-[#e60000] bg-[#190707]' : 'bg-[#111]'}`}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                         <div className="h-7 w-7 overflow-hidden border border-[#333] bg-[#222]">
@@ -319,6 +319,11 @@ function CommentNode({
                         </button>
                     )}
                 </div>
+                {comment.adminHighlighted && !comment.deleted && (
+                    <span className="mb-2 inline-flex border border-[#e60000] px-2 py-0.5 font-mono text-[9px] font-black uppercase text-[#e60000]">
+                        Admin Highlight
+                    </span>
+                )}
                 <p className={`whitespace-pre-wrap font-sans text-sm leading-6 ${comment.deleted ? 'text-[#555]' : 'text-[#ccc]'}`}>
                     {comment.body}
                 </p>

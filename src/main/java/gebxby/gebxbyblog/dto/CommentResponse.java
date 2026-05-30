@@ -13,6 +13,7 @@ public record CommentResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         boolean deleted,
+        boolean adminHighlighted,
         List<CommentResponse> replies
 ) {
 }

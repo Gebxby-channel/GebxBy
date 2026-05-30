@@ -37,6 +37,8 @@ class CommentServiceImplTest {
     private UserService userService;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private BadgeService badgeService;
 
     private CommentServiceImpl commentService;
     private User author;
@@ -45,7 +47,7 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(), notificationService);
+        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(badgeService), notificationService);
 
         author = new User();
         author.setUserID(UUID.randomUUID());
@@ -96,6 +98,25 @@ class CommentServiceImplTest {
 
         assertEquals(parent.getId(), response.parentId());
     }
+
+    @Test
+    void adminCommentIsHighlighted() {
+        User admin = new User();
+        admin.setUserID(UUID.randomUUID());
+        admin.setRole("ADMIN");
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CommentResponse response = commentService.addComment(
+                content.getIdContent(),
+                new CommentRequest("Admin note", null),
+                admin
+        );
+
+        assertTrue(response.adminHighlighted());
+    }
+
 
     @Test
     void deleteCommentAllowsOwnerAndSoftDeletes() {

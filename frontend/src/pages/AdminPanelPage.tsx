@@ -1,21 +1,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Ban, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import api from '../lib/api';
-import type { CurrentUser } from '../types/forum';
+import type { BadgeCode, ContentItem, CurrentUser } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
+import BadgeStrip from '../components/BadgeStrip';
+
+const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
 export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [users, setUsers] = useState<CurrentUser[]>([]);
+    const [contents, setContents] = useState<ContentItem[]>([]);
     const [suspendHours, setSuspendHours] = useState(24);
+    const [selectedBadge, setSelectedBadge] = useState<BadgeCode>('WRITERS');
     const [loading, setLoading] = useState(true);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get<CurrentUser[]>('/api/admin/users');
-            setUsers(Array.isArray(response.data) ? response.data : []);
+            const [userResponse, contentResponse] = await Promise.all([
+                api.get<CurrentUser[]>('/api/admin/users'),
+                api.get<ContentItem[]>('/content/all-content'),
+            ]);
+            setUsers(Array.isArray(userResponse.data) ? userResponse.data : []);
+            setContents(Array.isArray(contentResponse.data) ? contentResponse.data : []);
         } catch {
             setUsers([]);
+            setContents([]);
         } finally {
             setLoading(false);
         }
@@ -38,6 +48,29 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         await fetchUsers();
     };
 
+    const grantBadge = async (target: CurrentUser) => {
+        await api.post(`/api/admin/users/${target.userID}/badges/${selectedBadge}`);
+        await fetchUsers();
+    };
+
+    const revokeBadge = async (target: CurrentUser) => {
+        await api.delete(`/api/admin/users/${target.userID}/badges/${selectedBadge}`);
+        await fetchUsers();
+    };
+
+    const deleteContent = async (content: ContentItem) => {
+        if (!window.confirm(`Delete writing "${content.head}"?`)) return;
+        await api.delete(`/api/admin/contents/${content.idContent}`);
+        await fetchUsers();
+    };
+
+    const commentAsAdmin = async (content: ContentItem) => {
+        const body = window.prompt(`Komentar highlight merah untuk "${content.head}":`);
+        if (!body?.trim()) return;
+        await api.post(`/content/${content.idContent}/comments`, { body });
+        window.alert('Komentar admin highlight merah berhasil dikirim.');
+    };
+
     return (
         <div className="w-full">
             <div className="mb-10 border-l-4 border-[#e60000] pl-6">
@@ -58,6 +91,16 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                         <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">Temporary suspend and account removal</p>
                     </div>
                     <div className="flex items-center gap-2">
+                        <select
+                            value={selectedBadge}
+                            onChange={(event) => setSelectedBadge(event.target.value as BadgeCode)}
+                            className="h-9 border border-[#333] bg-[#101010] px-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                            title="Badge target"
+                        >
+                            {assignableBadges.map((badge) => (
+                                <option key={badge} value={badge}>{badge}</option>
+                            ))}
+                        </select>
                         <input
                             type="number"
                             min={1}
@@ -105,9 +148,26 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                         <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#444]">
                                             {target.suspendedUntil ? `Suspended until ${formatDate(target.suspendedUntil)}` : 'Active'}
                                         </p>
+                                        <div className="mt-2">
+                                            <BadgeStrip badges={target.badges} compact />
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void grantBadge(target)}
+                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#22c55e] hover:text-[#22c55e]"
+                                        >
+                                            Badge+
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void revokeBadge(target)}
+                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]"
+                                        >
+                                            Badge-
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => void suspendUser(target)}
@@ -132,6 +192,40 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                         })}
                     </div>
                 )}
+            </section>
+
+            <section className="mt-8 border border-[#2a2a2a] bg-[#151515] p-5">
+                <div className="mb-5 border-b border-[#2a2a2a] pb-4">
+                    <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Writing Control</h2>
+                    <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">Delete user writing or publish red-highlight admin comment</p>
+                </div>
+                <div className="grid gap-3">
+                    {contents.map((content) => (
+                        <div key={content.idContent} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
+                            <div className="min-w-0">
+                                <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{content.head}</p>
+                                <p className="m-0 mt-1 font-mono text-[10px] text-[#666]">{content.user?.name || 'Unknown'} // {content.kategori}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => void commentAsAdmin(content)}
+                                    className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                >
+                                    Red Comment
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void deleteContent(content)}
+                                    className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                >
+                                    <Trash2 size={13} />
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </section>
         </div>
     );

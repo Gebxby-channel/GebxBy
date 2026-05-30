@@ -6,7 +6,7 @@ import type { CurrentUser } from '../types/forum';
 
 export default function Login({ user, setUser }: { user: CurrentUser | null; setUser: (user: CurrentUser | null) => void }) {
     const navigate = useNavigate();
-    const [email, setEmail] = useState('Jill_Valentine74@admin.Code.X.Avernico.com');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

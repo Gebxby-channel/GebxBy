@@ -16,5 +16,7 @@ public interface NotificationService {
     void markAllRead(User user);
     void notifyCommentOnContent(Content content, Comment comment);
     NotificationResponse sendAdminMessage(UUID recipientUserId, AdminNotificationRequest request, User admin);
+    List<NotificationResponse> sendAdminBroadcast(AdminNotificationRequest request, User admin);
+    NotificationResponse sendModeratorReport(UUID adminUserId, AdminNotificationRequest request, User moderator);
     void deleteExpired();
 }

@@ -8,6 +8,7 @@ import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.NotificationRepository;
+import gebxby.gebxbyblog.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +40,8 @@ class NotificationServiceImplTest {
     private NotificationRepository notificationRepository;
     @Mock
     private UserService userService;
+    @Mock
+    private UserRepository userRepository;
 
     private NotificationServiceImpl notificationService;
     private User owner;
@@ -45,7 +49,7 @@ class NotificationServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationServiceImpl(notificationRepository, userService);
+        notificationService = new NotificationServiceImpl(notificationRepository, userService, userRepository);
         owner = new User();
         owner.setUserID(UUID.randomUUID());
         owner.setName("Owner");
@@ -107,6 +111,42 @@ class NotificationServiceImplTest {
         assertThrows(ResponseStatusException.class, () ->
                 notificationService.sendAdminMessage(owner.getUserID(), new AdminNotificationRequest("x", "y"), commenter)
         );
+    }
+
+    @Test
+    void sendAdminBroadcastCreatesNotificationForEveryUser() {
+        User admin = new User();
+        admin.setUserID(UUID.randomUUID());
+        admin.setRole("ADMIN");
+        admin.setName("Admin");
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(userRepository.findAll()).thenReturn(List.of(owner, commenter));
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<NotificationResponse> response = notificationService.sendAdminBroadcast(new AdminNotificationRequest("All", "Stay safe"), admin);
+
+        assertEquals(2, response.size());
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+    }
+
+    @Test
+    void moderatorReportRequiresModeratorAndAdminTarget() {
+        User admin = new User();
+        admin.setUserID(UUID.randomUUID());
+        admin.setRole("ADMIN");
+        when(userService.isModerator(commenter)).thenReturn(true);
+        when(userService.getUserById(admin.getUserID())).thenReturn(admin);
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        NotificationResponse response = notificationService.sendModeratorReport(
+                admin.getUserID(),
+                new AdminNotificationRequest(null, "Ada laporan"),
+                commenter
+        );
+
+        assertEquals("Laporan moderator", response.title());
+        assertEquals(commenter.getUserID(), response.actorUserId());
     }
 
     @Test

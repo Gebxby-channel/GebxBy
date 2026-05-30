@@ -46,11 +46,11 @@ function MainLayout({
             <Sidebar active={getActivePage()} user={user} />
 
             <div className="flex-grow flex flex-col min-w-0">
-                <div className="pl-20">
+                <div className="block md:hidden xl:block">
                     <Navbar user={user} onLogout={onLogout} />
                 </div>
 
-                <main className="pl-20 w-full overflow-x-hidden">
+                <main className="w-full overflow-x-hidden md:pl-20 xl:pl-0">
                     <div className="max-w-5xl mx-auto p-6 md:p-12">
                         {children}
                     </div>

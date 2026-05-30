@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
 import api from '../lib/api';
@@ -6,6 +7,7 @@ import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
+import BadgeStrip from '../components/BadgeStrip';
 
 interface EditForm {
     head: string;
@@ -18,7 +20,13 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+    const [name, setName] = useState(user.name || '');
     const [designation, setDesignation] = useState(user.designation || 'RECONNAISSANCE OFFICER');
+    const [picture, setPicture] = useState(user.picture || '');
+    const [cropSource, setCropSource] = useState('');
+    const [cropZoom, setCropZoom] = useState(1);
+    const [cropX, setCropX] = useState(0);
+    const [cropY, setCropY] = useState(0);
 
     const navigate = useNavigate();
 
@@ -39,8 +47,36 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
         void fetchMyContents();
     }, [fetchMyContents]);
 
-    const handleSaveDesignation = async () => {
-        await api.put('/api/user/update', { designation });
+    const handleSaveProfile = async (pictureOverride?: string) => {
+        const response = await api.put<CurrentUser>('/api/user/update', {
+            name,
+            designation,
+            picture: pictureOverride,
+        });
+        setName(response.data.name || name);
+        setDesignation(response.data.designation || designation);
+        setPicture(response.data.picture || pictureOverride || picture);
+    };
+
+    const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropSource(String(reader.result || ''));
+            setCropZoom(1);
+            setCropX(0);
+            setCropY(0);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const applyCroppedPhoto = async () => {
+        if (!cropSource) return;
+        const cropped = await cropImage(cropSource, cropZoom, cropX, cropY);
+        setPicture(cropped);
+        setCropSource('');
+        await handleSaveProfile(cropped);
     };
 
     const handleUpdate = async (id: string) => {
@@ -81,12 +117,21 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                                 <h1 className="text-3xl font-black leading-none tracking-normal">POLICE</h1>
                                 <p className="text-[11px] font-bold">CENTRAL ARCHIVE DEP.</p>
                                 <div className="mt-2 space-y-4">
-                                    <Field label="Officer Name" value={user.name} />
+                                    <div className="relative border-b border-[#1a3a63] pb-0.5">
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            onBlur={() => void handleSaveProfile()}
+                                            onChange={(event) => setName(event.target.value)}
+                                            className="w-full bg-transparent text-sm font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
+                                        />
+                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Officer Name</span>
+                                    </div>
                                     <div className="relative border-b border-[#1a3a63] pb-0.5">
                                         <input
                                             type="text"
                                             value={designation}
-                                            onBlur={() => void handleSaveDesignation()}
+                                            onBlur={() => void handleSaveProfile()}
                                             onChange={(event) => setDesignation(event.target.value.toUpperCase())}
                                             className="w-full bg-transparent text-xs font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
                                         />
@@ -95,7 +140,10 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                                 </div>
                                 <div className="mt-5 flex items-end justify-between">
                                     <div className="h-20 w-16 border border-[#1a3a63] bg-gray-100 p-0.5 shadow-md">
-                                        <img src={user.picture} alt="Officer" className="h-full w-full object-cover grayscale contrast-125" referrerPolicy="no-referrer" />
+                                        <label className="block h-full w-full cursor-pointer" title="Change profile photo">
+                                            <img src={picture || user.picture} alt="Officer" className="h-full w-full object-cover grayscale contrast-125" referrerPolicy="no-referrer" />
+                                            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
+                                        </label>
                                     </div>
                                     <div className="ml-3 flex flex-1 flex-col items-end">
                                         <div className="w-full max-w-[100px] text-center">
@@ -106,6 +154,34 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                                 </div>
                             </div>
                         </div>
+                        <div className="mt-3">
+                            <BadgeStrip badges={user.badges} />
+                        </div>
+
+                        {cropSource && (
+                            <div className="mt-4 border border-[#2a2a2a] bg-[#151515] p-4">
+                                <div className="mb-3 aspect-square w-full max-w-[260px] overflow-hidden border border-[#333] bg-[#090909]">
+                                    <img
+                                        src={cropSource}
+                                        alt="Crop preview"
+                                        className="h-full w-full object-cover"
+                                        style={{
+                                            transform: `scale(${cropZoom}) translate(${cropX}px, ${cropY}px)`,
+                                        }}
+                                    />
+                                </div>
+                                <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Zoom</label>
+                                <input className="mb-3 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} />
+                                <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Horizontal</label>
+                                <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
+                                <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
+                                <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">Apply Photo</button>
+                                    <button type="button" onClick={() => setCropSource('')} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel</button>
+                                </div>
+                            </div>
+                        )}
 
                         {user.suspensionMarked && (
                             <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
@@ -169,15 +245,6 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
     );
 }
 
-function Field({ label, value }: { label: string; value?: string }) {
-    return (
-        <div className="relative border-b border-[#1a3a63] pb-0.5">
-            <span className="block truncate text-sm font-black uppercase">{value}</span>
-            <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">{label}</span>
-        </div>
-    );
-}
-
 function ArchiveItem({
     item,
     editing,
@@ -231,6 +298,34 @@ function ArchiveItem({
             )}
         </div>
     );
+}
+
+function cropImage(source: string, zoom: number, offsetX: number, offsetY: number) {
+    return new Promise<string>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+            const size = 512;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d');
+            if (!context) {
+                reject(new Error('Canvas unavailable'));
+                return;
+            }
+            context.fillStyle = '#111';
+            context.fillRect(0, 0, size, size);
+            const scale = Math.max(size / image.width, size / image.height) * zoom;
+            const drawWidth = image.width * scale;
+            const drawHeight = image.height * scale;
+            const x = (size - drawWidth) / 2 + offsetX * 2;
+            const y = (size - drawHeight) / 2 + offsetY * 2;
+            context.drawImage(image, x, y, drawWidth, drawHeight);
+            resolve(canvas.toDataURL('image/webp', 0.86));
+        };
+        image.onerror = reject;
+        image.src = source;
+    });
 }
 
 function formatDate(dateString?: string) {

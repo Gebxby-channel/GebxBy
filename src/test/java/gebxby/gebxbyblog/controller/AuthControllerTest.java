@@ -13,6 +13,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -51,7 +52,8 @@ class AuthControllerTest {
                 null,
                 "ADMIN",
                 false,
-                null
+                null,
+                List.of()
         ));
 
         mockMvc.perform(post("/api/auth/email-login")
