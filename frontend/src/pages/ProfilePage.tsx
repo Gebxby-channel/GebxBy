@@ -15,7 +15,7 @@ interface EditForm {
     kategori: string;
 }
 
-export default function ProfilePage({ user }: { user: CurrentUser }) {
+export default function ProfilePage({ user, setUser }: { user: CurrentUser; setUser: (user: CurrentUser) => void }) {
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
@@ -27,8 +27,12 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
     const [cropZoom, setCropZoom] = useState(1);
     const [cropX, setCropX] = useState(0);
     const [cropY, setCropY] = useState(0);
+    const [savingProfile, setSavingProfile] = useState(false);
 
     const navigate = useNavigate();
+    const profileDirty = name !== (user.name || '')
+        || designation !== (user.designation || 'RECONNAISSANCE OFFICER')
+        || picture !== (user.picture || '');
 
     const fetchMyContents = useCallback(async () => {
         const res = await api.get<ContentItem[]>('/content/all-content');
@@ -47,15 +51,35 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
         void fetchMyContents();
     }, [fetchMyContents]);
 
-    const handleSaveProfile = async (pictureOverride?: string) => {
-        const response = await api.put<CurrentUser>('/api/user/update', {
-            name,
-            designation,
-            picture: pictureOverride,
-        });
-        setName(response.data.name || name);
-        setDesignation(response.data.designation || designation);
-        setPicture(response.data.picture || pictureOverride || picture);
+    useEffect(() => {
+        setName(user.name || '');
+        setDesignation(user.designation || 'RECONNAISSANCE OFFICER');
+        setPicture(user.picture || '');
+        setCropSource('');
+    }, [user]);
+
+    const handleSaveProfile = async () => {
+        setSavingProfile(true);
+        try {
+            const response = await api.put<CurrentUser>('/api/user/update', {
+                name,
+                designation,
+                picture,
+            });
+            setUser(response.data);
+            setName(response.data.name || name);
+            setDesignation(response.data.designation || designation);
+            setPicture(response.data.picture || picture);
+        } finally {
+            setSavingProfile(false);
+        }
+    };
+
+    const handleCancelProfile = () => {
+        setName(user.name || '');
+        setDesignation(user.designation || 'RECONNAISSANCE OFFICER');
+        setPicture(user.picture || '');
+        setCropSource('');
     };
 
     const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +100,6 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
         const cropped = await cropImage(cropSource, cropZoom, cropX, cropY);
         setPicture(cropped);
         setCropSource('');
-        await handleSaveProfile(cropped);
     };
 
     const handleUpdate = async (id: string) => {
@@ -121,7 +144,6 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                                         <input
                                             type="text"
                                             value={name}
-                                            onBlur={() => void handleSaveProfile()}
                                             onChange={(event) => setName(event.target.value)}
                                             className="w-full bg-transparent text-sm font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
                                         />
@@ -131,7 +153,6 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                                         <input
                                             type="text"
                                             value={designation}
-                                            onBlur={() => void handleSaveProfile()}
                                             onChange={(event) => setDesignation(event.target.value.toUpperCase())}
                                             className="w-full bg-transparent text-xs font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
                                         />
@@ -156,6 +177,25 @@ export default function ProfilePage({ user }: { user: CurrentUser }) {
                         </div>
                         <div className="mt-3">
                             <BadgeStrip badges={user.badges} />
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => void handleSaveProfile()}
+                                disabled={!profileDirty || savingProfile}
+                                className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
+                            >
+                                {savingProfile ? 'Saving' : 'Save Profile'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCancelProfile}
+                                disabled={!profileDirty || savingProfile}
+                                className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Cancel
+                            </button>
                         </div>
 
                         {cropSource && (

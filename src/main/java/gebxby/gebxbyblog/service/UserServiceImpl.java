@@ -2,7 +2,11 @@ package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
+import gebxby.gebxbyblog.model.Comment;
+import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.repository.CommentRepository;
+import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -17,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -28,17 +33,23 @@ public class UserServiceImpl implements UserService {
     private static final int MAX_PROFILE_IMAGE_LENGTH = 350_000;
 
     private final UserRepository userRepository;
+    private final ContentRepository contentRepository;
+    private final CommentRepository commentRepository;
     private final Set<String> adminEmails;
     private final String adminLoginEmail;
     private final String adminLoginPasswordHash;
     private final PasswordEncoder passwordEncoder;
 
     public UserServiceImpl(UserRepository userRepository,
+                           ContentRepository contentRepository,
+                           CommentRepository commentRepository,
                            @Value("${app.admin-emails:}") String adminEmails,
                            @Value("${app.admin-login-email:}") String adminLoginEmail,
                            @Value("${app.admin-login-password-hash:}") String adminLoginPasswordHash,
                            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.contentRepository = contentRepository;
+        this.commentRepository = commentRepository;
         this.adminEmails = Arrays.stream(adminEmails.split(","))
                 .map(String::trim)
                 .filter(StringUtils::hasText)
@@ -69,7 +80,7 @@ public class UserServiceImpl implements UserService {
             user.setPhoto(validateProfilePicture(request.picture()));
         }
         user.setUpdatedAt(LocalDateTime.now());
-        return userRepository.save(user);
+        return saveUserAndRefreshEmbeddedProfiles(user);
     }
 
     @Override
@@ -92,14 +103,19 @@ public class UserServiceImpl implements UserService {
                 .orElseGet(User::new);
 
         LocalDateTime now = LocalDateTime.now();
-        if (user.getUserID() == null) {
+        boolean newUser = user.getUserID() == null;
+        if (newUser) {
             user.setUserID(UUID.randomUUID());
             user.setCreatedAt(now);
         }
         user.setGoogleId(googleId);
         user.setEmail(email);
-        user.setName(StringUtils.hasText(name) ? trimToLength(name, 80) : email);
-        user.setPhoto(picture);
+        if (!StringUtils.hasText(user.getName())) {
+            user.setName(StringUtils.hasText(name) ? trimToLength(name, 80) : email);
+        }
+        if (!StringUtils.hasText(user.getPhoto()) && StringUtils.hasText(picture)) {
+            user.setPhoto(picture);
+        }
         if (!StringUtils.hasText(user.getDesignation())) {
             user.setDesignation(DEFAULT_DESIGNATION);
         }
@@ -161,7 +177,7 @@ public class UserServiceImpl implements UserService {
                 : DEFAULT_DESIGNATION);
         existing.setRole(resolveRole(existing.getEmail(), existing.getRole()));
         existing.setUpdatedAt(now);
-        return userRepository.save(existing);
+        return saveUserAndRefreshEmbeddedProfiles(existing);
     }
 
     @Override
@@ -280,5 +296,25 @@ public class UserServiceImpl implements UserService {
 
     private String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private User saveUserAndRefreshEmbeddedProfiles(User user) {
+        User saved = userRepository.save(user);
+        if (saved.getUserID() == null) {
+            return saved;
+        }
+
+        List<Content> contents = Optional.ofNullable(contentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
+        contents.forEach(content -> content.setUser(saved));
+        if (!contents.isEmpty()) {
+            contentRepository.saveAll(contents);
+        }
+
+        List<Comment> comments = Optional.ofNullable(commentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
+        comments.forEach(comment -> comment.setUser(saved));
+        if (!comments.isEmpty()) {
+            commentRepository.saveAll(comments);
+        }
+        return saved;
     }
 }

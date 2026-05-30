@@ -2,7 +2,11 @@ package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
+import gebxby.gebxbyblog.model.Comment;
+import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.repository.CommentRepository;
+import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,12 +31,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ContentRepository contentRepository;
+    @Mock
+    private CommentRepository commentRepository;
 
     private UserServiceImpl userService;
     private PasswordEncoder passwordEncoder;
@@ -39,7 +49,15 @@ class UserServiceImplTest {
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
-        userService = new UserServiceImpl(userRepository, "admin@example.com", "admin@example.com", passwordEncoder.encode("secret"), passwordEncoder);
+        userService = new UserServiceImpl(
+                userRepository,
+                contentRepository,
+                commentRepository,
+                "admin@example.com",
+                "admin@example.com",
+                passwordEncoder.encode("secret"),
+                passwordEncoder
+        );
     }
 
     @Test
@@ -72,6 +90,48 @@ class UserServiceImplTest {
         assertEquals("New Name", updated.getName());
         assertEquals("FIELD OFFICER", updated.getDesignation());
         assertEquals("Ready", updated.getMoto());
+    }
+
+    @Test
+    void processUserLoginDoesNotOverwriteCustomizedProfileFields() {
+        OAuth2User principal = principal("google-3", "user@example.com", "Google Name", "https://google/photo.png");
+        User existing = new User();
+        existing.setUserID(UUID.randomUUID());
+        existing.setGoogleId("google-3");
+        existing.setEmail("user@example.com");
+        existing.setName("Custom Name");
+        existing.setPhoto("data:image/webp;base64,custom");
+
+        when(userRepository.findByGoogleId("google-3")).thenReturn(Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User updated = userService.processUserLogin(principal);
+
+        assertEquals("Custom Name", updated.getName());
+        assertEquals("data:image/webp;base64,custom", updated.getPhoto());
+    }
+
+    @Test
+    void updateProfileRefreshesEmbeddedContentAndCommentUsers() {
+        OAuth2User principal = principal("google-4", "user@example.com", "User", "photo.png");
+        User existing = new User();
+        existing.setUserID(UUID.randomUUID());
+        existing.setGoogleId("google-4");
+        existing.setEmail("user@example.com");
+        Content content = new Content();
+        Comment comment = new Comment();
+
+        when(userRepository.findByGoogleId("google-4")).thenReturn(Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(contentRepository.findByAuthorId(existing.getUserID())).thenReturn(List.of(content));
+        when(commentRepository.findByAuthorId(existing.getUserID())).thenReturn(List.of(comment));
+
+        User updated = userService.updateProfile(principal, new ProfileUpdateRequest("Persisted", "archivist", null, null));
+
+        assertEquals("Persisted", content.getUser().getName());
+        assertEquals(updated.getUserID(), comment.getUser().getUserID());
+        verify(contentRepository).saveAll(List.of(content));
+        verify(commentRepository).saveAll(List.of(comment));
     }
 
     @Test

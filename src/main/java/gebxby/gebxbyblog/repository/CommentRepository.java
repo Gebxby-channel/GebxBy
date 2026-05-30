@@ -2,6 +2,7 @@ package gebxby.gebxbyblog.repository;
 
 import gebxby.gebxbyblog.model.Comment;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,4 +16,7 @@ public interface CommentRepository extends MongoRepository<Comment, UUID> {
     long countByContentIdAndDeletedFalse(UUID contentId);
 
     void deleteByContentId(UUID contentId);
+
+    @Query("{ 'user.userID': ?0 }")
+    List<Comment> findByAuthorId(UUID userId);
 }

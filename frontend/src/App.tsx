@@ -95,7 +95,7 @@ export default function App() {
                         <Routes>
                             <Route path="/" element={<HomePage user={user} />} />
                             <Route path="/category" element={<CategoryPage user={user} />} />
-                            <Route path="/profile" element={user ? <ProfilePage user={user} /> : <GuestAccessPage title="Biodata Locked" />} />
+                            <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
                             <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
                             <Route path="/analytics" element={user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
                             <Route path="/control-room" element={user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
