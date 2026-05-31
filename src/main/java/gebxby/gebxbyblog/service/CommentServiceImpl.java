@@ -29,17 +29,20 @@ public class CommentServiceImpl implements CommentService {
     private final UserService userService;
     private final ForumMapper mapper;
     private final NotificationService notificationService;
+    private final ActivityLogService activityLogService;
 
     public CommentServiceImpl(CommentRepository commentRepository,
                               ContentRepository contentRepository,
                               UserService userService,
                               ForumMapper mapper,
-                              NotificationService notificationService) {
+                              NotificationService notificationService,
+                              ActivityLogService activityLogService) {
         this.commentRepository = commentRepository;
         this.contentRepository = contentRepository;
         this.userService = userService;
         this.mapper = mapper;
         this.notificationService = notificationService;
+        this.activityLogService = activityLogService;
     }
 
     @Override
@@ -94,6 +97,7 @@ public class CommentServiceImpl implements CommentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Komentar hanya bisa dihapus pemilik atau admin");
         }
         if (!comment.isDeleted()) {
+            activityLogService.recordCommentDelete(actor, comment);
             comment.setDeleted(true);
             comment.setDeletedByUserId(actor.getUserID());
             comment.setDeletedByAdmin(!owner);

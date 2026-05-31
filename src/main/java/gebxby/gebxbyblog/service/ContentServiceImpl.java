@@ -69,6 +69,7 @@ public class ContentServiceImpl implements ContentService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final ForumMapper mapper;
+    private final ActivityLogService activityLogService;
     private final long maxUploadBytes;
 
     public ContentServiceImpl(ContentRepository contentRepository,
@@ -77,6 +78,7 @@ public class ContentServiceImpl implements ContentService {
                               UserRepository userRepository,
                               UserService userService,
                               ForumMapper mapper,
+                              ActivityLogService activityLogService,
                               @Value("${app.max-upload-bytes:5242880}") long maxUploadBytes) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
@@ -84,6 +86,7 @@ public class ContentServiceImpl implements ContentService {
         this.userRepository = userRepository;
         this.userService = userService;
         this.mapper = mapper;
+        this.activityLogService = activityLogService;
         this.maxUploadBytes = maxUploadBytes;
     }
 
@@ -97,7 +100,9 @@ public class ContentServiceImpl implements ContentService {
         content.setUser(author);
         content.setCreatedAt(now);
         content.setUpdatedAt(now);
-        return mapper.toContentResponse(contentRepository.save(content), VoteDirection.NONE);
+        Content saved = contentRepository.save(content);
+        activityLogService.recordPublication(saved, author);
+        return mapper.toContentResponse(saved, VoteDirection.NONE);
     }
 
     @Override
@@ -159,6 +164,7 @@ public class ContentServiceImpl implements ContentService {
         userService.ensureActive(actor);
         Content content = getContentOrThrow(id);
         requireOwnerOrAdmin(content, actor);
+        activityLogService.recordContentDelete(actor, content);
         commentRepository.deleteByContentId(id);
         voteRepository.deleteByContentId(id);
         contentRepository.deleteById(id);

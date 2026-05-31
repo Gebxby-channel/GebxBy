@@ -101,6 +101,7 @@ class NotificationControllerTest {
                 UUID.randomUUID(),
                 "Post",
                 UUID.randomUUID(),
+                UUID.randomUUID(),
                 false,
                 LocalDateTime.now(),
                 LocalDateTime.now().plusDays(7)

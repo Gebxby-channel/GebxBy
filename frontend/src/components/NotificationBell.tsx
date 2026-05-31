@@ -72,6 +72,11 @@ export default function NotificationBell() {
             setUnreadCount((count) => Math.max(0, count - 1));
             setItems((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item));
         }
+        if (notification.type === 'ADMIN_MESSAGE') {
+            navigate(notification.logId ? `/logs?open=${notification.logId}` : '/logs');
+            setOpen(false);
+            return;
+        }
         if (notification.contentId) {
             navigate(`/read/${notification.contentId}`);
             setOpen(false);

@@ -7,6 +7,7 @@ import gebxby.gebxbyblog.dto.SuspendUserRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.BadgeService;
+import gebxby.gebxbyblog.service.ActivityLogService;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
 import gebxby.gebxbyblog.service.ForumMapper;
@@ -35,6 +36,7 @@ public class AdminController {
     private final CommentService commentService;
     private final NotificationService notificationService;
     private final BadgeService badgeService;
+    private final ActivityLogService activityLogService;
     private final ForumMapper mapper;
 
     public AdminController(UserService userService,
@@ -42,12 +44,14 @@ public class AdminController {
                            CommentService commentService,
                            NotificationService notificationService,
                            BadgeService badgeService,
+                           ActivityLogService activityLogService,
                            ForumMapper mapper) {
         this.userService = userService;
         this.contentService = contentService;
         this.commentService = commentService;
         this.notificationService = notificationService;
         this.badgeService = badgeService;
+        this.activityLogService = activityLogService;
         this.mapper = mapper;
     }
 
@@ -67,6 +71,7 @@ public class AdminController {
         User admin = userService.getCurrentUser(principal);
         long hours = request == null ? 0 : request.hours();
         User suspended = userService.suspendUser(userId, Duration.ofHours(hours), admin);
+        activityLogService.recordSuspension(admin, suspended, Duration.ofHours(hours), true);
         return ResponseEntity.ok(mapper.toCurrentUser(suspended));
     }
 
@@ -121,7 +126,9 @@ public class AdminController {
             @PathVariable BadgeCode badge,
             @AuthenticationPrincipal OAuth2User principal) {
         User admin = userService.getCurrentUser(principal);
-        return ResponseEntity.ok(mapper.toCurrentUser(badgeService.grantBadge(userId, badge, admin)));
+        User updated = badgeService.grantBadge(userId, badge, admin);
+        activityLogService.recordBadgeAction(admin, updated, badge, true);
+        return ResponseEntity.ok(mapper.toCurrentUser(updated));
     }
 
     @DeleteMapping("/users/{userId}/badges/{badge}")
@@ -130,6 +137,8 @@ public class AdminController {
             @PathVariable BadgeCode badge,
             @AuthenticationPrincipal OAuth2User principal) {
         User admin = userService.getCurrentUser(principal);
-        return ResponseEntity.ok(mapper.toCurrentUser(badgeService.revokeBadge(userId, badge, admin)));
+        User updated = badgeService.revokeBadge(userId, badge, admin);
+        activityLogService.recordBadgeAction(admin, updated, badge, false);
+        return ResponseEntity.ok(mapper.toCurrentUser(updated));
     }
 }

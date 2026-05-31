@@ -98,7 +98,43 @@ export interface NotificationItem {
   contentId?: string;
   contentTitle?: string;
   commentId?: string;
+  logId?: string;
   read: boolean;
   createdAt?: string;
   expiresAt?: string;
+}
+
+export type ActivityLogType =
+  | 'PUBLICATION'
+  | 'ADMIN_MESSAGE'
+  | 'MODERATOR_REPORT'
+  | 'USER_REPORT'
+  | 'USER_SUSPEND'
+  | 'CONTENT_DELETE'
+  | 'COMMENT_DELETE'
+  | 'BADGE_GRANTED'
+  | 'BADGE_REVOKED';
+
+export type ActivityTargetType = 'CONTENT' | 'COMMENT' | 'USER' | 'SYSTEM';
+
+export interface ActivityLogItem {
+  id: string;
+  type: ActivityLogType;
+  direction: 'INCOMING' | 'OUTGOING' | 'SYSTEM';
+  targetType: ActivityTargetType;
+  title: string;
+  message: string;
+  reason?: string;
+  actorUserId?: string;
+  actorName?: string;
+  actorPhoto?: string;
+  targetUserId?: string;
+  targetUserName?: string;
+  contentId?: string;
+  contentTitle?: string;
+  commentId?: string;
+  reportQueue: boolean;
+  resolved: boolean;
+  createdAt?: string;
+  resolvedAt?: string;
 }

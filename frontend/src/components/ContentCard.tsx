@@ -37,7 +37,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
 
     return (
         <article
-            className="group flex cursor-pointer flex-col gap-6 border-b border-[#222] px-4 py-8 transition-all duration-300 hover:bg-[#111]/70 md:flex-row"
+            className="archive-card group flex cursor-pointer flex-col gap-6 border-b border-[#222] px-4 py-8 transition-all duration-300 hover:bg-[#111]/70 md:flex-row"
             style={{ borderLeft: `3px solid ${themeColor}` }}
             onClick={() => navigate(`/read/${art.idContent}`)}
         >

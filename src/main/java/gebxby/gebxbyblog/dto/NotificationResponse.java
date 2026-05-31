@@ -16,6 +16,7 @@ public record NotificationResponse(
         UUID contentId,
         String contentTitle,
         UUID commentId,
+        UUID logId,
         boolean read,
         LocalDateTime createdAt,
         LocalDateTime expiresAt

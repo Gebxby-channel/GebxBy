@@ -14,6 +14,7 @@ import CategoryPage from './pages/Category';
 import AnalyticsPage from './pages/AnalyticsPage';
 import Login from './pages/Login';
 import AdminPanelPage from './pages/AdminPanelPage';
+import LogPage from './pages/LogPage';
 
 // Components
 import Navbar from './components/Navbar';
@@ -37,12 +38,13 @@ function MainLayout({
         if (path === '/write') return 'write';
         if (path === '/profile') return 'profile';
         if (path === '/analytics') return 'analytics';
+        if (path === '/logs') return 'logs';
         if (path === '/control-room') return 'control-room';
         return '';
     };
 
     return (
-        <div className="bg-[#0f0f0f] min-h-screen flex">
+        <div className="terminal-grid bg-[#0f0f0f] min-h-screen flex">
             <Sidebar active={getActivePage()} user={user} />
 
             <div className="flex-grow flex flex-col min-w-0">
@@ -96,6 +98,7 @@ export default function App() {
                             <Route path="/" element={<HomePage user={user} />} />
                             <Route path="/category" element={<CategoryPage user={user} />} />
                             <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
+                            <Route path="/logs" element={user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
                             <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
                             <Route path="/analytics" element={user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
                             <Route path="/control-room" element={user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />

@@ -39,6 +39,8 @@ class CommentServiceImplTest {
     private NotificationService notificationService;
     @Mock
     private BadgeService badgeService;
+    @Mock
+    private ActivityLogService activityLogService;
 
     private CommentServiceImpl commentService;
     private User author;
@@ -47,7 +49,7 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(badgeService), notificationService);
+        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(badgeService), notificationService, activityLogService);
 
         author = new User();
         author.setUserID(UUID.randomUUID());

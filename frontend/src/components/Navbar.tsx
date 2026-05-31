@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart2, Database, Folder, LogIn, LogOut, PenTool, ShieldCheck, User } from 'lucide-react';
+import { BarChart2, Database, Folder, History, LogIn, LogOut, PenTool, ShieldCheck, User } from 'lucide-react';
 import { logout } from '../lib/api';
 import type { CurrentUser } from '../types/forum';
 import NotificationBell from './NotificationBell';
@@ -15,6 +15,7 @@ const publicMenuItems = [
 ];
 
 const memberMenuItems = [
+    { label: 'Log', path: '/logs', icon: History },
     { label: 'Write', path: '/write', icon: PenTool },
     { label: 'Biodata', path: '/profile', icon: User },
     { label: 'Analisis', path: '/analytics', icon: BarChart2 },

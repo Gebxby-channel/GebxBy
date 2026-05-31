@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.ActivityLogService;
 import gebxby.gebxbyblog.service.NotificationService;
 import gebxby.gebxbyblog.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @RestController
@@ -23,13 +25,16 @@ import java.util.UUID;
 public class ModerationController {
     private final UserService userService;
     private final NotificationService notificationService;
+    private final ActivityLogService activityLogService;
     private final ForumMapper mapper;
 
     public ModerationController(UserService userService,
                                 NotificationService notificationService,
+                                ActivityLogService activityLogService,
                                 ForumMapper mapper) {
         this.userService = userService;
         this.notificationService = notificationService;
+        this.activityLogService = activityLogService;
         this.mapper = mapper;
     }
 
@@ -38,7 +43,9 @@ public class ModerationController {
             @PathVariable UUID userId,
             @AuthenticationPrincipal OAuth2User principal) {
         User moderator = userService.getCurrentUser(principal);
-        return ResponseEntity.ok(mapper.toCurrentUser(userService.moderatorSuspendUser(userId, moderator)));
+        User suspended = userService.moderatorSuspendUser(userId, moderator);
+        activityLogService.recordSuspension(moderator, suspended, Duration.ofHours(1), false);
+        return ResponseEntity.ok(mapper.toCurrentUser(suspended));
     }
 
     @PostMapping("/admins/{adminUserId}/report")

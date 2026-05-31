@@ -4,6 +4,7 @@ import gebxby.gebxbyblog.dto.AdminNotificationRequest;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.ActivityLog;
 import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
@@ -31,13 +32,16 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserService userService;
     private final UserRepository userRepository;
+    private final ActivityLogService activityLogService;
 
     public NotificationServiceImpl(NotificationRepository notificationRepository,
                                    UserService userService,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   ActivityLogService activityLogService) {
         this.notificationRepository = notificationRepository;
         this.userService = userService;
         this.userRepository = userRepository;
+        this.activityLogService = activityLogService;
     }
 
     @Override
@@ -128,12 +132,14 @@ public class NotificationServiceImpl implements NotificationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pesan admin wajib diisi");
         }
 
+        ActivityLog log = activityLogService.recordAdminMessage(recipient, admin, StringUtils.hasText(title) ? title : "Pesan dari admin", message);
         Notification notification = baseNotification(recipient.getUserID(), NotificationType.ADMIN_MESSAGE);
         notification.setTitle(StringUtils.hasText(title) ? title : "Pesan dari admin");
         notification.setMessage(message);
         notification.setActorUserId(admin.getUserID());
         notification.setActorName(admin.getName());
         notification.setActorPhoto(admin.getPhoto());
+        notification.setLogId(log.getId());
         return toResponse(notificationRepository.save(notification));
     }
 
@@ -149,12 +155,14 @@ public class NotificationServiceImpl implements NotificationService {
         }
         return userRepository.findAll().stream()
                 .map(recipient -> {
+                    ActivityLog log = activityLogService.recordAdminMessage(recipient, admin, StringUtils.hasText(title) ? title : "Broadcast admin", message);
                     Notification notification = baseNotification(recipient.getUserID(), NotificationType.ADMIN_MESSAGE);
                     notification.setTitle(StringUtils.hasText(title) ? title : "Broadcast admin");
                     notification.setMessage(message);
                     notification.setActorUserId(admin.getUserID());
                     notification.setActorName(admin.getName());
                     notification.setActorPhoto(admin.getPhoto());
+                    notification.setLogId(log.getId());
                     return toResponse(notificationRepository.save(notification));
                 })
                 .toList();
@@ -174,12 +182,14 @@ public class NotificationServiceImpl implements NotificationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Isi laporan wajib diisi");
         }
 
+        ActivityLog log = activityLogService.recordModeratorReport(admin, moderator, message);
         Notification notification = baseNotification(admin.getUserID(), NotificationType.ADMIN_MESSAGE);
         notification.setTitle("Laporan moderator");
         notification.setMessage(message);
         notification.setActorUserId(moderator.getUserID());
         notification.setActorName(moderator.getName());
         notification.setActorPhoto(moderator.getPhoto());
+        notification.setLogId(log.getId());
         return toResponse(notificationRepository.save(notification));
     }
 
@@ -212,6 +222,7 @@ public class NotificationServiceImpl implements NotificationService {
                 notification.getContentId(),
                 notification.getContentTitle(),
                 notification.getCommentId(),
+                notification.getLogId(),
                 notification.isRead(),
                 notification.getCreatedAt(),
                 notification.getExpiresAt()

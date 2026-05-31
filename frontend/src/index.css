@@ -45,3 +45,37 @@ textarea {
 .animate-re-pulse {
     animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+@keyframes scan-sweep {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(120%);
+    }
+}
+
+.archive-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.archive-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(230, 0, 0, 0.08), transparent);
+    transform: translateX(-120%);
+}
+
+.archive-card:hover::after {
+    animation: scan-sweep 1.1s ease-out;
+}
+
+.terminal-grid {
+    background-image:
+        linear-gradient(rgba(230, 0, 0, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(230, 0, 0, 0.025) 1px, transparent 1px);
+    background-size: 28px 28px;
+}

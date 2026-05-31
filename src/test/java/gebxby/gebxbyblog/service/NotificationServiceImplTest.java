@@ -4,6 +4,7 @@ import gebxby.gebxbyblog.dto.AdminNotificationRequest;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.ActivityLog;
 import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
@@ -42,6 +43,8 @@ class NotificationServiceImplTest {
     private UserService userService;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ActivityLogService activityLogService;
 
     private NotificationServiceImpl notificationService;
     private User owner;
@@ -49,7 +52,7 @@ class NotificationServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationServiceImpl(notificationRepository, userService, userRepository);
+        notificationService = new NotificationServiceImpl(notificationRepository, userService, userRepository, activityLogService);
         owner = new User();
         owner.setUserID(UUID.randomUUID());
         owner.setName("Owner");
@@ -92,6 +95,7 @@ class NotificationServiceImplTest {
         admin.setName("Admin");
         when(userService.isAdmin(admin)).thenReturn(true);
         when(userService.getUserById(owner.getUserID())).thenReturn(owner);
+        when(activityLogService.recordAdminMessage(eq(owner), eq(admin), any(), any())).thenReturn(log());
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         NotificationResponse response = notificationService.sendAdminMessage(
@@ -121,6 +125,7 @@ class NotificationServiceImplTest {
         admin.setName("Admin");
         when(userService.isAdmin(admin)).thenReturn(true);
         when(userRepository.findAll()).thenReturn(List.of(owner, commenter));
+        when(activityLogService.recordAdminMessage(any(User.class), eq(admin), any(), any())).thenReturn(log());
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         List<NotificationResponse> response = notificationService.sendAdminBroadcast(new AdminNotificationRequest("All", "Stay safe"), admin);
@@ -137,6 +142,7 @@ class NotificationServiceImplTest {
         when(userService.isModerator(commenter)).thenReturn(true);
         when(userService.getUserById(admin.getUserID())).thenReturn(admin);
         when(userService.isAdmin(admin)).thenReturn(true);
+        when(activityLogService.recordModeratorReport(admin, commenter, "Ada laporan")).thenReturn(log());
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         NotificationResponse response = notificationService.sendModeratorReport(
@@ -203,5 +209,11 @@ class NotificationServiceImplTest {
     void notificationDefaultUnreadStateIsFalse() {
         Notification notification = new Notification();
         assertFalse(notification.isRead());
+    }
+
+    private ActivityLog log() {
+        ActivityLog log = new ActivityLog();
+        log.setId(UUID.randomUUID());
+        return log;
     }
 }

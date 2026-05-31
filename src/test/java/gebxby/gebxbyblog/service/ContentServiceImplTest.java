@@ -48,6 +48,8 @@ class ContentServiceImplTest {
     private UserService userService;
     @Mock
     private BadgeService badgeService;
+    @Mock
+    private ActivityLogService activityLogService;
 
     private ContentServiceImpl contentService;
     private User author;
@@ -62,6 +64,7 @@ class ContentServiceImplTest {
                 userRepository,
                 userService,
                 new ForumMapper(badgeService),
+                activityLogService,
                 5_242_880
         );
         author = new User();

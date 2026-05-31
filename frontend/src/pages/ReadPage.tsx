@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare, Trash2 } from 'lucide-react';
+import { ArrowBigDown, ArrowBigUp, Eye, Flag, MessageSquare, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import api from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
@@ -102,6 +102,30 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         }
     };
 
+    const handleReportContent = async () => {
+        if (!id) return;
+        if (!user) {
+            window.alert('Login dulu untuk mengirim report.');
+            return;
+        }
+        const reason = window.prompt('Alasan report tulisan ini:');
+        if (!reason?.trim()) return;
+        await api.post(`/api/logs/reports/content/${id}`, { reason });
+        window.alert('Report masuk ke queue moderator/admin.');
+    };
+
+    const handleReportComment = async (commentId: string) => {
+        if (!id) return;
+        if (!user) {
+            window.alert('Login dulu untuk mengirim report.');
+            return;
+        }
+        const reason = window.prompt('Alasan report komentar ini:');
+        if (!reason?.trim()) return;
+        await api.post(`/api/logs/reports/content/${id}/comments/${commentId}`, { reason });
+        window.alert('Report komentar masuk ke queue moderator/admin.');
+    };
+
     if (!content) {
         return (
             <div className="flex min-h-[60vh] flex-col items-center justify-center bg-[#0a0a0a] font-mono text-[#e60000]">
@@ -134,14 +158,25 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     <div className="hidden md:block">TERMINAL_ID: CXA-00{id?.substring(0, 2)}</div>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => navigate('/')}
-                    className="group mb-8 flex items-center gap-2 text-[#888] transition-all hover:text-white"
-                >
-                    <span className="h-2 w-2 bg-[#e60000] group-hover:animate-pulse" />
-                    <span className="text-xs font-black uppercase tracking-widest">{'[<]'} Return to Database</span>
-                </button>
+                <div className="mb-8 flex items-center justify-between gap-4">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/')}
+                        className="group flex items-center gap-2 text-[#888] transition-all hover:text-white"
+                    >
+                        <span className="h-2 w-2 bg-[#e60000] group-hover:animate-pulse" />
+                        <span className="text-xs font-black uppercase tracking-widest">{'[<]'} Return to Database</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => void handleReportContent()}
+                        className="flex h-8 items-center gap-2 border border-[#333] px-3 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000]"
+                        title="Report writing"
+                    >
+                        <Flag size={13} />
+                        Report
+                    </button>
+                </div>
 
                 <main className="border border-[#2a2a2a] bg-[#181818] shadow-2xl">
                     <header className="border-b border-[#2a2a2a] p-8 md:p-12">
@@ -217,6 +252,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                                     depth={0}
                                     onReply={handleComment}
                                     onDelete={handleDeleteComment}
+                                    onReport={handleReportComment}
                                 />
                             ))
                         )}
@@ -275,12 +311,14 @@ function CommentNode({
     depth,
     onReply,
     onDelete,
+    onReport,
 }: {
     comment: CommentItem;
     user: CurrentUser | null;
     depth: number;
     onReply: (parentId?: string, body?: string) => Promise<void>;
     onDelete: (commentId: string) => Promise<void>;
+    onReport: (commentId: string) => Promise<void>;
 }) {
     const [replyOpen, setReplyOpen] = useState(false);
     const [replyBody, setReplyBody] = useState('');
@@ -308,16 +346,26 @@ function CommentNode({
                             <p className="m-0 font-mono text-[9px] uppercase text-[#555]">{formatCommentDate(comment.createdAt)}</p>
                         </div>
                     </div>
-                    {canDelete && (
+                    <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
-                            onClick={() => void onDelete(comment.id)}
+                            onClick={() => void onReport(comment.id)}
                             className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000]"
                         >
-                            <Trash2 size={12} />
-                            Delete
+                            <Flag size={12} />
+                            Report
                         </button>
-                    )}
+                        {canDelete && (
+                            <button
+                                type="button"
+                                onClick={() => void onDelete(comment.id)}
+                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000]"
+                            >
+                                <Trash2 size={12} />
+                                Delete
+                            </button>
+                        )}
+                    </div>
                 </div>
                 {comment.adminHighlighted && !comment.deleted && (
                     <span className="mb-2 inline-flex border border-[#e60000] px-2 py-0.5 font-mono text-[9px] font-black uppercase text-[#e60000]">
@@ -364,6 +412,7 @@ function CommentNode({
                             depth={Math.min(depth + 1, 5)}
                             onReply={onReply}
                             onDelete={onDelete}
+                            onReport={onReport}
                         />
                     ))}
                 </div>

@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.ActivityLogService;
 import gebxby.gebxbyblog.service.NotificationService;
 import gebxby.gebxbyblog.service.UserService;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,8 @@ class ModerationControllerTest {
     private UserService userService;
     @MockitoBean
     private NotificationService notificationService;
+    @MockitoBean
+    private ActivityLogService activityLogService;
     @MockitoBean
     private ForumMapper mapper;
 
@@ -74,6 +77,7 @@ class ModerationControllerTest {
                 null,
                 null,
                 null,
+                UUID.randomUUID(),
                 false,
                 LocalDateTime.now(),
                 LocalDateTime.now().plusDays(7)

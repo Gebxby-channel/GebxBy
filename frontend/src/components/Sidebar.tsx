@@ -1,4 +1,4 @@
-import { Home, User, PenTool, BarChart2, Terminal, Folder, ShieldCheck } from 'lucide-react';
+import { Home, User, PenTool, BarChart2, Terminal, Folder, ShieldCheck, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { CurrentUser } from '../types/forum';
 
@@ -9,6 +9,7 @@ export default function Sidebar({ active, user }: { active: string; user: Curren
         { id: 'home', icon: Home, label: 'DATABASE', path: '/' },
         { id: 'category', icon: Folder, label: 'CATEGORY', path: '/category' },
         ...(user ? [
+            { id: 'logs', icon: History, label: 'LOG', path: '/logs' },
             { id: 'write', icon: PenTool, label: 'WRITE', path: '/write' },
             { id: 'profile', icon: User, label: 'BIO-DATA', path: '/profile' },
             { id: 'analytics', icon: BarChart2, label: 'ANALYTICS', path: '/analytics' },

@@ -12,32 +12,39 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@Document(collection = "notifications")
-@CompoundIndex(name = "recipient_notification_order_idx", def = "{'recipientUserId': 1, 'createdAt': -1}")
-public class Notification {
+@Document(collection = "activity_logs")
+@CompoundIndex(name = "owner_activity_order_idx", def = "{'ownerUserId': 1, 'createdAt': -1}")
+@CompoundIndex(name = "report_queue_order_idx", def = "{'reportQueue': 1, 'createdAt': -1}")
+public class ActivityLog {
     @Id
     private UUID id;
 
     @Indexed
-    private UUID recipientUserId;
+    private UUID ownerUserId;
 
-    private NotificationType type;
+    private ActivityLogType type;
+    private ActivityLogDirection direction;
+    private ActivityTargetType targetType;
+
     private String title;
     private String message;
+    private String reason;
 
     private UUID actorUserId;
     private String actorName;
     private String actorPhoto;
 
+    private UUID targetUserId;
+    private String targetUserName;
+
     private UUID contentId;
     private String contentTitle;
     private UUID commentId;
-    private UUID logId;
 
-    private boolean read;
-    private LocalDateTime readAt;
+    private boolean reportQueue;
+    private boolean resolved;
+
+    @Indexed
     private LocalDateTime createdAt;
-
-    @Indexed(expireAfter = "0s")
-    private LocalDateTime expiresAt;
+    private LocalDateTime resolvedAt;
 }
