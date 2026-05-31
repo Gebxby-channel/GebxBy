@@ -193,6 +193,7 @@ class ContentServiceImplTest {
         List<ContentResponse> list = contentService.findAll(null);
 
         assertEquals(1, detail.images().size());
+        assertEquals("data:image/webp;base64,dGlueQ==", list.getFirst().coverImage().data());
         assertEquals(0, list.getFirst().images().size());
     }
 

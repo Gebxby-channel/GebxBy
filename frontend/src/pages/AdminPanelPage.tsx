@@ -90,7 +90,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 <p className="mt-1 font-mono text-xs uppercase tracking-tight text-[#666]">Admin operations // user safety // direct notifications</p>
             </div>
 
-            <AdminMessagePanel />
+            <AdminMessagePanel user={user} />
 
             <section className="border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-5 flex flex-col gap-4 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-center md:justify-between">

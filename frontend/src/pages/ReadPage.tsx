@@ -19,6 +19,8 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const [rootCommentPosting, setRootCommentPosting] = useState(false);
     const [commentNotice, setCommentNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const commentSubmissionLocks = useRef(new Set<string>());
+    const readCompletionRef = useRef<HTMLDivElement | null>(null);
+    const viewRecordedRef = useRef<string | null>(null);
 
     const fetchComments = useCallback((force = false) => {
         if (!id) return Promise.resolve();
@@ -54,11 +56,35 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             })
             .catch(() => setContent(null));
 
-        api.post<ContentStats>(`/content/${id}/view`)
-            .then(response => setStats(response.data))
-            .catch(() => void fetchStats());
         void fetchComments();
     }, [id, fetchComments, fetchStats, user?.userID]);
+
+    useEffect(() => {
+        if (!id || !content || !readCompletionRef.current) return;
+        viewRecordedRef.current = null;
+        const sentinel = readCompletionRef.current;
+        const observer = new IntersectionObserver((entries) => {
+            const reachedEnd = entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= 0.6);
+            if (!reachedEnd || viewRecordedRef.current === id) {
+                return;
+            }
+            viewRecordedRef.current = id;
+            api.post<ContentStats>(`/content/${id}/view`)
+                .then(response => {
+                    setStats(response.data);
+                    invalidateContentCacheForMutation(id);
+                })
+                .catch(() => {
+                    viewRecordedRef.current = null;
+                    void fetchStats();
+                });
+        }, {
+            threshold: 0.6,
+            rootMargin: '0px 0px -8% 0px',
+        });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [content, fetchStats, id]);
 
     useEffect(() => {
         const timer = window.setInterval(() => {
@@ -225,7 +251,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     </header>
 
                     <div
-                        className="p-8 text-justify font-sans text-lg leading-relaxed text-[#ccc] selection:bg-[#e60000] selection:text-white md:p-12 [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_br]:block [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
+                        className="p-8 text-justify font-sans text-lg leading-relaxed text-[#ccc] selection:bg-[#e60000] selection:text-white md:p-12 [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_br]:block [&_div]:mb-4 [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
                         dangerouslySetInnerHTML={{ __html: safeBody }}
                     />
 
@@ -267,6 +293,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                             End_Of_Transmission
                         </p>
                     </footer>
+                    <div ref={readCompletionRef} className="h-2" aria-hidden="true" />
                 </main>
 
                 <section className="mt-8 border border-[#2a2a2a] bg-[#151515] p-6">

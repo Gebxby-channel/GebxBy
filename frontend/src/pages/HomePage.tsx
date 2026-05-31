@@ -3,6 +3,7 @@ import { Megaphone } from 'lucide-react';
 import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import GlobalSearch from '../components/GlobalSearch';
 import type { AnnouncementItem, ContentItem, CurrentUser } from '../types/forum';
 
 export default function HomePage({ user }: { user: CurrentUser | null }) {
@@ -34,6 +35,10 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
 
     return (
         <div className="w-full">
+            <div className="mb-8">
+                <GlobalSearch wide />
+            </div>
+
             <div className="mb-12 flex flex-col gap-6 border-l-4 border-[#e60000] pl-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
                     <div className="mb-3 flex items-center gap-3">

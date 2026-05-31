@@ -15,7 +15,7 @@ const tabs: { id: SearchTab; label: string }[] = [
     { id: 'badges', label: 'Badges' },
 ];
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
     const navigate = useNavigate();
     const rootRef = useRef<HTMLDivElement | null>(null);
     const [query, setQuery] = useState('');
@@ -81,7 +81,7 @@ export default function GlobalSearch() {
     };
 
     return (
-        <div ref={rootRef} className="relative w-full min-w-[220px] lg:w-[320px]">
+        <div ref={rootRef} className={`relative w-full min-w-[220px] ${wide ? '' : 'lg:w-[320px]'}`}>
             <div className="flex h-9 items-center border border-[#2a2a2a] bg-[#0d0d0d] px-3 text-[#777] focus-within:border-[#e60000]/70">
                 <Search size={14} className="mr-2 flex-shrink-0 text-[#e60000]" />
                 <input

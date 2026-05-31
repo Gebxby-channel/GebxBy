@@ -15,10 +15,14 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import Login from './pages/Login';
 import AdminPanelPage from './pages/AdminPanelPage';
 import LogPage from './pages/LogPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Components
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
+import BackgroundMusic from './components/BackgroundMusic';
+import { MUSIC_TRACKS } from './utils/musicLibrary';
+import type { ThemeMode } from './types/forum';
 
 function MainLayout({
     user,
@@ -47,6 +51,9 @@ function MainLayout({
 export default function App() {
     const [user, setUser] = useState<CurrentUser | null>(null);
     const [loading, setLoading] = useState(true);
+    const [theme, setTheme] = useState<ThemeMode>(() => readThemePreference());
+    const [musicEnabled, setMusicEnabled] = useState(() => localStorage.getItem('gebxby:music-enabled') === 'true');
+    const [musicTrackId, setMusicTrackId] = useState(() => localStorage.getItem('gebxby:music-track') ?? MUSIC_TRACKS[0]?.id ?? '');
 
     useEffect(() => {
         api.get<CurrentUser>('/api/user/me')
@@ -61,12 +68,28 @@ export default function App() {
         setUser(null);
     };
 
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('gebxby:theme', theme);
+    }, [theme]);
+
+    useEffect(() => {
+        localStorage.setItem('gebxby:music-enabled', String(musicEnabled));
+    }, [musicEnabled]);
+
+    useEffect(() => {
+        if (musicTrackId) {
+            localStorage.setItem('gebxby:music-track', musicTrackId);
+        }
+    }, [musicTrackId]);
+
     if (loading) {
         return <LoadingSpinner fullScreen label="Initializing" />;
     }
 
     return (
         <Router>
+            <BackgroundMusic enabled={musicEnabled} trackId={musicTrackId} />
             <Routes>
                 <Route path="/login" element={<Login user={user} setUser={setUser} />} />
 
@@ -75,6 +98,16 @@ export default function App() {
                         <Routes>
                             <Route path="/" element={<HomePage user={user} />} />
                             <Route path="/category" element={<CategoryPage user={user} />} />
+                            <Route path="/settings" element={
+                                <SettingsPage
+                                    theme={theme}
+                                    musicEnabled={musicEnabled}
+                                    musicTrackId={musicTrackId}
+                                    onThemeChange={setTheme}
+                                    onMusicEnabledChange={setMusicEnabled}
+                                    onMusicTrackChange={setMusicTrackId}
+                                />
+                            } />
                             <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
                             <Route path="/logs" element={user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
                             <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
@@ -91,6 +124,11 @@ export default function App() {
             </Routes>
         </Router>
     );
+}
+
+function readThemePreference(): ThemeMode {
+    const stored = localStorage.getItem('gebxby:theme');
+    return stored === 'light' ? 'light' : 'dark';
 }
 
 function GuestAccessPage({ title }: { title: string }) {

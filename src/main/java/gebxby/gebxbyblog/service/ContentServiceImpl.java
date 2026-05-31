@@ -64,12 +64,14 @@ public class ContentServiceImpl implements ContentService {
     private static final int MAX_IMAGES = 6;
     private static final int MAX_IMAGE_DATA_URL_LENGTH = 480_000;
     private static final int MAX_IMAGE_BYTES = 360_000;
+    private static final int MAX_THUMBNAIL_DATA_URL_LENGTH = 90_000;
+    private static final int MAX_THUMBNAIL_BYTES = 70_000;
     private static final int MAX_TOTAL_IMAGE_BYTES = 1_800_000;
     private static final Duration CATEGORY_CACHE_TTL = Duration.ofMinutes(5);
     private static final Duration ANALYTICS_CACHE_TTL = Duration.ofSeconds(45);
     private static final Safelist ARTICLE_SAFELIST = Safelist.relaxed()
             .removeTags("img")
-            .addTags("h1", "h2", "pre", "code", "span")
+            .addTags("h1", "h2", "pre", "code", "span", "u", "strong", "em", "blockquote", "ul", "ol", "li")
             .addAttributes("span", "class")
             .addAttributes("a", "target", "rel")
             .addProtocols("a", "href", "http", "https", "mailto");
@@ -394,15 +396,21 @@ public class ContentServiceImpl implements ContentService {
                 continue;
             }
             String dataUrl = request.data().trim();
-            ImagePayload payload = validateImageDataUrl(dataUrl);
+            ImagePayload payload = validateImageDataUrl(dataUrl, MAX_IMAGE_DATA_URL_LENGTH, MAX_IMAGE_BYTES);
             totalBytes += payload.size();
             if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
                 throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Total gambar terlalu besar");
+            }
+            String thumbnail = null;
+            if (StringUtils.hasText(request.thumbnail())) {
+                thumbnail = request.thumbnail().trim();
+                validateImageDataUrl(thumbnail, MAX_THUMBNAIL_DATA_URL_LENGTH, MAX_THUMBNAIL_BYTES);
             }
 
             ContentImage image = new ContentImage();
             image.setId(UUID.randomUUID().toString());
             image.setData(dataUrl);
+            image.setThumbnail(thumbnail);
             image.setAlt(trimToLength(Jsoup.clean(request.alt() == null ? "" : request.alt(), Safelist.none()), 120));
             image.setSize(payload.size());
             result.add(image);
@@ -410,8 +418,8 @@ public class ContentServiceImpl implements ContentService {
         return result;
     }
 
-    private ImagePayload validateImageDataUrl(String dataUrl) {
-        if (dataUrl.length() > MAX_IMAGE_DATA_URL_LENGTH) {
+    private ImagePayload validateImageDataUrl(String dataUrl, int maxLength, int maxBytes) {
+        if (dataUrl.length() > maxLength) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran gambar terlalu besar");
         }
         int commaIndex = dataUrl.indexOf(',');
@@ -434,7 +442,7 @@ public class ContentServiceImpl implements ContentService {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data gambar rusak");
         }
-        if (decoded.length > MAX_IMAGE_BYTES) {
+        if (decoded.length > maxBytes) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran gambar terlalu besar");
         }
         return new ImagePayload(decoded.length);

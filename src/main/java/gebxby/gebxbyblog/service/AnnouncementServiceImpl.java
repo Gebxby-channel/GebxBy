@@ -60,6 +60,19 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 .map(this::toResponse);
     }
 
+    @Override
+    public void deleteOwn(UUID announcementId, User admin) {
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        }
+        Announcement announcement = announcementRepository.findById(announcementId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Announcement tidak ditemukan"));
+        if (announcement.getAdminUserId() == null || !announcement.getAdminUserId().equals(admin.getUserID())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Hanya pembuat announcement yang boleh menghapus");
+        }
+        announcementRepository.delete(announcement);
+    }
+
     private AnnouncementResponse toResponse(Announcement announcement) {
         return new AnnouncementResponse(
                 announcement.getId(),

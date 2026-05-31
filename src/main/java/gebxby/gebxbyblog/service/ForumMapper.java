@@ -63,6 +63,7 @@ public class ForumMapper {
                 content.getSubtitle(),
                 content.getParagrafs(),
                 includeImages ? toImageResponses(content.getImages()) : List.of(),
+                toCoverImageResponse(content.getImages()),
                 toPublicUser(content.getUser()),
                 content.getKategori(),
                 content.getCreatedAt(),
@@ -75,6 +76,21 @@ public class ForumMapper {
         );
     }
 
+    private ContentImageResponse toCoverImageResponse(List<ContentImage> images) {
+        if (images == null || images.isEmpty()) {
+            return null;
+        }
+        ContentImage image = images.getFirst();
+        String thumbnail = image.getThumbnail() == null ? image.getData() : image.getThumbnail();
+        return new ContentImageResponse(
+                image.getId(),
+                thumbnail,
+                thumbnail,
+                image.getAlt(),
+                image.getSize()
+        );
+    }
+
     private List<ContentImageResponse> toImageResponses(List<ContentImage> images) {
         if (images == null || images.isEmpty()) {
             return List.of();
@@ -83,6 +99,7 @@ public class ForumMapper {
                 .map(image -> new ContentImageResponse(
                         image.getId(),
                         image.getData(),
+                        image.getThumbnail(),
                         image.getAlt(),
                         image.getSize()
                 ))

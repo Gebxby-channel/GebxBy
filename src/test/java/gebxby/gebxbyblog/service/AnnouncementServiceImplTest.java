@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,5 +76,30 @@ class AnnouncementServiceImplTest {
 
         assertTrue(response.isPresent());
         assertEquals("Welcome", response.get().message());
+    }
+
+    @Test
+    void deleteOwnPermanentlyDeletesAnnouncement() {
+        Announcement announcement = new Announcement();
+        announcement.setId(UUID.randomUUID());
+        announcement.setAdminUserId(admin.getUserID());
+        announcement.setActive(true);
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(announcementRepository.findById(announcement.getId())).thenReturn(Optional.of(announcement));
+
+        announcementService.deleteOwn(announcement.getId(), admin);
+
+        verify(announcementRepository).delete(announcement);
+    }
+
+    @Test
+    void deleteOwnRejectsDifferentAdmin() {
+        Announcement announcement = new Announcement();
+        announcement.setId(UUID.randomUUID());
+        announcement.setAdminUserId(UUID.randomUUID());
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(announcementRepository.findById(announcement.getId())).thenReturn(Optional.of(announcement));
+
+        assertThrows(ResponseStatusException.class, () -> announcementService.deleteOwn(announcement.getId(), admin));
     }
 }

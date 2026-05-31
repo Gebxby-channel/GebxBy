@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { FileText, ImagePlus, LoaderCircle, Send, Upload, X } from 'lucide-react';
+import { Bold, FileText, Heading1, Heading2, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Quote, Send, Type, Underline, Upload, X } from 'lucide-react';
 import api, { invalidateApiCache } from '../lib/api';
 import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
 import type { ContentItem, CurrentUser } from '../types/forum';
@@ -16,6 +16,7 @@ const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 type AttachedImage = {
     id: string;
     data: string;
+    thumbnail: string;
     alt: string;
     size: number;
     originalSize: number;
@@ -23,6 +24,7 @@ type AttachedImage = {
 
 export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const navigate = useNavigate();
+    const editorRef = useRef<HTMLDivElement | null>(null);
     const [title, setTitle] = useState('');
     const [selectedKategori, setSelectedKategori] = useState('General');
     const [activeTab, setActiveTab] = useState<'manual' | 'upload'>('manual');
@@ -38,7 +40,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     }
 
     const handlePublishManual = async () => {
-        if (!title.trim() || !content.trim()) {
+        if (!title.trim() || !hasReadableText(content)) {
             window.alert('Judul dan isi laporan wajib ada!');
             return;
         }
@@ -85,6 +87,25 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
     const submit = activeTab === 'manual' ? handlePublishManual : handleUploadFile;
     const actionDisabled = submitting || compressingImages;
+
+    const applyEditorCommand = (command: string, value?: string) => {
+        editorRef.current?.focus();
+        document.execCommand(command, false, value);
+        setContent(editorRef.current?.innerHTML ?? '');
+    };
+
+    const transformSelection = (mode: 'upper' | 'lower') => {
+        editorRef.current?.focus();
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+        if (!selectedText) return;
+        range.deleteContents();
+        range.insertNode(document.createTextNode(mode === 'upper' ? selectedText.toUpperCase() : selectedText.toLowerCase()));
+        selection.removeAllRanges();
+        setContent(editorRef.current?.innerHTML ?? '');
+    };
 
     const handleImageSelection = async (files: FileList | null) => {
         if (!files?.length) {
@@ -158,12 +179,12 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                     </div>
 
                     {activeTab === 'manual' ? (
-                        <textarea
-                            className="min-h-[460px] w-full resize-y border border-[#333] bg-[#0f0f0f] p-5 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:border-[#e60000]"
-                            value={content}
-                            onChange={(event) => setContent(event.target.value)}
-                            placeholder="Input decrypted data here..."
-                            maxLength={60000}
+                        <RichTextEditor
+                            editorRef={editorRef}
+                            content={content}
+                            onInput={setContent}
+                            onCommand={applyEditorCommand}
+                            onTransformSelection={transformSelection}
                         />
                     ) : (
                         <div className="border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#e60000]">
@@ -205,8 +226,79 @@ function invalidatePublishedContentCaches(userId: string) {
 function buildImagePayload(images: AttachedImage[]) {
     return images.map(image => ({
         data: image.data,
+        thumbnail: image.thumbnail,
         alt: image.alt,
     }));
+}
+
+function RichTextEditor({
+    editorRef,
+    content,
+    onInput,
+    onCommand,
+    onTransformSelection,
+}: {
+    editorRef: RefObject<HTMLDivElement | null>;
+    content: string;
+    onInput: (value: string) => void;
+    onCommand: (command: string, value?: string) => void;
+    onTransformSelection: (mode: 'upper' | 'lower') => void;
+}) {
+    useEffect(() => {
+        const editor = editorRef.current;
+        if (!editor || document.activeElement === editor || editor.innerHTML === content) {
+            return;
+        }
+        editor.innerHTML = content;
+    }, [content, editorRef]);
+
+    useEffect(() => {
+        document.execCommand('defaultParagraphSeparator', false, 'p');
+    }, []);
+
+    return (
+        <section className="border border-[#333] bg-[#0f0f0f]">
+            <div className="flex flex-wrap gap-1 border-b border-[#252525] bg-[#111] p-2">
+                <EditorButton icon={<Bold size={14} />} label="Bold" onClick={() => onCommand('bold')} />
+                <EditorButton icon={<Italic size={14} />} label="Italic" onClick={() => onCommand('italic')} />
+                <EditorButton icon={<Underline size={14} />} label="Underline" onClick={() => onCommand('underline')} />
+                <EditorButton icon={<Heading1 size={15} />} label="Heading 1" onClick={() => onCommand('formatBlock', 'h1')} />
+                <EditorButton icon={<Heading2 size={15} />} label="Heading 2" onClick={() => onCommand('formatBlock', 'h2')} />
+                <EditorButton icon={<Type size={14} />} label="Paragraph" onClick={() => onCommand('formatBlock', 'p')} />
+                <EditorButton icon={<List size={14} />} label="Bullet list" onClick={() => onCommand('insertUnorderedList')} />
+                <EditorButton icon={<ListOrdered size={14} />} label="Number list" onClick={() => onCommand('insertOrderedList')} />
+                <EditorButton icon={<Quote size={14} />} label="Quote" onClick={() => onCommand('formatBlock', 'blockquote')} />
+                <EditorButton text="UPPER" label="Uppercase selection" onClick={() => onTransformSelection('upper')} />
+                <EditorButton text="lower" label="Lowercase selection" onClick={() => onTransformSelection('lower')} />
+            </div>
+            <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                className="min-h-[460px] w-full overflow-y-auto p-5 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:bg-[#0d0d0d] [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
+                data-placeholder="Input decrypted data here..."
+                onInput={(event) => onInput(event.currentTarget.innerHTML)}
+                onBlur={(event) => onInput(event.currentTarget.innerHTML)}
+            />
+            <div className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#555]">
+                Rich text protocol // headings, bold, italic, underline, quote, lists, case tools
+            </div>
+        </section>
+    );
+}
+
+function EditorButton({ icon, text, label, onClick }: { icon?: ReactNode; text?: string; label: string; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            title={label}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onClick}
+            className="flex h-8 min-w-8 items-center justify-center border border-[#2a2a2a] px-2 font-mono text-[9px] font-black uppercase text-[#888] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+        >
+            {icon ?? text}
+        </button>
+    );
 }
 
 function ImageAttachmentPanel({
@@ -315,6 +407,8 @@ async function compressImageForUpload(file: File): Promise<AttachedImage> {
             { maxDimension: 840, quality: 0.66 },
             { maxDimension: 720, quality: 0.62 },
         ];
+        const thumbnailBlob = await canvasToBlob(renderImageToCanvas(sourceImage, 360), 'image/webp', 0.68);
+        const thumbnail = await blobToDataUrl(thumbnailBlob);
         let fallback: AttachedImage | null = null;
 
         for (const attempt of attempts) {
@@ -324,6 +418,7 @@ async function compressImageForUpload(file: File): Promise<AttachedImage> {
             const compressed: AttachedImage = {
                 id: createClientId(),
                 data,
+                thumbnail,
                 alt: cleanImageName(file.name),
                 size: blob.size,
                 originalSize: file.size,
@@ -406,6 +501,12 @@ function formatBytes(bytes: number) {
         return `${Math.round(bytes / 1024)} KB`;
     }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function hasReadableText(html: string) {
+    const element = document.createElement('div');
+    element.innerHTML = html;
+    return Boolean(element.textContent?.trim());
 }
 
 function handleSubmitError(error: unknown) {

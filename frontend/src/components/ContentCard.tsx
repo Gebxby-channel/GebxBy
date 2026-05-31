@@ -34,6 +34,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
     };
 
     const preview = stripHtml(art.paragrafs) || 'No encrypted data preview available for this terminal entry...';
+    const coverImage = art.coverImage?.thumbnail || art.coverImage?.data || art.images?.[0]?.thumbnail || art.images?.[0]?.data;
 
     return (
         <article
@@ -106,16 +107,29 @@ export default function ContentCard({ art, user }: ContentCardProps) {
 
             <div className="hidden max-w-[180px] flex-1 md:block">
                 <div className="relative aspect-square w-full overflow-hidden border border-[#222] bg-[#050505] transition-all duration-300 group-hover:border-[#444]">
-                    <div
-                        className="absolute inset-0 opacity-10"
-                        style={{
-                            backgroundImage: 'linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px)',
-                            backgroundSize: '10px 10px',
-                        }}
-                    />
-                    <div className="flex h-full w-full items-center justify-center">
-                        <span className="rotate-90 font-mono text-[8px] font-black tracking-[0.3em] text-[#252525]">DATA_VISUAL</span>
-                    </div>
+                    {coverImage ? (
+                        <img
+                            src={coverImage}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover opacity-85 grayscale transition-all duration-300 group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"
+                        />
+                    ) : (
+                        <>
+                            <div
+                                className="absolute inset-0 opacity-10"
+                                style={{
+                                    backgroundImage: 'linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px)',
+                                    backgroundSize: '10px 10px',
+                                }}
+                            />
+                            <div className="flex h-full w-full items-center justify-center">
+                                <span className="rotate-90 font-mono text-[8px] font-black tracking-[0.3em] text-[#252525]">DATA_VISUAL</span>
+                            </div>
+                        </>
+                    )}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-transparent via-black/10 to-black/45" />
                     <div className="absolute right-0 top-0 h-3 w-3 border-r-2 border-t-2" style={{ borderColor: `${themeColor}70` }} />
                     <div className="absolute bottom-0 left-0 h-3 w-3 border-b-2 border-l-2" style={{ borderColor: `${themeColor}70` }} />
                 </div>

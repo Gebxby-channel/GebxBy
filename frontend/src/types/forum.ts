@@ -1,5 +1,7 @@
 export type VoteDirection = 'UP' | 'DOWN' | 'NONE';
 
+export type ThemeMode = 'dark' | 'light';
+
 export type BadgeCode =
   | 'ADMIN'
   | 'MODERATOR'
@@ -34,6 +36,7 @@ export interface PublicUser {
 export interface ContentImage {
   id: string;
   data: string;
+  thumbnail?: string;
   alt?: string;
   size: number;
 }
@@ -49,6 +52,7 @@ export interface ContentItem {
   subtitle?: string;
   paragrafs: string;
   images?: ContentImage[];
+  coverImage?: ContentImage;
   user?: PublicUser;
   kategori: string;
   createdAt?: string;

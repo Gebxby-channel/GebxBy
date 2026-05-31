@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Megaphone, Send } from 'lucide-react';
-import api, { invalidateApiCache } from '../lib/api';
-import type { CurrentUser } from '../types/forum';
+import { Megaphone, Send, Trash2 } from 'lucide-react';
+import api, { cachedGet, invalidateApiCache } from '../lib/api';
+import type { AnnouncementItem, CurrentUser } from '../types/forum';
 
 type BroadcastType = 'MESSAGE' | 'ANNOUNCEMENT_EVENT';
 
-export default function AdminMessagePanel() {
+export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
     const [users, setUsers] = useState<CurrentUser[]>([]);
     const [recipientId, setRecipientId] = useState('');
     const [broadcastType, setBroadcastType] = useState<BroadcastType>('MESSAGE');
     const [title, setTitle] = useState('Peringatan admin');
     const [message, setMessage] = useState('');
+    const [latestAnnouncement, setLatestAnnouncement] = useState<AnnouncementItem | null>(null);
     const [sending, setSending] = useState(false);
 
     useEffect(() => {
@@ -21,7 +22,21 @@ export default function AdminMessagePanel() {
                 setRecipientId('ALL');
             })
             .catch(() => setUsers([]));
+        void fetchLatestAnnouncement();
     }, []);
+
+    const fetchLatestAnnouncement = async (force = false) => {
+        try {
+            const data = await cachedGet<AnnouncementItem | ''>('/api/announcements/latest', undefined, {
+                ttlMs: 60_000,
+                scope: 'public',
+                force,
+            });
+            setLatestAnnouncement(isAnnouncement(data) ? data : null);
+        } catch {
+            setLatestAnnouncement(null);
+        }
+    };
 
     const sendMessage = async () => {
         if ((!recipientId && broadcastType === 'MESSAGE') || !message.trim()) return;
@@ -32,14 +47,24 @@ export default function AdminMessagePanel() {
                 invalidateApiCache('/api/announcements/latest');
             } else if (recipientId === 'ALL') {
                 await api.post('/api/admin/notifications/broadcast', { title, message });
+                invalidateApiCache('/api/announcements/latest');
             } else {
                 await api.post(`/api/admin/users/${recipientId}/notifications`, { title, message });
             }
             setMessage('');
+            await fetchLatestAnnouncement(true);
             window.alert(broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Announcement homepage berhasil dipublish.' : 'Pesan admin berhasil dikirim.');
         } finally {
             setSending(false);
         }
+    };
+
+    const deleteLatestAnnouncement = async () => {
+        if (!latestAnnouncement) return;
+        if (!window.confirm('Hapus announcement ini dari homepage?')) return;
+        await api.delete(`/api/admin/announcements/${latestAnnouncement.id}`);
+        invalidateApiCache('/api/announcements/latest');
+        await fetchLatestAnnouncement(true);
     };
 
     return (
@@ -103,6 +128,39 @@ export default function AdminMessagePanel() {
                     {sending ? 'Sending' : broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Publish Announcement' : 'Send Message'}
                 </button>
             </div>
+
+            {latestAnnouncement && (
+                <div className="mt-5 border border-[#2a2a2a] bg-[#101010] p-4">
+                    <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0">
+                            <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">Current Homepage Announcement</p>
+                            <p className="m-0 mt-1 truncate font-mono text-xs font-black uppercase text-white">{latestAnnouncement.title || 'Announcement Event'}</p>
+                        </div>
+                        {latestAnnouncement.adminUserId === user.userID ? (
+                            <button
+                                type="button"
+                                onClick={() => void deleteLatestAnnouncement()}
+                                className="flex h-9 items-center justify-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                            >
+                                <Trash2 size={13} />
+                                Delete
+                            </button>
+                        ) : (
+                            <span className="border border-[#333] px-3 py-2 font-mono text-[9px] font-black uppercase text-[#555]">
+                                Owner only
+                            </span>
+                        )}
+                    </div>
+                    <p className="m-0 line-clamp-3 font-sans text-sm leading-6 text-[#aaa]">{latestAnnouncement.message}</p>
+                    <p className="m-0 mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555]">
+                        ~ from {latestAnnouncement.adminName || 'Admin'}
+                    </p>
+                </div>
+            )}
         </section>
     );
+}
+
+function isAnnouncement(value: AnnouncementItem | '' | null | undefined): value is AnnouncementItem {
+    return typeof value === 'object' && value !== null && typeof value.message === 'string';
 }

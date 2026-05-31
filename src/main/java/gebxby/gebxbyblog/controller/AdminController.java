@@ -122,7 +122,9 @@ public class AdminController {
             @RequestBody AdminNotificationRequest request,
             @AuthenticationPrincipal OAuth2User principal) {
         User admin = userService.getCurrentUser(principal);
-        return ResponseEntity.ok(notificationService.sendAdminBroadcast(request, admin));
+        List<NotificationResponse> notifications = notificationService.sendAdminBroadcast(request, admin);
+        announcementService.publish(request, admin);
+        return ResponseEntity.ok(notifications);
     }
 
     @PostMapping("/announcements")
@@ -131,6 +133,15 @@ public class AdminController {
             @AuthenticationPrincipal OAuth2User principal) {
         User admin = userService.getCurrentUser(principal);
         return ResponseEntity.ok(announcementService.publish(request, admin));
+    }
+
+    @DeleteMapping("/announcements/{announcementId}")
+    public ResponseEntity<Void> deleteAnnouncement(
+            @PathVariable UUID announcementId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        announcementService.deleteOwn(announcementId, admin);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/users/{userId}/badges/{badge}")

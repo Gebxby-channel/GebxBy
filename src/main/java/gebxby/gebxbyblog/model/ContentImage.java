@@ -8,6 +8,7 @@ import lombok.Setter;
 public class ContentImage {
     private String id;
     private String data;
+    private String thumbnail;
     private String alt;
     private long size;
 }

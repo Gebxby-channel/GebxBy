@@ -12,6 +12,7 @@ public record ContentResponse(
         String subtitle,
         String paragrafs,
         List<ContentImageResponse> images,
+        ContentImageResponse coverImage,
         PublicUserResponse user,
         String kategori,
         LocalDateTime createdAt,
@@ -35,6 +36,23 @@ public record ContentResponse(
                            int downCount,
                            long commentCount,
                            VoteDirection userVote) {
-        this(idContent, head, subtitle, paragrafs, List.of(), user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote);
+        this(idContent, head, subtitle, paragrafs, List.of(), null, user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote);
+    }
+
+    public ContentResponse(UUID idContent,
+                           String head,
+                           String subtitle,
+                           String paragrafs,
+                           List<ContentImageResponse> images,
+                           PublicUserResponse user,
+                           String kategori,
+                           LocalDateTime createdAt,
+                           LocalDateTime updatedAt,
+                           long viewCount,
+                           int upCount,
+                           int downCount,
+                           long commentCount,
+                           VoteDirection userVote) {
+        this(idContent, head, subtitle, paragrafs, images, null, user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote);
     }
 }
