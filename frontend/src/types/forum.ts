@@ -31,6 +31,13 @@ export interface PublicUser {
   badges?: Badge[];
 }
 
+export interface ContentImage {
+  id: string;
+  data: string;
+  alt?: string;
+  size: number;
+}
+
 export interface CurrentUser extends PublicUser {
   email: string;
   role: 'USER' | 'ADMIN' | string;
@@ -41,6 +48,7 @@ export interface ContentItem {
   head: string;
   subtitle?: string;
   paragrafs: string;
+  images?: ContentImage[];
   user?: PublicUser;
   kategori: string;
   createdAt?: string;

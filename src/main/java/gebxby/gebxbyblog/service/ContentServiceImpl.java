@@ -1,11 +1,13 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
+import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.LeaderboardEntryResponse;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.ContentImage;
 import gebxby.gebxbyblog.model.ContentVote;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
@@ -13,7 +15,6 @@ import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ContentVoteRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
-import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.HtmlUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -57,10 +60,15 @@ public class ContentServiceImpl implements ContentService {
     );
     private static final int MAX_TITLE_LENGTH = 180;
     private static final int MAX_CATEGORY_LENGTH = 60;
-    private static final int MAX_BODY_LENGTH = 60_000;
+    private static final int MAX_BODY_LENGTH = 120_000;
+    private static final int MAX_IMAGES = 6;
+    private static final int MAX_IMAGE_DATA_URL_LENGTH = 480_000;
+    private static final int MAX_IMAGE_BYTES = 360_000;
+    private static final int MAX_TOTAL_IMAGE_BYTES = 1_800_000;
     private static final Duration CATEGORY_CACHE_TTL = Duration.ofMinutes(5);
     private static final Duration ANALYTICS_CACHE_TTL = Duration.ofSeconds(45);
     private static final Safelist ARTICLE_SAFELIST = Safelist.relaxed()
+            .removeTags("img")
             .addTags("h1", "h2", "pre", "code", "span")
             .addAttributes("span", "class")
             .addAttributes("a", "target", "rel")
@@ -108,22 +116,23 @@ public class ContentServiceImpl implements ContentService {
         Content saved = contentRepository.save(content);
         activityLogService.recordPublication(saved, author);
         invalidateContentCaches();
-        return mapper.toContentResponse(saved, VoteDirection.NONE);
+        return mapper.toContentResponse(saved, VoteDirection.NONE, true);
     }
 
     @Override
-    public ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException {
+    public ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, List<ContentImageRequest> images, User author) throws IOException {
         userService.ensureActive(author);
         validateDocx(file);
 
         String text;
         try (InputStream inputStream = file.getInputStream();
-             XWPFDocument document = new XWPFDocument(inputStream);
-             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
-            text = extractor.getText();
+             XWPFDocument document = new XWPFDocument(inputStream)) {
+            text = document.getParagraphs().stream()
+                    .map(paragraph -> paragraph.getText() == null ? "" : paragraph.getText())
+                    .collect(Collectors.joining("\n\n"));
         }
 
-        ContentRequest request = new ContentRequest(title, null, text, kategori);
+        ContentRequest request = new ContentRequest(title, null, text, kategori, images == null ? List.of() : images);
         return addContent(request, author);
     }
 
@@ -159,7 +168,7 @@ public class ContentServiceImpl implements ContentService {
             content.setUpdatedAt(LocalDateTime.now());
             content = contentRepository.save(content);
         }
-        return mapper.toContentResponse(content, resolveUserVote(id, viewer));
+        return mapper.toContentResponse(content, resolveUserVote(id, viewer), true);
     }
 
     @Override
@@ -180,7 +189,7 @@ public class ContentServiceImpl implements ContentService {
         existingContent.setUpdatedAt(LocalDateTime.now());
         Content saved = contentRepository.save(existingContent);
         invalidateContentCaches();
-        return mapper.toContentResponse(saved, resolveUserVote(id, actor));
+        return mapper.toContentResponse(saved, resolveUserVote(id, actor), true);
     }
 
     @Override
@@ -329,21 +338,106 @@ public class ContentServiceImpl implements ContentService {
         }
         String title = trimToLength(request.head(), MAX_TITLE_LENGTH);
         String body = request.paragrafs() == null ? "" : request.paragrafs();
+        String normalizedBody = normalizeArticleBody(body);
         if (!StringUtils.hasText(title)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Judul wajib diisi");
         }
-        if (!StringUtils.hasText(Jsoup.parse(body).text())) {
+        if (!StringUtils.hasText(Jsoup.parse(normalizedBody).text())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Isi tulisan wajib diisi");
         }
         content.setHead(title);
         content.setSubtitle(trimToLength(request.subtitle(), MAX_TITLE_LENGTH));
-        content.setParagrafs(sanitizeArticle(body));
+        content.setParagrafs(sanitizeArticle(normalizedBody));
         content.setKategori(normalizeCategory(request.kategori()));
+        if (request.images() != null) {
+            content.setImages(validateImages(request.images()));
+        }
     }
 
     private String sanitizeArticle(String html) {
         String trimmed = html.length() > MAX_BODY_LENGTH ? html.substring(0, MAX_BODY_LENGTH) : html;
         return Jsoup.clean(trimmed, ARTICLE_SAFELIST);
+    }
+
+    private String normalizeArticleBody(String body) {
+        String normalized = body == null ? "" : body
+                .replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .trim();
+        if (looksLikeHtml(normalized)) {
+            return normalized;
+        }
+
+        return Arrays.stream(normalized.split("\\n\\s*\\n+"))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .map(block -> "<p>" + HtmlUtils.htmlEscape(block).replace("\n", "<br>") + "</p>")
+                .collect(Collectors.joining("\n"));
+    }
+
+    private boolean looksLikeHtml(String value) {
+        return value.matches("(?s).*<\\s*/?\\s*[a-zA-Z][^>]*>.*");
+    }
+
+    private List<ContentImage> validateImages(List<ContentImageRequest> images) {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+        if (images.size() > MAX_IMAGES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Maksimal 6 gambar per tulisan");
+        }
+
+        List<ContentImage> result = new ArrayList<>();
+        long totalBytes = 0;
+        for (ContentImageRequest request : images) {
+            if (request == null || !StringUtils.hasText(request.data())) {
+                continue;
+            }
+            String dataUrl = request.data().trim();
+            ImagePayload payload = validateImageDataUrl(dataUrl);
+            totalBytes += payload.size();
+            if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
+                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Total gambar terlalu besar");
+            }
+
+            ContentImage image = new ContentImage();
+            image.setId(UUID.randomUUID().toString());
+            image.setData(dataUrl);
+            image.setAlt(trimToLength(Jsoup.clean(request.alt() == null ? "" : request.alt(), Safelist.none()), 120));
+            image.setSize(payload.size());
+            result.add(image);
+        }
+        return result;
+    }
+
+    private ImagePayload validateImageDataUrl(String dataUrl) {
+        if (dataUrl.length() > MAX_IMAGE_DATA_URL_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran gambar terlalu besar");
+        }
+        int commaIndex = dataUrl.indexOf(',');
+        if (!dataUrl.startsWith("data:image/") || commaIndex < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Format gambar tidak valid");
+        }
+
+        String metadata = dataUrl.substring(5, commaIndex).toLowerCase(Locale.ROOT);
+        if (!metadata.endsWith(";base64")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Gambar wajib memakai base64 data URL");
+        }
+        String mimeType = metadata.substring(0, metadata.length() - ";base64".length());
+        if (!Set.of("image/webp", "image/jpeg", "image/png").contains(mimeType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipe gambar tidak didukung");
+        }
+
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(dataUrl.substring(commaIndex + 1));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data gambar rusak");
+        }
+        if (decoded.length > MAX_IMAGE_BYTES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran gambar terlalu besar");
+        }
+        return new ImagePayload(decoded.length);
     }
 
     private void validateDocx(MultipartFile file) {
@@ -447,5 +541,8 @@ public class ContentServiceImpl implements ContentService {
     }
 
     private record LeaderboardSnapshotEntry(User user, long upCount) {
+    }
+
+    private record ImagePayload(long size) {
     }
 }

@@ -7,6 +7,8 @@ import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.time.LocalDateTime;
 
@@ -27,6 +29,7 @@ public class Content {
     private String head;
     private String subtitle;
     private String paragrafs;
+    private List<ContentImage> images = new ArrayList<>();
     private User user;
 
     @Indexed

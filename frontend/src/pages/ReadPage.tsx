@@ -225,9 +225,36 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     </header>
 
                     <div
-                        className="whitespace-pre-wrap p-8 text-justify font-sans text-lg leading-relaxed text-[#ccc] selection:bg-[#e60000] selection:text-white md:p-12"
+                        className="p-8 text-justify font-sans text-lg leading-relaxed text-[#ccc] selection:bg-[#e60000] selection:text-white md:p-12 [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_br]:block [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
                         dangerouslySetInnerHTML={{ __html: safeBody }}
                     />
+
+                    {content.images?.length ? (
+                        <section className="border-t border-[#2a2a2a] bg-[#101010] p-6 md:p-8">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h2 className="font-mono text-xs font-black uppercase tracking-widest text-white">Attached Visual Evidence</h2>
+                                <span className="font-mono text-[10px] font-bold uppercase text-[#666]">{content.images.length} File</span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {content.images.map((image, index) => (
+                                    <figure key={image.id || `${content.idContent}-image-${index}`} className="m-0 overflow-hidden border border-[#333] bg-black">
+                                        <img
+                                            src={image.data}
+                                            alt={image.alt || `${content.head} attachment ${index + 1}`}
+                                            loading="lazy"
+                                            decoding="async"
+                                            className="max-h-[620px] w-full object-contain"
+                                        />
+                                        {image.alt && (
+                                            <figcaption className="border-t border-[#222] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[#777]">
+                                                {image.alt}
+                                            </figcaption>
+                                        )}
+                                    </figure>
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
 
                     <footer className="flex flex-col gap-4 border-t border-[#2a2a2a] bg-[#1a1a1a]/50 p-6 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-wrap items-center gap-4 text-[#777]">

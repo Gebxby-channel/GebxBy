@@ -5,9 +5,13 @@ import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.PublicUserResponse;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.dto.ContentImageResponse;
+import gebxby.gebxbyblog.model.ContentImage;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class ForumMapper {
@@ -49,11 +53,16 @@ public class ForumMapper {
     }
 
     public ContentResponse toContentResponse(Content content, VoteDirection userVote) {
+        return toContentResponse(content, userVote, false);
+    }
+
+    public ContentResponse toContentResponse(Content content, VoteDirection userVote, boolean includeImages) {
         return new ContentResponse(
                 content.getIdContent(),
                 content.getHead(),
                 content.getSubtitle(),
                 content.getParagrafs(),
+                includeImages ? toImageResponses(content.getImages()) : List.of(),
                 toPublicUser(content.getUser()),
                 content.getKategori(),
                 content.getCreatedAt(),
@@ -64,6 +73,20 @@ public class ForumMapper {
                 content.getCommentCount(),
                 userVote == null ? VoteDirection.NONE : userVote
         );
+    }
+
+    private List<ContentImageResponse> toImageResponses(List<ContentImage> images) {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+        return images.stream()
+                .map(image -> new ContentImageResponse(
+                        image.getId(),
+                        image.getData(),
+                        image.getAlt(),
+                        image.getSize()
+                ))
+                .toList();
     }
 
     public ContentStatsResponse toStatsResponse(Content content, long commentCount, VoteDirection userVote) {

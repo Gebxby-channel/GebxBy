@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
+import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
@@ -14,7 +15,10 @@ import java.util.UUID;
 
 public interface ContentService {
     ContentResponse addContent(ContentRequest request, User author);
-    ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException;
+    default ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException {
+        return addContentFromDocx(file, kategori, title, List.of(), author);
+    }
+    ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, List<ContentImageRequest> images, User author) throws IOException;
     List<ContentResponse> findAll(User viewer);
     List<ContentResponse> findByCategory(String category, User viewer);
     List<ContentResponse> findByAuthor(UUID userId, User viewer);

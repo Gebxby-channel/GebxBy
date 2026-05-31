@@ -1,10 +1,12 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
+import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.ContentImage;
 import gebxby.gebxbyblog.model.ContentVote;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
@@ -20,6 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
@@ -99,6 +104,60 @@ class ContentServiceImplTest {
     }
 
     @Test
+    void addContentPreservesPlainTextParagraphBreaks() {
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ContentResponse response = contentService.addContent(
+                new ContentRequest("Title", null, "First paragraph\n\nSecond paragraph\nwith same-block line", "General"),
+                author
+        );
+
+        assertFalse(response.paragrafs().contains("First paragraphSecond paragraph"));
+        assertFalse(response.paragrafs().contains("<script"));
+        assertTrue(response.paragrafs().contains("<p>First paragraph</p>"));
+        assertTrue(response.paragrafs().replaceAll("\\s+", "").contains("Secondparagraph<br>withsame-blockline"));
+    }
+
+    @Test
+    void addContentStoresValidatedImageAttachments() {
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        String dataUrl = "data:image/webp;base64,"
+                + Base64.getEncoder().encodeToString("tiny-image".getBytes(StandardCharsets.UTF_8));
+
+        ContentResponse response = contentService.addContent(
+                new ContentRequest(
+                        "Title",
+                        null,
+                        "Body",
+                        "General",
+                        List.of(new ContentImageRequest(dataUrl, "<b>Evidence</b>"))
+                ),
+                author
+        );
+
+        assertEquals(1, response.images().size());
+        assertEquals(dataUrl, response.images().getFirst().data());
+        assertEquals("Evidence", response.images().getFirst().alt());
+        assertEquals(10, response.images().getFirst().size());
+    }
+
+    @Test
+    void addContentRejectsUnsafeImageAttachment() {
+        assertThrows(ResponseStatusException.class, () ->
+                contentService.addContent(
+                        new ContentRequest(
+                                "Title",
+                                null,
+                                "Body",
+                                "General",
+                                List.of(new ContentImageRequest("javascript:alert(1)", "bad"))
+                        ),
+                        author
+                )
+        );
+    }
+
+    @Test
     void findContentByIdCanIncrementViewCount() {
         when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -117,6 +176,24 @@ class ContentServiceImplTest {
 
         assertEquals(0, response.viewCount());
         verify(contentRepository, never()).save(any(Content.class));
+    }
+
+    @Test
+    void detailResponseIncludesImagesButListResponseStaysLight() {
+        ContentImage image = new ContentImage();
+        image.setId("img-1");
+        image.setData("data:image/webp;base64,dGlueQ==");
+        image.setAlt("Evidence");
+        image.setSize(4);
+        content.setImages(List.of(image));
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(contentRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(content));
+
+        ContentResponse detail = contentService.findContentById(content.getIdContent(), null, false);
+        List<ContentResponse> list = contentService.findAll(null);
+
+        assertEquals(1, detail.images().size());
+        assertEquals(0, list.getFirst().images().size());
     }
 
     @Test

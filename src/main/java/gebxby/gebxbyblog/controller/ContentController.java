@@ -3,6 +3,7 @@ package gebxby.gebxbyblog.controller;
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
 import gebxby.gebxbyblog.dto.CommentRequest;
 import gebxby.gebxbyblog.dto.CommentResponse;
+import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
@@ -12,10 +13,14 @@ import gebxby.gebxbyblog.model.VoteDirection;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
 import gebxby.gebxbyblog.service.UserService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.List;
@@ -37,13 +43,16 @@ public class ContentController {
     private final ContentService contentService;
     private final CommentService commentService;
     private final UserService userService;
+    private final ObjectMapper objectMapper;
 
     public ContentController(ContentService contentService,
                              CommentService commentService,
-                             UserService userService) {
+                             UserService userService,
+                             ObjectMapper objectMapper) {
         this.contentService = contentService;
         this.commentService = commentService;
         this.userService = userService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/upload")
@@ -51,9 +60,10 @@ public class ContentController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam("kategori") String kategori,
+            @RequestParam(value = "imagesJson", required = false) String imagesJson,
             @AuthenticationPrincipal OAuth2User principal) throws IOException {
         User author = userService.getCurrentUser(principal);
-        ContentResponse savedContent = contentService.addContentFromDocx(file, kategori, title, author);
+        ContentResponse savedContent = contentService.addContentFromDocx(file, kategori, title, parseImagesJson(imagesJson), author);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedContent);
     }
 
@@ -169,5 +179,17 @@ public class ContentController {
 
     private User optionalUser(OAuth2User principal) {
         return principal == null ? null : userService.processUserLogin(principal);
+    }
+
+    private List<ContentImageRequest> parseImagesJson(String imagesJson) {
+        if (!StringUtils.hasText(imagesJson)) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(imagesJson, new TypeReference<List<ContentImageRequest>>() {
+            });
+        } catch (JsonProcessingException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload gambar tidak valid");
+        }
     }
 }

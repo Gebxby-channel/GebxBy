@@ -46,12 +46,12 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
 
     return (
         <header className="sticky top-0 z-50 border-b border-[#2a2a2a] bg-[#111]/95 shadow-md backdrop-blur">
-            <div className="flex min-h-[92px] items-start justify-between gap-4 px-5 py-4">
+            <div className="grid min-h-[92px] grid-cols-[auto_1fr_auto] items-start gap-4 px-5 py-4 md:items-center">
                 <div className="flex min-w-0 items-center gap-4">
                     <button
                         type="button"
                         onClick={() => setDrawerOpen(true)}
-                        className="flex h-11 w-11 flex-shrink-0 items-center justify-center border border-[#333] bg-[#181818] text-[#e60000] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                        className="flex h-11 w-11 flex-shrink-0 items-center justify-center border border-[#333] bg-[#181818] text-[#e60000] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white md:hidden"
                         title="Open menu"
                     >
                         <Menu size={22} />
@@ -68,39 +68,66 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                     </NavLink>
                 </div>
 
-                <div className="flex flex-shrink-0 flex-col items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => navigate(user ? '/profile' : '/login')}
-                        className="h-11 w-11 overflow-hidden border border-[#444] bg-[#181818] transition-all hover:border-[#e60000]"
-                        title={user ? 'Open biodata' : 'Login'}
-                    >
-                        {user ? (
-                            <img
-                                src={user.picture || defaultAvatar}
-                                alt="Profile"
-                                className="h-full w-full object-cover"
-                                referrerPolicy="no-referrer"
-                                onError={(event) => { event.currentTarget.src = defaultAvatar; }}
-                            />
-                        ) : (
-                            <span className="flex h-full w-full items-center justify-center font-mono text-xs font-black uppercase text-[#777]">G</span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={user ? handleLogout : () => navigate('/login')}
-                        className="flex h-7 items-center gap-1 border border-[#333] px-2 font-mono text-[8px] font-black uppercase tracking-widest text-[#e60000] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
-                        title={user ? 'Terminate session' : 'Open login'}
-                    >
-                        {user ? <LogOut size={11} /> : <LogIn size={11} />}
-                        {user ? 'Logout' : 'Login'}
-                    </button>
+                <nav className="hidden min-w-0 flex-wrap items-center justify-center gap-2 px-2 md:flex">
+                    {menuItems.map((item) => {
+                        const active = location.pathname === item.path;
+                        return (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                className={`flex h-11 min-w-[104px] items-center justify-center gap-2 border px-3 font-mono text-[9px] font-black uppercase tracking-widest transition-all lg:min-w-[122px] lg:text-[10px] ${
+                                    active
+                                        ? 'border-[#e60000] bg-[#e60000] text-white'
+                                        : 'border-[#2a2a2a] bg-[#141414] text-[#777] hover:border-[#e60000]/70 hover:text-white'
+                                }`}
+                            >
+                                <item.icon size={15} strokeWidth={2.5} />
+                                <span className="truncate">{item.label}</span>
+                            </NavLink>
+                        );
+                    })}
+                </nav>
+
+                <div className="flex flex-shrink-0 items-start gap-2">
+                    {user && (
+                        <div className="hidden md:block">
+                            <NotificationBell />
+                        </div>
+                    )}
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => navigate(user ? '/profile' : '/login')}
+                            className="h-11 w-11 overflow-hidden border border-[#444] bg-[#181818] transition-all hover:border-[#e60000]"
+                            title={user ? 'Open biodata' : 'Login'}
+                        >
+                            {user ? (
+                                <img
+                                    src={user.picture || defaultAvatar}
+                                    alt="Profile"
+                                    className="h-full w-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                    onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                                />
+                            ) : (
+                                <span className="flex h-full w-full items-center justify-center font-mono text-xs font-black uppercase text-[#777]">G</span>
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={user ? handleLogout : () => navigate('/login')}
+                            className="flex h-7 items-center gap-1 border border-[#333] px-2 font-mono text-[8px] font-black uppercase tracking-widest text-[#e60000] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                            title={user ? 'Terminate session' : 'Open login'}
+                        >
+                            {user ? <LogOut size={11} /> : <LogIn size={11} />}
+                            {user ? 'Logout' : 'Login'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {drawerOpen && (
-                <div className="fixed inset-0 z-[100] bg-black/70" onMouseDown={() => setDrawerOpen(false)}>
+                <div className="fixed inset-0 z-[100] bg-black/70 md:hidden" onMouseDown={() => setDrawerOpen(false)}>
                     <aside
                         className="h-screen w-[min(88vw,390px)] overflow-y-auto border-r border-[#2a2a2a] bg-[#0b0b0b] p-5 shadow-2xl"
                         onMouseDown={(event) => event.stopPropagation()}
