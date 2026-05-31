@@ -3,6 +3,7 @@ import { BarChart2, Database, Folder, History, LogIn, LogOut, PenTool, ShieldChe
 import { logout } from '../lib/api';
 import type { CurrentUser } from '../types/forum';
 import NotificationBell from './NotificationBell';
+import GlobalSearch from './GlobalSearch';
 
 interface NavbarProps {
     user: CurrentUser | null;
@@ -70,6 +71,8 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                         </NavLink>
                     ))}
                 </nav>
+
+                <GlobalSearch />
 
                 <div className="flex items-center gap-3">
                     {user ? (

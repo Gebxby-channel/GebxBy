@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.repository;
 
 import gebxby.gebxbyblog.model.Content;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -26,4 +27,7 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
 
     @Query(value = "{ 'user.userID': ?0 }", sort = "{ 'createdAt': -1 }")
     List<Content> findByAuthorIdOrderByCreatedAtDesc(UUID userId);
+
+    @Query("{ '$or': [ { 'head': { $regex: ?0, $options: 'i' } }, { 'subtitle': { $regex: ?0, $options: 'i' } }, { 'kategori': { $regex: ?0, $options: 'i' } } ] }")
+    List<Content> searchByHeadline(String query, Pageable pageable);
 }

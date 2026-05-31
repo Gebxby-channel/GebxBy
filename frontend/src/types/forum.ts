@@ -85,6 +85,29 @@ export interface AnalyticsPayload {
   weeklyLeaderboard: LeaderboardEntry[];
 }
 
+export interface SearchContentResult {
+  idContent: string;
+  head: string;
+  subtitle?: string;
+  kategori: string;
+  user?: PublicUser;
+  viewCount: number;
+  upCount: number;
+  commentCount: number;
+  createdAt?: string;
+}
+
+export interface SearchBadgeResult extends Badge {
+  users: PublicUser[];
+}
+
+export interface SearchPayload {
+  query: string;
+  users: PublicUser[];
+  contents: SearchContentResult[];
+  badges: SearchBadgeResult[];
+}
+
 export type NotificationType = 'COMMENT' | 'ADMIN_MESSAGE';
 
 export interface NotificationItem {

@@ -23,6 +23,7 @@ public class Content {
     @Id
     private UUID idContent;
 
+    @Indexed
     private String head;
     private String subtitle;
     private String paragrafs;

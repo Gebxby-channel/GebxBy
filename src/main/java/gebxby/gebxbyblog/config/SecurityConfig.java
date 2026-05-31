@@ -48,6 +48,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/", "/error", "/api/csrf", "/oauth2/**", "/login/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/user/me", "/api/user/{id}", "/content/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/email-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/user/create").permitAll()
