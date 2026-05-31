@@ -4,6 +4,7 @@ import { AlertTriangle, FileText, Inbox, Radio, ShieldAlert, UserRound, X } from
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import type { ActivityLogItem, CurrentUser } from '../types/forum';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 type Tab = 'basis' | 'reports';
 
@@ -88,7 +89,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
 
             <div className="min-h-[420px] border border-[#2a2a2a] bg-[#111]">
                 {loading ? (
-                    <div className="py-24 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ Reading Ledger ]</div>
+                    <LoadingSpinner label="Reading Ledger" />
                 ) : items.length === 0 ? (
                     <div className="py-24 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Records ]</div>
                 ) : (

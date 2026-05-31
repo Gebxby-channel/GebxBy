@@ -3,6 +3,7 @@ import { Bell, CheckCheck, MessageSquare, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import type { NotificationItem } from '../types/forum';
+import LoadingSpinner from './LoadingSpinner';
 
 export default function NotificationBell() {
     const navigate = useNavigate();
@@ -118,7 +119,7 @@ export default function NotificationBell() {
 
                     <div className="max-h-[420px] overflow-y-auto">
                         {loading ? (
-                            <div className="px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[#444]">[ Syncing ]</div>
+                            <LoadingSpinner compact label="Syncing" />
                         ) : items.length === 0 ? (
                             <div className="px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[#444]">[ No Signal ]</div>
                         ) : (

@@ -195,7 +195,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                 <div className="flex flex-col items-start gap-10 lg:flex-row">
                     <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
                         <div
-                            className="relative flex aspect-[1.58/1] w-full origin-top-left scale-95 overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl"
+                            className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl"
                             onContextMenu={(event) => {
                                 if (!canModerate || !displayUser) return;
                                 event.preventDefault();
@@ -209,8 +209,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                 <h2 className="text-[10px] font-black uppercase leading-tight text-white">SPECIAL TACTICS AND RESCUE SERVICE</h2>
                             </div>
 
-                            <div className="relative flex flex-1 flex-col bg-white p-4 text-[#1a3a63]">
-                                <div className="mb-2 flex items-start justify-between">
+                            <div className="relative flex flex-1 flex-col justify-between bg-white p-5 text-[#1a3a63]">
+                                <div className="flex items-start justify-between">
                                     <div className="flex flex-col">
                                         <h1 className="text-3xl font-black leading-none">POLICE</h1>
                                         <p className="text-[10px] font-bold">CENTRAL ARCHIVE DEP.</p>
@@ -218,13 +218,13 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                     <div className="flex h-8 w-8 items-center justify-center border border-[#1a3a63] text-xs font-black italic">RPD</div>
                                 </div>
 
-                                <div className="mt-2 space-y-4">
+                                <div className="space-y-4">
                                     <ProfileField label="Officer Name" value={displayUser?.name || 'N/A'} />
                                     <ProfileField label="Designation" value={displayUser?.designation || 'ACCESS_RESTRICTED'} />
                                 </div>
 
-                                <div className="mt-4 flex items-end justify-between">
-                                    <div className="h-20 w-16 border border-[#1a3a63] bg-gray-200 p-0.5">
+                                <div className="flex items-end justify-between gap-3">
+                                    <div className="h-24 w-20 flex-shrink-0 border border-[#1a3a63] bg-gray-200 p-0.5">
                                         <img
                                             src={displayUser?.picture || defaultAvatar}
                                             alt="Photo"
@@ -233,7 +233,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                             referrerPolicy="no-referrer"
                                         />
                                     </div>
-                                    <div className="ml-3 flex flex-1 flex-col items-end">
+                                    <div className="flex flex-1 flex-col items-end">
                                         <div className="w-full max-w-[100px] text-center">
                                             <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic leading-none">GEBXBY</div>
                                             <span className="text-[7px] font-black uppercase">Authorized Signature</span>

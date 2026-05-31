@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
 export default function HomePage({ user }: { user: CurrentUser | null }) {
@@ -49,9 +50,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
             </div>
 
             {loading ? (
-                <div className="border border-dashed border-[#222] py-32 text-center font-mono text-xs uppercase tracking-[0.4em] text-[#444]">
-                    [ Syncing_Database ]
-                </div>
+                <LoadingSpinner label="Syncing Database" />
             ) : sortedArticles.length === 0 ? (
                 <div className="border border-dashed border-[#222] py-40 text-center font-mono uppercase tracking-[0.4em] text-[#333]">
                     [ No_Data_Found_In_Sector ]

@@ -1,6 +1,6 @@
 import './index.css';
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import api from './lib/api';
 import type { CurrentUser } from './types/forum';
 
@@ -18,7 +18,7 @@ import LogPage from './pages/LogPage';
 
 // Components
 import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
+import LoadingSpinner from './components/LoadingSpinner';
 
 function MainLayout({
     user,
@@ -29,30 +29,12 @@ function MainLayout({
     onLogout: () => void;
     children: React.ReactNode;
 }) {
-    const location = useLocation();
-
-    const getActivePage = () => {
-        const path = location.pathname;
-        if (path === '/') return 'home';
-        if (path === '/category') return 'category';
-        if (path === '/write') return 'write';
-        if (path === '/profile') return 'profile';
-        if (path === '/analytics') return 'analytics';
-        if (path === '/logs') return 'logs';
-        if (path === '/control-room') return 'control-room';
-        return '';
-    };
-
     return (
         <div className="terminal-grid bg-[#0f0f0f] min-h-screen flex">
-            <Sidebar active={getActivePage()} user={user} />
-
             <div className="flex-grow flex flex-col min-w-0">
-                <div className="block md:hidden xl:block">
-                    <Navbar user={user} onLogout={onLogout} />
-                </div>
+                <Navbar user={user} onLogout={onLogout} />
 
-                <main className="w-full overflow-x-hidden md:pl-20 xl:pl-0">
+                <main className="w-full overflow-x-hidden">
                     <div className="max-w-5xl mx-auto p-6 md:p-12">
                         {children}
                     </div>
@@ -80,11 +62,7 @@ export default function App() {
     };
 
     if (loading) {
-        return (
-            <div className="h-screen w-full bg-[#050505] flex items-center justify-center text-[#e60000] font-mono tracking-widest uppercase">
-                Initializing_System...
-            </div>
-        );
+        return <LoadingSpinner fullScreen label="Initializing" />;
     }
 
     return (

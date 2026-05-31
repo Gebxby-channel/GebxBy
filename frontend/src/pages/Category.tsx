@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
@@ -68,10 +69,7 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
 
             <div className="flex min-h-[400px] flex-col">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center gap-3 py-20">
-                        <div className="h-8 w-8 animate-spin border-2 border-[#222] border-t-[#e60000]" />
-                        <span className="font-mono text-[10px] text-[#444]">SCANNING_DATABASE...</span>
-                    </div>
+                    <LoadingSpinner label="Scanning Database" />
                 ) : articles.length === 0 ? (
                     <div className="border border-dashed border-[#222] py-20 text-center font-mono tracking-widest text-[#444]">
                         [ NO_FILES_FOUND_IN_{selectedCategory.toUpperCase().replace(/\s/g, '_')} ]

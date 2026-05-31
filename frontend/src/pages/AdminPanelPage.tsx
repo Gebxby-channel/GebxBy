@@ -4,6 +4,7 @@ import api, { invalidateApiCache } from '../lib/api';
 import type { BadgeCode, ContentItem, CurrentUser } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
 import BadgeStrip from '../components/BadgeStrip';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
@@ -129,7 +130,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 </div>
 
                 {loading ? (
-                    <div className="py-16 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ Syncing Users ]</div>
+                    <LoadingSpinner compact label="Syncing Users" />
                 ) : users.length === 0 ? (
                     <div className="py-16 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Users ]</div>
                 ) : (

@@ -4,6 +4,7 @@ import { BadgeCheck, FileText, Search, UserRound, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cachedGet } from '../lib/api';
 import type { SearchPayload } from '../types/forum';
+import LoadingSpinner from './LoadingSpinner';
 
 type SearchTab = 'all' | 'users' | 'contents' | 'badges';
 
@@ -126,7 +127,7 @@ export default function GlobalSearch() {
 
                     <div className="max-h-[520px] overflow-y-auto p-2">
                         {loading ? (
-                            <div className="py-8 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ Searching ]</div>
+                            <LoadingSpinner compact label="Searching" />
                         ) : !hasResults ? (
                             <div className="py-8 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Match ]</div>
                         ) : (

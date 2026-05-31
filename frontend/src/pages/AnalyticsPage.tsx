@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ArrowBigUp, Eye, Trophy } from 'lucide-react';
 import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 import type { AnalyticsPayload, CurrentUser } from '../types/forum';
 
 export default function AnalyticsPage({ user }: { user: CurrentUser }) {
@@ -26,9 +27,7 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
             </div>
 
             {loading || !analytics ? (
-                <div className="border border-dashed border-[#222] py-32 text-center font-mono text-xs uppercase tracking-[0.4em] text-[#444]">
-                    [ Aggregating_Signals ]
-                </div>
+                <LoadingSpinner label="Aggregating Signals" />
             ) : (
                 <div className="space-y-12">
                     <section>

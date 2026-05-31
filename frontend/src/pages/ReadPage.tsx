@@ -6,6 +6,7 @@ import axios from 'axios';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
 import type { CommentItem, ContentItem, ContentStats, CurrentUser, VoteDirection } from '../types/forum';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const { id } = useParams();
@@ -169,22 +170,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     };
 
     if (!content) {
-        return (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center bg-[#0a0a0a] font-mono text-[#e60000]">
-                <div className="flex animate-pulse flex-col items-center">
-                    <p className="mb-2 tracking-[0.5em]">[ DECRYPTING_SECURE_FILE ]</p>
-                    <div className="relative h-1 w-48 overflow-hidden bg-[#1a1a1a]">
-                        <div className="absolute inset-0 animate-[loading_2s_infinite] bg-[#e60000]" />
-                    </div>
-                </div>
-                <style>{`
-                    @keyframes loading {
-                        0% { transform: translateX(-100%); }
-                        100% { transform: translateX(100%); }
-                    }
-                `}</style>
-            </div>
-        );
+        return <LoadingSpinner label="Decrypting File" />;
     }
 
     return (
