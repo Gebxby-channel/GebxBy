@@ -88,7 +88,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                     })}
                 </nav>
 
-                <div className="flex flex-shrink-0 items-start gap-2">
+                <div className="flex-shrink-0 items-start gap-2">
                     {user && (
                         <div className="hidden md:block">
                             <NotificationBell />
