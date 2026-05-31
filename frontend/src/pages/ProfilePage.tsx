@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, ShieldAlert, Users } from 'lucide-react';
+import { Award, Bookmark, FileText, ShieldAlert, Users } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
+import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
-import type { ContentItem, CurrentUser, PublicUser } from '../types/forum';
+import type { Badge, ContentItem, CurrentUser, PublicUser } from '../types/forum';
 import BadgeStrip from '../components/BadgeStrip';
 import { useFeedback } from '../components/feedback';
+import { formatIndonesiaDate } from '../utils/time';
 
 interface EditForm {
     head: string;
@@ -21,7 +23,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [bookmarks, setBookmarks] = useState<ContentItem[]>([]);
     const [following, setFollowing] = useState<PublicUser[]>([]);
-    const [profileTab, setProfileTab] = useState<'archives' | 'bookmarks' | 'following'>('archives');
+    const [profileTab, setProfileTab] = useState<'about' | 'writings' | 'bookmarks' | 'following' | 'badges'>('about');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -33,12 +35,22 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [cropX, setCropX] = useState(0);
     const [cropY, setCropY] = useState(0);
     const [savingProfile, setSavingProfile] = useState(false);
+    const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
     const navigate = useNavigate();
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(user.name || 'User')}`;
     const profileDirty = name !== (user.name || '')
         || designation !== (user.designation || 'RECONNAISSANCE OFFICER')
         || picture !== (user.picture || '');
+    const publishedContents = contents.filter(item => item.status !== 'DRAFT');
+    const draftContents = contents.filter(item => item.status === 'DRAFT');
+    const profileStats = {
+        writings: publishedContents.length,
+        drafts: draftContents.length,
+        up: contents.reduce((sum, item) => sum + (item.upCount || 0), 0),
+        comments: contents.reduce((sum, item) => sum + (item.commentCount || 0), 0),
+        views: contents.reduce((sum, item) => sum + (item.viewCount || 0), 0),
+    };
 
     const fetchMyContents = useCallback(async (force = false) => {
         const data = await cachedGet<ContentItem[]>(`/content/by-user/${user.userID}`, undefined, {
@@ -285,24 +297,22 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                         <div className="mb-10 flex flex-col items-start justify-between gap-4 border-b border-[#2a2a2a] pb-6 md:flex-row md:items-center">
                             <div>
                                 <h2 className="text-2xl font-black uppercase tracking-widest text-white">
-                                    {profileTab === 'archives' ? 'Personal Archives' : profileTab === 'bookmarks' ? 'Bookmarks' : 'Following'}
+                                    {profileTitle(profileTab)}
                                 </h2>
                                 <p className="font-mono text-xs text-[#888]">
-                                    {profileTab === 'archives'
-                                        ? `Managing ${contents.length} secure data entries within this sector.`
-                                        : profileTab === 'bookmarks'
-                                            ? `${bookmarks.length} saved entries for later reading.`
-                                            : `${following.length} followed archive officers.`}
+                                    {profileSubtitle(profileTab, contents.length, bookmarks.length, following.length, user.badges?.length ?? 0)}
                                 </p>
                             </div>
                             <div className="flex w-full flex-wrap items-center gap-3 md:w-auto">
-                                <ProfileTabButton active={profileTab === 'archives'} label="Archives" onClick={() => setProfileTab('archives')} />
+                                <ProfileTabButton active={profileTab === 'about'} label="About" onClick={() => setProfileTab('about')} />
+                                <ProfileTabButton active={profileTab === 'writings'} label="Writings" icon={<FileText size={13} />} onClick={() => setProfileTab('writings')} />
                                 <ProfileTabButton active={profileTab === 'bookmarks'} label="Bookmarks" icon={<Bookmark size={13} />} onClick={() => setProfileTab('bookmarks')} />
                                 <ProfileTabButton active={profileTab === 'following'} label="Following" icon={<Users size={13} />} onClick={() => setProfileTab('following')} />
+                                <ProfileTabButton active={profileTab === 'badges'} label="Badges" icon={<Award size={13} />} onClick={() => setProfileTab('badges')} />
                                 <select
                                     value={sortOrder}
                                     onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}
-                                    className={`${profileTab === 'archives' ? 'block' : 'hidden'} cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]`}
+                                    className={`${profileTab === 'writings' ? 'block' : 'hidden'} cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]`}
                                 >
                                     <option value="newest">Newest Entry</option>
                                     <option value="oldest">Oldest Entry</option>
@@ -318,9 +328,11 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                         </div>
 
                         <div className="grid gap-6">
-                            {profileTab === 'archives' && contents.length === 0 ? (
+                            {profileTab === 'about' ? (
+                                <AboutPanel stats={profileStats} user={user} recent={contents.slice(0, 4)} />
+                            ) : profileTab === 'writings' && contents.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO DATA RECORDED ]</div>
-                            ) : profileTab === 'archives' ? (
+                            ) : profileTab === 'writings' ? (
                                 contents.map(item => (
                                     <ArchiveItem
                                         key={item.idContent}
@@ -334,11 +346,13 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         onDelete={() => void handleDelete(item.idContent)}
                                     />
                                 ))
+                            ) : profileTab === 'badges' ? (
+                                <BadgesPanel badges={user.badges ?? []} onOpen={setSelectedBadge} />
                             ) : profileTab === 'bookmarks' && bookmarks.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BOOKMARKS SAVED ]</div>
                             ) : profileTab === 'bookmarks' ? (
                                 bookmarks.map(item => (
-                                    <BookmarkItem key={item.idContent} item={item} onOpen={() => navigate(`/read/${item.idContent}`)} />
+                                    <BookmarkItem key={item.idContent} item={item} viewerUserId={user.userID} onOpen={() => navigate(`/read/${item.idContent}`)} />
                                 ))
                             ) : following.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWING DATA ]</div>
@@ -351,6 +365,19 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                     </div>
                 </div>
             </div>
+            {selectedBadge && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md border border-[#2a2a2a] bg-[#0d0d0d] p-6">
+                        <div className="mb-4 border-l-4 border-[#e60000] pl-4">
+                            <p className="m-0 text-3xl">{selectedBadge.icon}</p>
+                            <h2 className="m-0 mt-2 font-mono text-2xl font-black uppercase text-white">{selectedBadge.label}</h2>
+                            <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">{selectedBadge.custom ? 'Custom Badge' : 'Core Badge'} // {selectedBadge.automatic ? 'Automatic' : 'Manual'}</p>
+                        </div>
+                        <p className="m-0 whitespace-pre-wrap font-sans text-sm leading-7 text-[#ccc]">{selectedBadge.description || 'No description.'}</p>
+                        <button type="button" onClick={() => setSelectedBadge(null)} className="mt-6 border border-[#333] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Close</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -396,6 +423,9 @@ function ArchiveItem({
                             <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
                             <span className="font-mono text-[9px] font-bold uppercase text-[#444]">FILE DATE: {formatDate(item.createdAt)}</span>
                             <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                            {item.status === 'DRAFT' && (
+                                <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">Draft</span>
+                            )}
                         </div>
                         <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
                         <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
@@ -425,23 +455,150 @@ function ProfileTabButton({ active, label, icon, onClick }: { active: boolean; l
     );
 }
 
-function BookmarkItem({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
+function profileTitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'badges') {
+    return {
+        about: 'Profile Overview',
+        writings: 'Personal Archives',
+        bookmarks: 'Bookmarks',
+        following: 'Following',
+        badges: 'Badge Cabinet',
+    }[tab];
+}
+
+function profileSubtitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'badges', writings: number, bookmarks: number, following: number, badges: number) {
+    return {
+        about: 'Identity, stats, and recent signal activity.',
+        writings: `Managing ${writings} secure data entries within this sector.`,
+        bookmarks: `${bookmarks} saved entries for later reading.`,
+        following: `${following} followed archive officers.`,
+        badges: `${badges} visible badge records.`,
+    }[tab];
+}
+
+function AboutPanel({
+    stats,
+    user,
+    recent,
+}: {
+    stats: { writings: number; drafts: number; up: number; comments: number; views: number };
+    user: CurrentUser;
+    recent: ContentItem[];
+}) {
+    return (
+        <section className="space-y-6">
+            <div className="grid gap-3 md:grid-cols-5">
+                <ProfileMetric label="Writings" value={stats.writings} />
+                <ProfileMetric label="Drafts" value={stats.drafts} danger={stats.drafts > 0} />
+                <ProfileMetric label="Total UP" value={stats.up} />
+                <ProfileMetric label="Comments" value={stats.comments} />
+                <ProfileMetric label="Views" value={stats.views} />
+            </div>
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+                <div className="border border-[#2a2a2a] bg-[#181818] p-5">
+                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">About</p>
+                    <h3 className="m-0 mt-3 font-mono text-xl font-black uppercase text-white">{user.name}</h3>
+                    <p className="m-0 mt-2 font-mono text-[10px] uppercase text-[#666]">{user.designation || 'Archive Officer'}</p>
+                    <p className="m-0 mt-4 font-sans text-sm leading-7 text-[#aaa]">{user.moto || 'No personal note recorded yet.'}</p>
+                </div>
+                <div className="border border-[#2a2a2a] bg-[#181818] p-5">
+                    <p className="m-0 mb-4 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Recent Activity</p>
+                    {recent.length === 0 ? (
+                        <div className="border border-dashed border-[#333] py-10 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-[#444]">[ No Activity ]</div>
+                    ) : (
+                        <div className="space-y-3">
+                            {recent.map((item) => (
+                                <div key={item.idContent} className="border border-[#242424] bg-[#101010] p-3">
+                                    <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{item.head}</p>
+                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{item.status === 'DRAFT' ? 'Draft saved' : 'Published'} // {formatDate(item.updatedAt || item.createdAt)}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function ProfileMetric({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
+    return (
+        <div className="border border-[#2a2a2a] bg-[#181818] p-4">
+            <p className="m-0 font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#555]">{label}</p>
+            <p className={`m-0 mt-2 font-mono text-2xl font-black ${danger ? 'text-[#e60000]' : 'text-white'}`}>{value}</p>
+        </div>
+    );
+}
+
+function BadgesPanel({ badges, onOpen }: { badges: Badge[]; onOpen: (badge: Badge) => void }) {
+    if (badges.length === 0) {
+        return <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BADGES ]</div>;
+    }
+    return (
+        <div className="grid gap-3 md:grid-cols-2">
+            {badges.map((badge) => (
+                <button
+                    key={badge.id ?? badge.code ?? badge.label}
+                    type="button"
+                    onClick={() => onOpen(badge)}
+                    className="border border-[#2a2a2a] bg-[#181818] p-4 text-left transition-all hover:border-[#e60000]"
+                >
+                    <div className="mb-3 flex items-center gap-3">
+                        <span className="text-2xl">{badge.custom ? badge.icon : '▣'}</span>
+                        <div className="min-w-0">
+                            <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{badge.label}</p>
+                            <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{badge.custom ? 'Custom' : 'Core'} // {badge.automatic ? 'Auto' : 'Manual'}</p>
+                        </div>
+                    </div>
+                    <p className="m-0 line-clamp-2 font-sans text-sm leading-6 text-[#aaa]">{badge.description}</p>
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function BookmarkItem({ item, viewerUserId, onOpen }: { item: ContentItem; viewerUserId: string; onOpen: () => void }) {
+    const navigate = useNavigate();
     const themeColor = getCategoryColor(item.kategori);
     return (
-        <button
-            type="button"
+        <article
+            role="button"
+            tabIndex={0}
             onClick={onOpen}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpen();
+                }
+            }}
             className="group border border-[#2a2a2a] bg-[#181818] p-6 text-left transition-all hover:border-[#e60000]"
             style={{ borderLeft: `3px solid ${themeColor}` }}
         >
             <div className="mb-2 flex flex-wrap items-center gap-3">
                 <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>SAVED ENTRY</span>
                 <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
-                <span className="font-mono text-[9px] uppercase text-[#555]">{item.user?.name || 'Unknown'}</span>
+                <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        const path = profilePathForUser(item.user?.userID, viewerUserId);
+                        if (path) navigate(path);
+                    }}
+                    onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const path = profilePathForUser(item.user?.userID, viewerUserId);
+                        if (path) navigate(path);
+                    }}
+                    className="font-mono text-[9px] uppercase text-[#555] hover:text-[#e60000]"
+                >
+                    {item.user?.name || 'Unknown'}
+                </span>
             </div>
             <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
             <p className="line-clamp-2 font-sans text-sm leading-6 text-[#aaa]">{stripHtml(item.paragrafs).substring(0, 200)}...</p>
-        </button>
+        </article>
     );
 }
 
@@ -513,9 +670,5 @@ function cropImage(source: string, zoom: number, offsetX: number, offsetY: numbe
 
 function formatDate(dateString?: string) {
     if (!dateString) return 'NO DATA';
-    return new Date(dateString).toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).toUpperCase();
+    return formatIndonesiaDate(dateString);
 }

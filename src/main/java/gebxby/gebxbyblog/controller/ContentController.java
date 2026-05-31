@@ -145,6 +145,33 @@ public class ContentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+    @PostMapping("/drafts")
+    public ResponseEntity<ContentResponse> createDraft(
+            @RequestBody ContentRequest content,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User author = userService.getCurrentUser(principal);
+        ContentResponse result = contentService.saveDraft(null, content, author);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @PutMapping("/drafts/{id}")
+    public ResponseEntity<ContentResponse> updateDraft(
+            @PathVariable UUID id,
+            @RequestBody ContentRequest content,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User author = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(contentService.saveDraft(id, content, author));
+    }
+
+    @PostMapping("/drafts/{id}/publish")
+    public ResponseEntity<ContentResponse> publishDraft(
+            @PathVariable UUID id,
+            @RequestBody ContentRequest content,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User author = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(contentService.publishDraft(id, content, author));
+    }
+
     @PutMapping("/edit/{id}")
     public ResponseEntity<ContentResponse> updateContent(
             @PathVariable UUID id,

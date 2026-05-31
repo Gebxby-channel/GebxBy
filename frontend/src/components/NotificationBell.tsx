@@ -124,10 +124,17 @@ export default function NotificationBell() {
                             <div className="px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[#444]">[ No Signal ]</div>
                         ) : (
                             items.map((item) => (
-                                <button
+                                <article
                                     key={item.id}
-                                    type="button"
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => void openNotification(item)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            void openNotification(item);
+                                        }
+                                    }}
                                     className={`flex w-full gap-3 border-b border-[#1e1e1e] px-4 py-3 text-left transition-all hover:bg-[#151515] ${
                                         item.read ? 'opacity-65' : 'bg-[#160909]'
                                     }`}
@@ -142,11 +149,25 @@ export default function NotificationBell() {
                                         </div>
                                         <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#aaa]">{item.message}</p>
                                         <div className="mt-2 flex items-center justify-between gap-3 font-mono text-[9px] uppercase text-[#555]">
-                                            <span className="truncate">{item.contentTitle || item.actorName || 'System'}</span>
+                                            {item.actorUserId && item.actorName ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        navigate(`/profile/${item.actorUserId}`);
+                                                        setOpen(false);
+                                                    }}
+                                                    className="truncate font-mono uppercase text-[#777] hover:text-[#e60000]"
+                                                >
+                                                    {item.actorName}
+                                                </button>
+                                            ) : (
+                                                <span className="truncate">{item.contentTitle || item.actorName || 'System'}</span>
+                                            )}
                                             <span className="flex-shrink-0">{formatAge(item.createdAt)}</span>
                                         </div>
                                     </div>
-                                </button>
+                                </article>
                             ))
                         )}
                     </div>

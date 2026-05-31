@@ -33,14 +33,17 @@ export default function BadgeStrip({ badges, compact = false }: { badges?: Badge
   return (
     <div className="flex flex-wrap gap-1.5">
       {badges.map((badge) => {
-        const Icon = icons[badge.code] ?? Shield;
+        const code = badge.code as BadgeCode | undefined;
+        const Icon = code ? icons[code] ?? Shield : Shield;
+        const key = badge.id ?? badge.code ?? badge.label;
+        const style = code ? badgeStyle[code] : 'border-[#f8fafc] text-[#f8fafc] bg-[#111827]';
         return (
           <span
-            key={badge.code}
+            key={key}
             title={`${badge.label}: ${badge.description}`}
-            className={`inline-flex items-center gap-1 border px-2 py-1 font-mono font-black uppercase ${compact ? 'text-[8px]' : 'text-[9px]'} ${badgeStyle[badge.code]}`}
+            className={`inline-flex items-center gap-1 border px-2 py-1 font-mono font-black uppercase ${compact ? 'text-[8px]' : 'text-[9px]'} ${style}`}
           >
-            <Icon size={compact ? 10 : 12} />
+            {badge.custom ? <span className="text-[11px] leading-none">{badge.icon}</span> : <Icon size={compact ? 10 : 12} />}
             {compact ? badge.label.substring(0, 3) : badge.label}
           </span>
         );

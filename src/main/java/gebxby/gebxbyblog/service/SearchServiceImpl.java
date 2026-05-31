@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -75,6 +76,7 @@ public class SearchServiceImpl implements SearchService {
 
     private List<SearchContentResult> searchContents(String query, int size) {
         return contentRepository.searchByHeadline(regexContains(query), PageRequest.of(0, fetchSize(size))).stream()
+                .filter(this::isPublished)
                 .sorted(Comparator
                         .comparingInt((Content content) -> contentRank(content, query))
                         .thenComparing(Content::getUpCount, Comparator.reverseOrder())
@@ -110,36 +112,46 @@ public class SearchServiceImpl implements SearchService {
 
     private SearchBadgeResult toBadgeResult(BadgeResponse badge) {
         return new SearchBadgeResult(
+                badge.id(),
                 badge.code(),
                 badge.label(),
                 badge.description(),
                 badge.icon(),
                 badge.automatic(),
-                findBadgeUsers(badge.code()).stream()
+                badge.custom(),
+                findBadgeUsers(badge).stream()
                         .map(mapper::toPublicUser)
                         .toList()
         );
     }
 
-    private List<User> findBadgeUsers(BadgeCode badge) {
+    private List<User> findBadgeUsers(BadgeResponse badge) {
         PageRequest page = PageRequest.of(0, BADGE_USER_LIMIT);
-        return switch (badge) {
+        if (badge.custom()) {
+            try {
+                return userRepository.findByCustomBadgeIds(UUID.fromString(badge.id()), page);
+            } catch (IllegalArgumentException ex) {
+                return List.of();
+            }
+        }
+        return switch (badge.code()) {
             case ADMIN -> userRepository.findByRoleIgnoreCase("ADMIN", page);
             case SURVIVOR -> userRepository.findAll(page).getContent();
             case CRIMINAL -> userRepository.findCriminalBadgeUsers(page);
             case LIGA -> List.of();
-            default -> userRepository.findByManualBadges(badge, page);
+            default -> userRepository.findByManualBadges(badge.code(), page);
         };
     }
 
     private boolean badgeMatches(BadgeResponse badge, String query) {
-        return contains(badge.code().name(), query)
+        return contains(badge.id(), query)
+                || contains(badge.code() == null ? "" : badge.code().name(), query)
                 || contains(badge.label(), query)
                 || contains(badge.description(), query);
     }
 
     private int badgeRank(BadgeResponse badge, String query) {
-        String code = normalizeText(badge.code().name());
+        String code = normalizeText(badge.code() == null ? badge.id() : badge.code().name());
         String label = normalizeText(badge.label());
         if (code.equals(query) || label.equals(query)) return 0;
         if (code.startsWith(query) || label.startsWith(query)) return 1;
@@ -189,6 +201,10 @@ public class SearchServiceImpl implements SearchService {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private boolean isPublished(Content content) {
+        return content == null || content.getStatus() == null || "PUBLISHED".equalsIgnoreCase(content.getStatus());
     }
 
     private enum SearchType {

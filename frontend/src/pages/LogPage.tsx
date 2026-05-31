@@ -5,6 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import type { ActivityLogItem, CurrentUser } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { profilePathForUser } from '../utils/profilePath';
+import { formatIndonesiaDateTime } from '../utils/time';
 
 type Tab = 'basis' | 'reports';
 
@@ -111,10 +113,17 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                     <div className="py-24 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Records ]</div>
                 ) : (
                     items.map((item) => (
-                        <button
+                        <article
                             key={item.id}
-                            type="button"
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setSelected(item)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    setSelected(item);
+                                }
+                            }}
                             className="group relative flex w-full gap-4 border-b border-[#202020] px-5 py-4 text-left transition-all hover:bg-[#171717]"
                         >
                             <LogIcon item={item} />
@@ -122,6 +131,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                                 <div className="mb-1 flex flex-wrap items-center gap-2">
                                     <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">{item.type}</span>
                                     <span className="font-mono text-[9px] uppercase text-[#555]">{item.direction}</span>
+                                    {item.reportCategory && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#777]">{item.reportCategory}</span>}
                                     {item.reportQueue && <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">Queue</span>}
                                     {item.resolved && <span className="border border-[#166534] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#4ade80]">Resolved</span>}
                                 </div>
@@ -129,13 +139,13 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                                 <p className="m-0 mt-1 line-clamp-2 font-sans text-sm leading-6 text-[#999]">{item.message || item.reason}</p>
                                 <div className="mt-3 flex flex-wrap gap-3 font-mono text-[9px] uppercase text-[#555]">
                                     <span>{formatDate(item.createdAt)}</span>
-                                    <span>{item.actorName || 'System'}</span>
+                                    <InlineProfileLink label={item.actorName || 'System'} userId={item.actorUserId} viewerUserId={user.userID} />
                                     {item.contentTitle && <span className="truncate">File: {item.contentTitle}</span>}
-                                    {item.targetUserName && <span>Target: {item.targetUserName}</span>}
+                                    {item.targetUserName && <InlineProfileLink label={`Target: ${item.targetUserName}`} userId={item.targetUserId} viewerUserId={user.userID} />}
                                 </div>
                             </div>
                             <div className="absolute right-0 top-0 h-3 w-3 border-r border-t border-[#e60000]/0 transition-colors group-hover:border-[#e60000]" />
-                        </button>
+                        </article>
                     ))
                 )}
             </div>
@@ -148,6 +158,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                         setSearchParams({});
                     }}
                     onOpenDestination={openDestination}
+                    viewerUserId={user.userID}
                     canResolve={canReviewReports && selected.reportQueue && !selected.resolved}
                     onResolve={async (item) => {
                         const response = await api.post<ActivityLogItem>(`/api/logs/reports/${item.id}/resolve`);
@@ -212,12 +223,14 @@ function LogDetailModal({
     item,
     onClose,
     onOpenDestination,
+    viewerUserId,
     canResolve,
     onResolve,
 }: {
     item: ActivityLogItem;
     onClose: () => void;
     onOpenDestination: (item: ActivityLogItem) => void;
+    viewerUserId: string;
     canResolve: boolean;
     onResolve: (item: ActivityLogItem) => Promise<void>;
 }) {
@@ -241,9 +254,10 @@ function LogDetailModal({
                     <p className="m-0 whitespace-pre-wrap font-sans text-sm leading-7 text-[#ccc]">{item.message || item.reason || 'No detail.'}</p>
                 </div>
                 <div className="grid gap-3 font-mono text-[10px] uppercase text-[#777] md:grid-cols-2">
-                    <Meta label="Actor" value={item.actorName || 'System'} />
-                    <Meta label="Target" value={item.targetUserName || item.contentTitle || item.targetType} />
+                    <ProfileMeta label="Actor" value={item.actorName || 'System'} userId={item.actorUserId} viewerUserId={viewerUserId} />
+                    <ProfileMeta label="Target" value={item.targetUserName || item.contentTitle || item.targetType} userId={item.targetUserId} viewerUserId={viewerUserId} />
                     <Meta label="Direction" value={item.direction} />
+                    <Meta label="Category" value={item.reportCategory || 'N/A'} />
                     <Meta label="Queue" value={item.reportQueue ? 'REPORT_QUEUE' : 'BASIS'} />
                 </div>
                 {(item.contentId || item.targetUserId || canResolve) && (
@@ -272,6 +286,47 @@ function LogDetailModal({
     );
 }
 
+function InlineProfileLink({ label, userId, viewerUserId }: { label: string; userId?: string; viewerUserId: string }) {
+    const navigate = useNavigate();
+    const path = profilePathForUser(userId, viewerUserId);
+    if (!path) {
+        return <span>{label}</span>;
+    }
+    return (
+        <button
+            type="button"
+            onClick={(event) => {
+                event.stopPropagation();
+                navigate(path);
+            }}
+            className="font-mono uppercase text-[#777] hover:text-[#e60000]"
+        >
+            {label}
+        </button>
+    );
+}
+
+function ProfileMeta({ label, value, userId, viewerUserId }: { label: string; value: string; userId?: string; viewerUserId: string }) {
+    const navigate = useNavigate();
+    const path = profilePathForUser(userId, viewerUserId);
+    return (
+        <div className="border border-[#202020] bg-[#101010] p-3">
+            <p className="m-0 text-[#444]">{label}</p>
+            {path ? (
+                <button
+                    type="button"
+                    onClick={() => navigate(path)}
+                    className="m-0 mt-1 max-w-full truncate text-left text-white hover:text-[#e60000]"
+                >
+                    {value}
+                </button>
+            ) : (
+                <p className="m-0 mt-1 truncate text-white">{value}</p>
+            )}
+        </div>
+    );
+}
+
 function Meta({ label, value }: { label: string; value: string }) {
     return (
         <div className="border border-[#202020] bg-[#101010] p-3">
@@ -283,11 +338,5 @@ function Meta({ label, value }: { label: string; value: string }) {
 
 function formatDate(dateString?: string) {
     if (!dateString) return 'NO_DATE';
-    return new Date(dateString).toLocaleString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return formatIndonesiaDateTime(dateString);
 }

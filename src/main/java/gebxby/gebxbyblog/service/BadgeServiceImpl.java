@@ -1,16 +1,21 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.BadgeResponse;
+import gebxby.gebxbyblog.dto.CustomBadgeRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.ContentVote;
+import gebxby.gebxbyblog.model.CustomBadgeDefinition;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ContentVoteRepository;
+import gebxby.gebxbyblog.repository.CustomBadgeRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -58,13 +63,23 @@ public class BadgeServiceImpl implements BadgeService {
     private final UserRepository userRepository;
     private final ContentVoteRepository voteRepository;
     private final ContentRepository contentRepository;
+    private final CustomBadgeRepository customBadgeRepository;
+
+    @Autowired
+    public BadgeServiceImpl(UserRepository userRepository,
+                            ContentVoteRepository voteRepository,
+                            ContentRepository contentRepository,
+                            CustomBadgeRepository customBadgeRepository) {
+        this.userRepository = userRepository;
+        this.voteRepository = voteRepository;
+        this.contentRepository = contentRepository;
+        this.customBadgeRepository = customBadgeRepository;
+    }
 
     public BadgeServiceImpl(UserRepository userRepository,
                             ContentVoteRepository voteRepository,
                             ContentRepository contentRepository) {
-        this.userRepository = userRepository;
-        this.voteRepository = voteRepository;
-        this.contentRepository = contentRepository;
+        this(userRepository, voteRepository, contentRepository, null);
     }
 
     @Override
@@ -89,9 +104,19 @@ public class BadgeServiceImpl implements BadgeService {
         if (hasRequiemPrerequisites(codes)) {
             codes.add(BadgeCode.REQUIEM);
         }
-        return definitions().stream()
+        List<BadgeResponse> response = definitions().stream()
                 .filter(definition -> codes.contains(definition.code()))
                 .toList();
+        if (customBadgeRepository == null || user.getCustomBadgeIds() == null || user.getCustomBadgeIds().isEmpty()) {
+            return response;
+        }
+        List<BadgeResponse> customBadges = customBadgeRepository.findAllById(user.getCustomBadgeIds()).stream()
+                .sorted(Comparator.comparing(CustomBadgeDefinition::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::toCustomResponse)
+                .toList();
+        List<BadgeResponse> merged = new ArrayList<>(response);
+        merged.addAll(customBadges);
+        return merged;
     }
 
     @Override
@@ -134,11 +159,86 @@ public class BadgeServiceImpl implements BadgeService {
     }
 
     @Override
+    public BadgeResponse createCustomBadge(CustomBadgeRequest request, User admin) {
+        requireAdmin(admin);
+        if (customBadgeRepository == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Custom badge storage belum aktif");
+        }
+        String label = trim(request == null ? null : request.label(), 32);
+        String icon = trim(request == null ? null : request.icon(), 12);
+        String description = trim(request == null ? null : request.description(), 180);
+        if (!StringUtils.hasText(label)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nama badge wajib diisi");
+        }
+        if (!StringUtils.hasText(icon)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Simbol badge wajib dipilih");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        CustomBadgeDefinition badge = new CustomBadgeDefinition();
+        badge.setId(UUID.randomUUID());
+        badge.setLabel(label);
+        badge.setIcon(icon);
+        badge.setDescription(description);
+        badge.setCreatedByUserId(admin.getUserID());
+        badge.setCreatedAt(now);
+        badge.setUpdatedAt(now);
+        return toCustomResponse(customBadgeRepository.save(badge));
+    }
+
+    @Override
+    public void deleteCustomBadge(UUID badgeId, User admin) {
+        requireAdmin(admin);
+        if (customBadgeRepository == null) {
+            return;
+        }
+        CustomBadgeDefinition badge = getCustomBadge(badgeId);
+        userRepository.findAll().stream()
+                .filter(user -> user.getCustomBadgeIds() != null && user.getCustomBadgeIds().contains(badge.getId()))
+                .forEach(user -> {
+                    Set<UUID> badges = customBadges(user);
+                    badges.remove(badge.getId());
+                    user.setCustomBadgeIds(badges);
+                    user.setUpdatedAt(LocalDateTime.now());
+                    userRepository.save(user);
+                });
+        customBadgeRepository.deleteById(badge.getId());
+    }
+
+    @Override
+    public User grantCustomBadge(UUID userId, UUID badgeId, User admin) {
+        requireAdmin(admin);
+        CustomBadgeDefinition badge = getCustomBadge(badgeId);
+        User user = getUser(userId);
+        Set<UUID> badges = customBadges(user);
+        badges.add(badge.getId());
+        user.setCustomBadgeIds(badges);
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User revokeCustomBadge(UUID userId, UUID badgeId, User admin) {
+        requireAdmin(admin);
+        CustomBadgeDefinition badge = getCustomBadge(badgeId);
+        User user = getUser(userId);
+        Set<UUID> badges = customBadges(user);
+        badges.remove(badge.getId());
+        user.setCustomBadgeIds(badges);
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    @Override
     public List<BadgeResponse> definitions() {
         List<BadgeResponse> response = new ArrayList<>();
         for (BadgeCode code : BadgeCode.values()) {
             BadgeMeta meta = META.get(code);
             response.add(new BadgeResponse(code, meta.label(), meta.description(), meta.icon(), meta.automatic()));
+        }
+        if (customBadgeRepository != null) {
+            customBadgeRepository.findAllByOrderByCreatedAtDesc().stream()
+                    .map(this::toCustomResponse)
+                    .forEach(response::add);
         }
         return response;
     }
@@ -184,6 +284,22 @@ public class BadgeServiceImpl implements BadgeService {
         return user.getManualBadges() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(user.getManualBadges());
     }
 
+    private Set<UUID> customBadges(User user) {
+        return user.getCustomBadgeIds() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(user.getCustomBadgeIds());
+    }
+
+    private CustomBadgeDefinition getCustomBadge(UUID badgeId) {
+        if (customBadgeRepository == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Custom badge storage belum aktif");
+        }
+        return customBadgeRepository.findById(badgeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Custom badge tidak ditemukan"));
+    }
+
+    private BadgeResponse toCustomResponse(CustomBadgeDefinition badge) {
+        return BadgeResponse.custom(badge.getId(), badge.getLabel(), badge.getDescription(), badge.getIcon());
+    }
+
     private User getUser(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan"));
@@ -193,6 +309,11 @@ public class BadgeServiceImpl implements BadgeService {
         if (user == null || !user.isAdmin()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
         }
+    }
+
+    private String trim(String value, int maxLength) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
     }
 
     private record BadgeMeta(String label, String description, String icon, boolean automatic) {

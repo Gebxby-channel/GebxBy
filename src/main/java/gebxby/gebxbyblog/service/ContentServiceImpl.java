@@ -69,6 +69,8 @@ public class ContentServiceImpl implements ContentService {
     private static final int DEFAULT_FEED_LIMIT = 20;
     private static final int MAX_FEED_LIMIT = 50;
     private static final int RECOMMENDATION_POOL_SIZE = 120;
+    private static final String STATUS_PUBLISHED = "PUBLISHED";
+    private static final String STATUS_DRAFT = "DRAFT";
     private static final Safelist ARTICLE_SAFELIST = Safelist.relaxed()
             .removeTags("img")
             .addTags("h1", "h2", "pre", "code", "span", "u", "strong", "em", "blockquote", "ul", "ol", "li")
@@ -115,6 +117,7 @@ public class ContentServiceImpl implements ContentService {
         LocalDateTime now = LocalDateTime.now();
         content.setIdContent(UUID.randomUUID());
         applyContentFields(content, request);
+        content.setStatus(STATUS_PUBLISHED);
         content.setUser(author);
         content.setCreatedAt(now);
         content.setUpdatedAt(now);
@@ -122,6 +125,45 @@ public class ContentServiceImpl implements ContentService {
         activityLogService.recordPublication(saved, author);
         invalidateContentCaches();
         return mapper.toContentResponse(saved, VoteDirection.NONE, true);
+    }
+
+    @Override
+    public ContentResponse saveDraft(UUID draftId, ContentRequest request, User author) {
+        userService.ensureActive(author);
+        Content draft = draftId == null ? new Content() : getContentOrThrow(draftId);
+        if (draftId == null) {
+            draft.setIdContent(UUID.randomUUID());
+            draft.setUser(author);
+            draft.setCreatedAt(LocalDateTime.now());
+        } else {
+            requireOwnerOrAdmin(draft, author);
+            if (!isDraft(draft)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tulisan ini sudah diterbitkan");
+            }
+        }
+        applyDraftFields(draft, request);
+        draft.setStatus(STATUS_DRAFT);
+        draft.setUpdatedAt(LocalDateTime.now());
+        Content saved = contentRepository.save(draft);
+        invalidateContentCaches();
+        return mapper.toContentResponse(saved, resolveUserVote(saved.getIdContent(), author), true);
+    }
+
+    @Override
+    public ContentResponse publishDraft(UUID draftId, ContentRequest request, User author) {
+        userService.ensureActive(author);
+        Content draft = getContentOrThrow(draftId);
+        requireOwnerOrAdmin(draft, author);
+        if (!isDraft(draft)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tulisan ini bukan draft");
+        }
+        applyContentFields(draft, request);
+        draft.setStatus(STATUS_PUBLISHED);
+        draft.setUpdatedAt(LocalDateTime.now());
+        Content saved = contentRepository.save(draft);
+        activityLogService.recordPublication(saved, author);
+        invalidateContentCaches();
+        return mapper.toContentResponse(saved, resolveUserVote(saved.getIdContent(), author), true);
     }
 
     @Override
@@ -144,6 +186,7 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public List<ContentResponse> findAll(User viewer) {
         return contentRepository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(this::isPublished)
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
     }
@@ -167,6 +210,7 @@ public class ContentServiceImpl implements ContentService {
         };
         boolean hasMore = contents.size() > pageSize;
         List<ContentResponse> items = contents.stream()
+                .filter(this::isPublished)
                 .limit(pageSize)
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
@@ -179,6 +223,7 @@ public class ContentServiceImpl implements ContentService {
             return findAll(viewer);
         }
         return contentRepository.findByKategoriIgnoreCaseOrderByCreatedAtDesc(category.trim()).stream()
+                .filter(this::isPublished)
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
     }
@@ -186,6 +231,7 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public List<ContentResponse> findByAuthor(UUID userId, User viewer) {
         return contentRepository.findByAuthorIdOrderByCreatedAtDesc(userId).stream()
+                .filter(content -> isPublished(content) || canViewDraft(content, viewer))
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
     }
@@ -193,6 +239,7 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public ContentResponse findContentById(UUID id, User viewer, boolean incrementView) {
         Content content = getContentOrThrow(id);
+        requirePublishedOrDraftAccess(content, viewer);
         if (incrementView) {
             content.setViewCount(content.getViewCount() + 1);
             content.setUpdatedAt(LocalDateTime.now());
@@ -204,6 +251,10 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public ContentStatsResponse recordView(UUID id, User viewer) {
         Content content = getContentOrThrow(id);
+        requirePublishedOrDraftAccess(content, viewer);
+        if (isDraft(content)) {
+            return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), resolveUserVote(id, viewer));
+        }
         content.setViewCount(content.getViewCount() + 1);
         content.setUpdatedAt(LocalDateTime.now());
         content = contentRepository.save(content);
@@ -216,6 +267,7 @@ public class ContentServiceImpl implements ContentService {
         Content existingContent = getContentOrThrow(id);
         requireOwnerOrAdmin(existingContent, actor);
         applyContentFields(existingContent, contentDetails);
+        existingContent.setStatus(STATUS_PUBLISHED);
         existingContent.setUpdatedAt(LocalDateTime.now());
         Content saved = contentRepository.save(existingContent);
         invalidateContentCaches();
@@ -237,6 +289,7 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public ContentStatsResponse getStats(UUID id, User viewer) {
         Content content = getContentOrThrow(id);
+        requirePublishedOrDraftAccess(content, viewer);
         long comments = commentRepository.countByContentIdAndDeletedFalse(id);
         return mapper.toStatsResponse(content, comments, resolveUserVote(id, viewer));
     }
@@ -246,6 +299,9 @@ public class ContentServiceImpl implements ContentService {
         userService.ensureActive(voter);
         VoteDirection requestedVote = vote == null ? VoteDirection.NONE : vote;
         Content content = getContentOrThrow(id);
+        if (!isPublished(content)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Draft belum bisa divote");
+        }
         Optional<ContentVote> existing = voteRepository.findByContentIdAndUserId(id, voter.getUserID());
 
         if (existing.isPresent()) {
@@ -288,6 +344,7 @@ public class ContentServiceImpl implements ContentService {
         }
         Set<String> categories = new LinkedHashSet<>(DEFAULT_CATEGORIES);
         contentRepository.findCategoryFields().stream()
+                .filter(this::isPublished)
                 .map(Content::getKategori)
                 .filter(StringUtils::hasText)
                 .map(this::normalizeCategory)
@@ -320,8 +377,12 @@ public class ContentServiceImpl implements ContentService {
             return cached.value();
         }
 
-        List<Content> mostRead = List.copyOf(contentRepository.findTop10ByOrderByViewCountDesc());
-        List<Content> mostUpvoted = List.copyOf(contentRepository.findTop10ByOrderByUpCountDesc());
+        List<Content> mostRead = contentRepository.findTop10ByOrderByViewCountDesc().stream()
+                .filter(this::isPublished)
+                .toList();
+        List<Content> mostUpvoted = contentRepository.findTop10ByOrderByUpCountDesc().stream()
+                .filter(this::isPublished)
+                .toList();
 
         LocalDateTime weekStart = LocalDateTime.now()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -337,7 +398,7 @@ public class ContentServiceImpl implements ContentService {
 
         Map<UUID, Long> upByAuthor = weeklyUpVotes.stream()
                 .map(vote -> contentById.get(vote.getContentId()))
-                .filter(Objects::nonNull)
+                .filter(content -> content != null && isPublished(content))
                 .map(Content::getUser)
                 .filter(user -> user != null && user.getUserID() != null)
                 .collect(Collectors.groupingBy(User::getUserID, LinkedHashMap::new, Collectors.counting()));
@@ -376,6 +437,7 @@ public class ContentServiceImpl implements ContentService {
             recent = contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, poolSize));
         }
         return recent.stream()
+                .filter(this::isPublished)
                 .sorted(Comparator.comparingDouble(this::trendingScore).reversed())
                 .skip((long) page * limit)
                 .limit(limit)
@@ -394,6 +456,7 @@ public class ContentServiceImpl implements ContentService {
 
         List<Content> pool = contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, RECOMMENDATION_POOL_SIZE));
         return pool.stream()
+                .filter(this::isPublished)
                 .sorted(Comparator.comparingDouble((Content content) -> recommendationScore(content, profile)).reversed())
                 .skip((long) page * limit)
                 .limit(limit)
@@ -404,7 +467,9 @@ public class ContentServiceImpl implements ContentService {
         if (viewer == null || viewer.getUserID() == null || viewer.getFollowingUserIds() == null || viewer.getFollowingUserIds().isEmpty()) {
             return List.of();
         }
-        return contentRepository.findFollowingFeed(viewer.getFollowingUserIds(), List.of(), PageRequest.of(page, limit));
+        return contentRepository.findFollowingFeed(viewer.getFollowingUserIds(), List.of(), PageRequest.of(page, limit)).stream()
+                .filter(this::isPublished)
+                .toList();
     }
 
     private RecommendationProfile buildRecommendationProfile(User viewer) {
@@ -445,6 +510,7 @@ public class ContentServiceImpl implements ContentService {
         });
 
         contentRepository.findByAuthorIdOrderByCreatedAtDesc(viewer.getUserID()).stream()
+                .filter(this::isPublished)
                 .limit(8)
                 .map(Content::getKategori)
                 .filter(StringUtils::hasText)
@@ -524,6 +590,22 @@ public class ContentServiceImpl implements ContentService {
         }
     }
 
+    private void applyDraftFields(Content content, ContentRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload draft wajib diisi");
+        }
+        String title = trimToLength(request.head(), MAX_TITLE_LENGTH);
+        String body = request.paragrafs() == null ? "" : request.paragrafs();
+        String normalizedBody = normalizeArticleBody(body);
+        content.setHead(StringUtils.hasText(title) ? title : "Untitled Draft");
+        content.setSubtitle(trimToLength(request.subtitle(), MAX_TITLE_LENGTH));
+        content.setParagrafs(sanitizeArticle(normalizedBody));
+        content.setKategori(normalizeCategory(request.kategori()));
+        if (request.images() != null) {
+            content.setImages(mediaPipelineService.prepareContentImages(request.images()));
+        }
+    }
+
     private String sanitizeArticle(String html) {
         String trimmed = html.length() > MAX_BODY_LENGTH ? html.substring(0, MAX_BODY_LENGTH) : html;
         return Jsoup.clean(trimmed, ARTICLE_SAFELIST);
@@ -573,6 +655,32 @@ public class ContentServiceImpl implements ContentService {
         if (ownerId == null || !ownerId.equals(actor.getUserID())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Hanya pemilik atau admin yang boleh mengubah data ini");
         }
+    }
+
+    private void requirePublishedOrDraftAccess(Content content, User viewer) {
+        if (isPublished(content) || canViewDraft(content, viewer)) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan");
+    }
+
+    private boolean canViewDraft(Content content, User viewer) {
+        if (!isDraft(content) || viewer == null || viewer.getUserID() == null) {
+            return false;
+        }
+        if (userService.isAdmin(viewer)) {
+            return true;
+        }
+        UUID ownerId = content.getUser() == null ? null : content.getUser().getUserID();
+        return ownerId != null && ownerId.equals(viewer.getUserID());
+    }
+
+    private boolean isPublished(Content content) {
+        return content == null || content.getStatus() == null || STATUS_PUBLISHED.equalsIgnoreCase(content.getStatus());
+    }
+
+    private boolean isDraft(Content content) {
+        return content != null && STATUS_DRAFT.equalsIgnoreCase(content.getStatus());
     }
 
     private VoteDirection resolveUserVote(UUID contentId, User viewer) {

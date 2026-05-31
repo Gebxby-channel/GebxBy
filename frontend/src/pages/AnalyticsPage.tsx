@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowBigUp, Eye, Trophy } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import type { AnalyticsPayload, CurrentUser } from '../types/forum';
+import { profilePathForUser } from '../utils/profilePath';
 
 export default function AnalyticsPage({ user }: { user: CurrentUser }) {
+    const navigate = useNavigate();
     const [analytics, setAnalytics] = useState<AnalyticsPayload | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -40,10 +43,17 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
                                     <div key={entry.user.userID} className="flex items-center justify-between border border-[#2a2a2a] bg-[#151515] p-4">
                                         <div className="flex items-center gap-4">
                                             <span className="flex h-8 w-8 items-center justify-center bg-[#e60000] font-mono text-xs font-black text-white">{index + 1}</span>
-                                            <div>
-                                                <p className="m-0 font-mono text-sm font-black uppercase text-white">{entry.user.name}</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const path = profilePathForUser(entry.user.userID, user.userID);
+                                                    if (path) navigate(path);
+                                                }}
+                                                className="min-w-0 text-left"
+                                            >
+                                                <p className="m-0 font-mono text-sm font-black uppercase text-white hover:text-[#e60000]">{entry.user.name}</p>
                                                 <p className="m-0 font-mono text-[10px] uppercase text-[#666]">{entry.user.designation || 'NO DESIGNATION'}</p>
-                                            </div>
+                                            </button>
                                         </div>
                                         <div className="flex items-center gap-2 font-mono text-sm font-black text-[#e60000]">
                                             <ArrowBigUp size={18} />

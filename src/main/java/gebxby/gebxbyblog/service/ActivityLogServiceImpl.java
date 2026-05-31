@@ -143,6 +143,7 @@ public class ActivityLogServiceImpl implements ActivityLogService {
         log.setTitle(comment == null ? "Report tulisan" : "Report komentar");
         log.setMessage(reason);
         log.setReason(reason);
+        log.setReportCategory(normalizeReportCategory(request == null ? null : request.category()));
         log.setReportQueue(true);
         setContent(log, content);
         if (comment != null) {
@@ -220,6 +221,24 @@ public class ActivityLogServiceImpl implements ActivityLogService {
         logRepository.save(log);
     }
 
+    @Override
+    public void recordCustomBadgeAction(User actor, User target, String badgeLabel, boolean granted) {
+        if (actor == null || target == null || !StringUtils.hasText(badgeLabel)) {
+            return;
+        }
+        ActivityLog log = base(actor, granted ? ActivityLogType.BADGE_GRANTED : ActivityLogType.BADGE_REVOKED,
+                ActivityLogDirection.OUTGOING, ActivityTargetType.USER);
+        setTargetUser(log, target);
+        log.setTitle(granted ? "Custom badge diberikan" : "Custom badge dicabut");
+        log.setMessage("%s %s custom badge %s untuk %s".formatted(
+                actor.getName(),
+                granted ? "memberikan" : "mencabut",
+                trim(badgeLabel, 80),
+                target.getName()
+        ));
+        logRepository.save(log);
+    }
+
     private ActivityLog base(User owner, ActivityLogType type, ActivityLogDirection direction, ActivityTargetType targetType) {
         ActivityLog log = new ActivityLog();
         log.setId(UUID.randomUUID());
@@ -263,6 +282,7 @@ public class ActivityLogServiceImpl implements ActivityLogService {
                 log.getTitle(),
                 log.getMessage(),
                 log.getReason(),
+                log.getReportCategory(),
                 log.getActorUserId(),
                 log.getActorName(),
                 log.getActorPhoto(),
@@ -280,6 +300,11 @@ public class ActivityLogServiceImpl implements ActivityLogService {
 
     private String sanitize(String value) {
         return trim(Jsoup.clean(value == null ? "" : value, Safelist.none()).trim(), MAX_MESSAGE_LENGTH);
+    }
+
+    private String normalizeReportCategory(String category) {
+        String clean = trim(category, 40).toUpperCase().replaceAll("[^A-Z0-9_ -]", "").replaceAll("\\s+", "_");
+        return StringUtils.hasText(clean) ? clean : "OTHER";
     }
 
     private String trim(String value, int maxLength) {

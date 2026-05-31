@@ -36,6 +36,9 @@ public class Content {
     private String kategori;
 
     @Indexed
+    private String status = "PUBLISHED";
+
+    @Indexed
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

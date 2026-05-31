@@ -81,7 +81,8 @@ public class ForumMapper {
                 content.getUpCount(),
                 content.getDownCount(),
                 content.getCommentCount(),
-                userVote == null ? VoteDirection.NONE : userVote
+                userVote == null ? VoteDirection.NONE : userVote,
+                content.getStatus() == null ? "PUBLISHED" : content.getStatus()
         );
     }
 

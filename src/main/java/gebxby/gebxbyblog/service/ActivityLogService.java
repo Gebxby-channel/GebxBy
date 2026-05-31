@@ -25,4 +25,5 @@ public interface ActivityLogService {
     void recordContentDelete(User actor, Content content);
     void recordCommentDelete(User actor, Comment comment);
     void recordBadgeAction(User actor, User target, BadgeCode badge, boolean granted);
+    void recordCustomBadgeAction(User actor, User target, String badgeLabel, boolean granted);
 }

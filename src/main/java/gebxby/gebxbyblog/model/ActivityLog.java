@@ -29,6 +29,7 @@ public class ActivityLog {
     private String title;
     private String message;
     private String reason;
+    private String reportCategory;
 
     private UUID actorUserId;
     private String actorName;

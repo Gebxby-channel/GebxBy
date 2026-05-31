@@ -2,7 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare } from 'lucide-react';
 import type { MouseEvent, ReactNode } from 'react';
 import { getCategoryColor } from '../utils/categoryColors';
+import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
+import { formatIndonesiaDate } from '../utils/time';
 import type { ContentItem, CurrentUser } from '../types/forum';
 import BadgeStrip from './BadgeStrip';
 
@@ -17,19 +19,14 @@ export default function ContentCard({ art, user }: ContentCardProps) {
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'NO DATA';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-        }).toUpperCase();
+        return formatIndonesiaDate(dateString);
     };
 
     const handleAuthorClick = (event: MouseEvent) => {
         event.stopPropagation();
-        if (art.user?.userID === user?.userID) {
-            navigate('/profile');
-        } else if (art.user?.userID) {
-            navigate(`/profile/${art.user.userID}`);
+        const path = profilePathForUser(art.user?.userID, user?.userID);
+        if (path) {
+            navigate(path);
         }
     };
 
@@ -44,16 +41,19 @@ export default function ContentCard({ art, user }: ContentCardProps) {
         >
             <div className="flex flex-[2] flex-col">
                 <div className="mb-3 flex items-center gap-2">
-                    <div
-                        className="flex h-6 w-6 items-center justify-center overflow-hidden border border-[#333]"
+                    <button
+                        type="button"
+                        onClick={handleAuthorClick}
+                        className="flex h-6 w-6 items-center justify-center overflow-hidden border border-[#333] transition-all hover:border-[#e60000]"
                         style={{ backgroundColor: `${themeColor}33` }}
+                        title={`Open ${art.user?.name || 'author'} profile`}
                     >
                         {art.user?.picture ? (
                             <img src={art.user.picture} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
                             <span className="font-mono text-[10px] font-black text-white">U</span>
                         )}
-                    </div>
+                    </button>
                     <div className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] tracking-tight">
                         <button
                             type="button"

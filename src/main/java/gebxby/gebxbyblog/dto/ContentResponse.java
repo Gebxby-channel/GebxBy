@@ -21,7 +21,8 @@ public record ContentResponse(
         int upCount,
         int downCount,
         long commentCount,
-        VoteDirection userVote
+        VoteDirection userVote,
+        String status
 ) {
     public ContentResponse(UUID idContent,
                            String head,
@@ -36,7 +37,7 @@ public record ContentResponse(
                            int downCount,
                            long commentCount,
                            VoteDirection userVote) {
-        this(idContent, head, subtitle, paragrafs, List.of(), null, user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote);
+        this(idContent, head, subtitle, paragrafs, List.of(), null, user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote, "PUBLISHED");
     }
 
     public ContentResponse(UUID idContent,
@@ -53,6 +54,6 @@ public record ContentResponse(
                            int downCount,
                            long commentCount,
                            VoteDirection userVote) {
-        this(idContent, head, subtitle, paragrafs, images, null, user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote);
+        this(idContent, head, subtitle, paragrafs, images, null, user, kategori, createdAt, updatedAt, viewCount, upCount, downCount, commentCount, userVote, "PUBLISHED");
     }
 }

@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.BadgeResponse;
+import gebxby.gebxbyblog.dto.CustomBadgeRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.User;
 
@@ -12,5 +13,9 @@ public interface BadgeService {
     boolean hasBadge(User user, BadgeCode badge);
     User grantBadge(UUID userId, BadgeCode badge, User admin);
     User revokeBadge(UUID userId, BadgeCode badge, User admin);
+    BadgeResponse createCustomBadge(CustomBadgeRequest request, User admin);
+    void deleteCustomBadge(UUID badgeId, User admin);
+    User grantCustomBadge(UUID userId, UUID badgeId, User admin);
+    User revokeCustomBadge(UUID userId, UUID badgeId, User admin);
     List<BadgeResponse> definitions();
 }

@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Megaphone } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api, { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GlobalSearch from '../components/GlobalSearch';
 import type { AnnouncementItem, ContentItem, CurrentUser, FeedPayload } from '../types/forum';
 import { useFeedback } from '../components/feedback';
+import { profilePathForUser } from '../utils/profilePath';
 
 type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
 
 export default function HomePage({ user }: { user: CurrentUser | null }) {
+    const navigate = useNavigate();
     const feedback = useFeedback();
     const [articles, setArticles] = useState<ContentItem[]>([]);
     const [announcement, setAnnouncement] = useState<AnnouncementItem | null>(null);
@@ -141,8 +144,15 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                                 <span className="font-mono font-black uppercase text-[#e60000]">Announcement:</span>{' '}
                                 {announcement.message}
                             </p>
-                            <div className="mt-4 flex items-center gap-3">
-                                <div className="h-9 w-9 overflow-hidden border border-[#333] bg-[#181818]">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const path = profilePathForUser(announcement.adminUserId, user?.userID);
+                                    if (path) navigate(path);
+                                }}
+                                className="mt-4 flex items-center gap-3 text-left transition-all hover:text-[#e60000]"
+                            >
+                                <span className="h-9 w-9 overflow-hidden border border-[#333] bg-[#181818] transition-all hover:border-[#e60000]">
                                     {announcement.adminPhoto ? (
                                         <img
                                             src={announcement.adminPhoto}
@@ -151,11 +161,11 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                                             referrerPolicy="no-referrer"
                                         />
                                     ) : null}
-                                </div>
+                                </span>
                                 <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">
                                     ~ from {announcement.adminName || 'Admin'}
                                 </p>
-                            </div>
+                            </button>
                         </div>
                     ) : (
                         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#888]">

@@ -18,6 +18,7 @@ public interface UserRepository extends MongoRepository<User, UUID> {
     List<User> findByRoleIgnoreCase(String role);
     List<User> findByRoleIgnoreCase(String role, Pageable pageable);
     List<User> findByManualBadges(BadgeCode badge, Pageable pageable);
+    List<User> findByCustomBadgeIds(UUID customBadgeId, Pageable pageable);
 
     @Query("{ '$or': [ { 'name': { $regex: ?0, $options: 'i' } }, { 'designation': { $regex: ?0, $options: 'i' } } ] }")
     List<User> searchPublicUsers(String query, Pageable pageable);

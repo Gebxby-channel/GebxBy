@@ -15,6 +15,7 @@ public record ActivityLogResponse(
         String title,
         String message,
         String reason,
+        String reportCategory,
         UUID actorUserId,
         String actorName,
         String actorPhoto,

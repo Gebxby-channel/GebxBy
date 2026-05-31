@@ -1,21 +1,20 @@
 import './index.css';
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import api from './lib/api';
 import type { CurrentUser } from './types/forum';
 
-// Pages
-import HomePage from './pages/HomePage';
-import ProfilePage from './pages/ProfilePage';
-import WritingPage from './pages/WritingPage';
-import ReadPage from './pages/ReadPage';
-import OtherProfilePage from './pages/OtherProfilePage';
-import CategoryPage from './pages/Category';
-import AnalyticsPage from './pages/AnalyticsPage';
-import Login from './pages/Login';
-import AdminPanelPage from './pages/AdminPanelPage';
-import LogPage from './pages/LogPage';
-import SettingsPage from './pages/SettingsPage';
+const HomePage = lazy(() => import('./pages/HomePage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const WritingPage = lazy(() => import('./pages/WritingPage'));
+const ReadPage = lazy(() => import('./pages/ReadPage'));
+const OtherProfilePage = lazy(() => import('./pages/OtherProfilePage'));
+const CategoryPage = lazy(() => import('./pages/Category'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const Login = lazy(() => import('./pages/Login'));
+const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
+const LogPage = lazy(() => import('./pages/LogPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 // Components
 import Navbar from './components/Navbar';
@@ -94,38 +93,40 @@ export default function App() {
         <Router>
             <FeedbackProvider>
                 <BackgroundMusic enabled={musicEnabled} trackId={musicTrackId} />
-                <Routes>
-                    <Route path="/login" element={<Login user={user} setUser={setUser} />} />
+                <Suspense fallback={<LoadingSpinner label="Decrypting Module" />}>
+                    <Routes>
+                        <Route path="/login" element={<Login user={user} setUser={setUser} />} />
 
-                    <Route path="/*" element={
-                        <MainLayout user={user} onLogout={becomeGuest}>
-                            <Routes>
-                                <Route path="/" element={<HomePage user={user} />} />
-                                <Route path="/category" element={<CategoryPage user={user} />} />
-                                <Route path="/settings" element={
-                                    <SettingsPage
-                                        theme={theme}
-                                        musicEnabled={musicEnabled}
-                                        musicTrackId={musicTrackId}
-                                        onThemeChange={setTheme}
-                                        onMusicEnabledChange={setMusicEnabled}
-                                        onMusicTrackChange={setMusicTrackId}
-                                    />
-                                } />
-                                <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
-                                <Route path="/logs" element={user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
-                                <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
-                                <Route path="/analytics" element={user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
-                                <Route path="/control-room" element={user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
-                                <Route path="/admin" element={<NotFoundPage />} />
+                        <Route path="/*" element={
+                            <MainLayout user={user} onLogout={becomeGuest}>
+                                <Routes>
+                                    <Route path="/" element={<HomePage user={user} />} />
+                                    <Route path="/category" element={<CategoryPage user={user} />} />
+                                    <Route path="/settings" element={
+                                        <SettingsPage
+                                            theme={theme}
+                                            musicEnabled={musicEnabled}
+                                            musicTrackId={musicTrackId}
+                                            onThemeChange={setTheme}
+                                            onMusicEnabledChange={setMusicEnabled}
+                                            onMusicTrackChange={setMusicTrackId}
+                                        />
+                                    } />
+                                    <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
+                                    <Route path="/logs" element={user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
+                                    <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
+                                    <Route path="/analytics" element={user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
+                                    <Route path="/control-room" element={user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
+                                    <Route path="/admin" element={<NotFoundPage />} />
 
-                                <Route path="/read/:id" element={<ReadPage user={user} />} />
-                                <Route path="/profile/:userId" element={<OtherProfilePage user={user} />} />
-                                <Route path="*" element={<NotFoundPage />} />
-                            </Routes>
-                        </MainLayout>
-                    } />
-                </Routes>
+                                    <Route path="/read/:id" element={<ReadPage user={user} />} />
+                                    <Route path="/profile/:userId" element={<OtherProfilePage user={user} />} />
+                                    <Route path="*" element={<NotFoundPage />} />
+                                </Routes>
+                            </MainLayout>
+                        } />
+                    </Routes>
+                </Suspense>
             </FeedbackProvider>
         </Router>
     );

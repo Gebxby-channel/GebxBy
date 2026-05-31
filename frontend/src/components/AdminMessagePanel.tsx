@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Megaphone, Send, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import type { AnnouncementItem, CurrentUser } from '../types/forum';
 import { useFeedback } from './feedback';
+import { profilePathForUser } from '../utils/profilePath';
 
 type BroadcastType = 'MESSAGE' | 'ANNOUNCEMENT_EVENT';
 
 export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
+    const navigate = useNavigate();
     const feedback = useFeedback();
     const [users, setUsers] = useState<CurrentUser[]>([]);
     const [recipientId, setRecipientId] = useState('');
@@ -160,9 +163,16 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                         )}
                     </div>
                     <p className="m-0 line-clamp-3 font-sans text-sm leading-6 text-[#aaa]">{latestAnnouncement.message}</p>
-                    <p className="m-0 mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555]">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const path = profilePathForUser(latestAnnouncement.adminUserId, user.userID);
+                            if (path) navigate(path);
+                        }}
+                        className="m-0 mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555] hover:text-[#e60000]"
+                    >
                         ~ from {latestAnnouncement.adminName || 'Admin'}
-                    </p>
+                    </button>
                 </div>
             )}
         </section>

@@ -15,11 +15,13 @@ export type BadgeCode =
   | 'REQUIEM';
 
 export interface Badge {
-  code: BadgeCode;
+  id?: string;
+  code?: BadgeCode | string | null;
   label: string;
   description: string;
   icon: string;
   automatic: boolean;
+  custom?: boolean;
 }
 
 export interface PublicUser {
@@ -70,6 +72,7 @@ export interface ContentItem {
   downCount: number;
   commentCount: number;
   userVote: VoteDirection;
+  status?: 'PUBLISHED' | 'DRAFT' | string;
 }
 
 export interface FeedPayload {
@@ -193,6 +196,7 @@ export interface ActivityLogItem {
   title: string;
   message: string;
   reason?: string;
+  reportCategory?: string;
   actorUserId?: string;
   actorName?: string;
   actorPhoto?: string;

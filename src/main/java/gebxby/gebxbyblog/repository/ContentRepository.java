@@ -27,7 +27,7 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
 
     List<Content> findTop10ByOrderByUpCountDesc();
 
-    @Query(value = "{}", fields = "{ 'kategori': 1 }")
+    @Query(value = "{}", fields = "{ 'kategori': 1, 'status': 1 }")
     List<Content> findCategoryFields();
 
     @Query("{ 'user.userID': ?0 }")

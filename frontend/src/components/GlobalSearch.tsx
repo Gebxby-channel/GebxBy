@@ -159,17 +159,39 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                 {(activeTab === 'all' || activeTab === 'contents') && results?.contents.length ? (
                                     <SearchSection title="Writings" icon={<FileText size={13} />}>
                                         {results.contents.map((item) => (
-                                            <button
+                                            <article
                                                 key={item.idContent}
-                                                type="button"
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={() => goTo(`/read/${item.idContent}`)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault();
+                                                        goTo(`/read/${item.idContent}`);
+                                                    }
+                                                }}
                                                 className="w-full border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
                                             >
                                                 <span className="mb-1 block truncate font-mono text-[11px] font-black uppercase text-white">{item.head}</span>
                                                 <span className="block truncate font-mono text-[9px] uppercase text-[#666]">
-                                                    {item.kategori} // {item.user?.name || 'Unknown'} // UP {item.upCount}
+                                                    {item.kategori} //{' '}
+                                                    {item.user?.userID ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                goTo(`/profile/${item.user?.userID}`);
+                                                            }}
+                                                            className="font-mono uppercase text-[#777] hover:text-[#e60000]"
+                                                        >
+                                                            {item.user?.name || 'Unknown'}
+                                                        </button>
+                                                    ) : (
+                                                        item.user?.name || 'Unknown'
+                                                    )}
+                                                    {' '}// UP {item.upCount}
                                                 </span>
-                                            </button>
+                                            </article>
                                         ))}
                                     </SearchSection>
                                 ) : null}

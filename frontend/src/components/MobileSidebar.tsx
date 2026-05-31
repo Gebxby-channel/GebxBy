@@ -104,11 +104,18 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                         </div>
 
                         {user && (
-                            <div className="mb-6 flex items-center justify-between gap-3 border border-[#222] bg-[#111] p-3">
-                                <div className="min-w-0">
+                            <div className="mb-6 flex w-full items-center justify-between gap-3 border border-[#222] bg-[#111] p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setDrawerOpen(false);
+                                        navigate('/profile');
+                                    }}
+                                    className="min-w-0 text-left"
+                                >
                                     <p className="m-0 truncate font-mono text-xs font-black uppercase text-white">{user.name || 'Officer'}</p>
                                     <p className="m-0 mt-1 truncate font-mono text-[9px] uppercase text-[#666]">{user.designation || 'No designation'}</p>
-                                </div>
+                                </button>
                                 <NotificationBell />
                             </div>
                         )}

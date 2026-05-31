@@ -16,6 +16,8 @@ import java.util.UUID;
 
 public interface ContentService {
     ContentResponse addContent(ContentRequest request, User author);
+    ContentResponse saveDraft(UUID draftId, ContentRequest request, User author);
+    ContentResponse publishDraft(UUID draftId, ContentRequest request, User author);
     default ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException {
         return addContentFromDocx(file, kategori, title, List.of(), author);
     }

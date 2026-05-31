@@ -3,6 +3,8 @@ package gebxby.gebxbyblog.controller;
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.AdminNotificationRequest;
 import gebxby.gebxbyblog.dto.AnnouncementResponse;
+import gebxby.gebxbyblog.dto.BadgeResponse;
+import gebxby.gebxbyblog.dto.CustomBadgeRequest;
 import gebxby.gebxbyblog.dto.MediaSmokeTestResponse;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.dto.SuspendUserRequest;
@@ -180,5 +182,66 @@ public class AdminController {
         User updated = badgeService.revokeBadge(userId, badge, admin);
         activityLogService.recordBadgeAction(admin, updated, badge, false);
         return ResponseEntity.ok(mapper.toCurrentUser(updated));
+    }
+
+    @GetMapping("/custom-badges")
+    public ResponseEntity<List<BadgeResponse>> listCustomBadges(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
+        }
+        return ResponseEntity.ok(badgeService.definitions().stream()
+                .filter(BadgeResponse::custom)
+                .toList());
+    }
+
+    @PostMapping("/custom-badges")
+    public ResponseEntity<BadgeResponse> createCustomBadge(
+            @RequestBody CustomBadgeRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(badgeService.createCustomBadge(request, admin));
+    }
+
+    @DeleteMapping("/custom-badges/{badgeId}")
+    public ResponseEntity<Void> deleteCustomBadge(
+            @PathVariable UUID badgeId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        badgeService.deleteCustomBadge(badgeId, admin);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/users/{userId}/custom-badges/{badgeId}")
+    public ResponseEntity<CurrentUserResponse> grantCustomBadge(
+            @PathVariable UUID userId,
+            @PathVariable UUID badgeId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        String label = customBadgeLabel(badgeId);
+        User updated = badgeService.grantCustomBadge(userId, badgeId, admin);
+        activityLogService.recordCustomBadgeAction(admin, updated, label, true);
+        return ResponseEntity.ok(mapper.toCurrentUser(updated));
+    }
+
+    @DeleteMapping("/users/{userId}/custom-badges/{badgeId}")
+    public ResponseEntity<CurrentUserResponse> revokeCustomBadge(
+            @PathVariable UUID userId,
+            @PathVariable UUID badgeId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        String label = customBadgeLabel(badgeId);
+        User updated = badgeService.revokeCustomBadge(userId, badgeId, admin);
+        activityLogService.recordCustomBadgeAction(admin, updated, label, false);
+        return ResponseEntity.ok(mapper.toCurrentUser(updated));
+    }
+
+    private String customBadgeLabel(UUID badgeId) {
+        return badgeService.definitions().stream()
+                .filter(BadgeResponse::custom)
+                .filter(badge -> badge.id().equals(badgeId.toString()))
+                .map(BadgeResponse::label)
+                .findFirst()
+                .orElse(badgeId.toString());
     }
 }

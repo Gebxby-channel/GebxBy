@@ -39,6 +39,7 @@ public class User {
     private boolean suspensionMarked;
     private boolean criminalMarked;
     private Set<BadgeCode> manualBadges = new LinkedHashSet<>();
+    private Set<UUID> customBadgeIds = new LinkedHashSet<>();
     private Set<UUID> bookmarkedContentIds = new LinkedHashSet<>();
     private Set<UUID> followingUserIds = new LinkedHashSet<>();
 
