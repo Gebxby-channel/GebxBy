@@ -2,12 +2,14 @@ package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.AdminNotificationRequest;
+import gebxby.gebxbyblog.dto.AnnouncementResponse;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.dto.SuspendUserRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.BadgeService;
 import gebxby.gebxbyblog.service.ActivityLogService;
+import gebxby.gebxbyblog.service.AnnouncementService;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
 import gebxby.gebxbyblog.service.ForumMapper;
@@ -35,6 +37,7 @@ public class AdminController {
     private final ContentService contentService;
     private final CommentService commentService;
     private final NotificationService notificationService;
+    private final AnnouncementService announcementService;
     private final BadgeService badgeService;
     private final ActivityLogService activityLogService;
     private final ForumMapper mapper;
@@ -43,6 +46,7 @@ public class AdminController {
                            ContentService contentService,
                            CommentService commentService,
                            NotificationService notificationService,
+                           AnnouncementService announcementService,
                            BadgeService badgeService,
                            ActivityLogService activityLogService,
                            ForumMapper mapper) {
@@ -50,6 +54,7 @@ public class AdminController {
         this.contentService = contentService;
         this.commentService = commentService;
         this.notificationService = notificationService;
+        this.announcementService = announcementService;
         this.badgeService = badgeService;
         this.activityLogService = activityLogService;
         this.mapper = mapper;
@@ -118,6 +123,14 @@ public class AdminController {
             @AuthenticationPrincipal OAuth2User principal) {
         User admin = userService.getCurrentUser(principal);
         return ResponseEntity.ok(notificationService.sendAdminBroadcast(request, admin));
+    }
+
+    @PostMapping("/announcements")
+    public ResponseEntity<AnnouncementResponse> publishAnnouncement(
+            @RequestBody AdminNotificationRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(announcementService.publish(request, admin));
     }
 
     @PostMapping("/users/{userId}/badges/{badge}")

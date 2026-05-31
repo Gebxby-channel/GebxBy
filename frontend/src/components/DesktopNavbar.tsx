@@ -30,7 +30,7 @@ export default function DesktopNavbar({ user, menuItems, onTerminate }: DesktopN
                     </div>
                 </NavLink>
 
-                <nav className="flex min-w-0 max-w-[760px] flex-wrap items-center justify-center gap-2 justify-self-center">
+                <nav className="flex min-w-0 max-w-[760px] items-center justify-center gap-2 justify-self-center">
                     {menuItems.map((item) => {
                         const active = location.pathname === item.path;
                         return (

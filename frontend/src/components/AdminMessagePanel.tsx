@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Send } from 'lucide-react';
-import api from '../lib/api';
+import { Megaphone, Send } from 'lucide-react';
+import api, { invalidateApiCache } from '../lib/api';
 import type { CurrentUser } from '../types/forum';
+
+type BroadcastType = 'MESSAGE' | 'ANNOUNCEMENT_EVENT';
 
 export default function AdminMessagePanel() {
     const [users, setUsers] = useState<CurrentUser[]>([]);
     const [recipientId, setRecipientId] = useState('');
+    const [broadcastType, setBroadcastType] = useState<BroadcastType>('MESSAGE');
     const [title, setTitle] = useState('Peringatan admin');
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
@@ -21,16 +24,19 @@ export default function AdminMessagePanel() {
     }, []);
 
     const sendMessage = async () => {
-        if (!recipientId || !message.trim()) return;
+        if ((!recipientId && broadcastType === 'MESSAGE') || !message.trim()) return;
         setSending(true);
         try {
-            if (recipientId === 'ALL') {
+            if (broadcastType === 'ANNOUNCEMENT_EVENT') {
+                await api.post('/api/admin/announcements', { title, message });
+                invalidateApiCache('/api/announcements/latest');
+            } else if (recipientId === 'ALL') {
                 await api.post('/api/admin/notifications/broadcast', { title, message });
             } else {
                 await api.post(`/api/admin/users/${recipientId}/notifications`, { title, message });
             }
             setMessage('');
-            window.alert('Pesan admin berhasil dikirim.');
+            window.alert(broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Announcement homepage berhasil dipublish.' : 'Pesan admin berhasil dikirim.');
         } finally {
             setSending(false);
         }
@@ -40,16 +46,29 @@ export default function AdminMessagePanel() {
         <section className="mb-10 border border-[#2a2a2a] bg-[#151515] p-5">
             <div className="mb-5 border-b border-[#2a2a2a] pb-3">
                 <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Admin Broadcast</h2>
-                <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">Direct notification message to selected user</p>
+                <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">Message masuk notif/log, Announcement Event tampil di homepage</p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
+            <div className="grid gap-3 md:grid-cols-[0.85fr_1fr_1fr]">
+                <select
+                    value={broadcastType}
+                    onChange={(event) => {
+                        const nextType = event.target.value as BroadcastType;
+                        setBroadcastType(nextType);
+                        setTitle(nextType === 'ANNOUNCEMENT_EVENT' ? 'Announcement Event' : 'Peringatan admin');
+                    }}
+                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                >
+                    <option value="MESSAGE">Message</option>
+                    <option value="ANNOUNCEMENT_EVENT">Announcement Event</option>
+                </select>
                 <select
                     value={recipientId}
                     onChange={(event) => setRecipientId(event.target.value)}
+                    disabled={broadcastType === 'ANNOUNCEMENT_EVENT'}
                     className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
                 >
-                    <option value="ALL">All users - broadcast</option>
+                    <option value="ALL">{broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Homepage announcement slot' : 'All users - broadcast'}</option>
                     {users.map((target) => (
                         <option key={target.userID} value={target.userID}>
                             {target.name} - {target.email}
@@ -61,7 +80,7 @@ export default function AdminMessagePanel() {
                     onChange={(event) => setTitle(event.target.value)}
                     maxLength={120}
                     className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
-                    placeholder="Judul pesan"
+                    placeholder={broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Judul announcement' : 'Judul pesan'}
                 />
             </div>
 
@@ -70,18 +89,18 @@ export default function AdminMessagePanel() {
                 onChange={(event) => setMessage(event.target.value)}
                 maxLength={1000}
                 className="mt-3 min-h-28 w-full resize-y border border-[#333] bg-[#101010] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#e60000]"
-                placeholder="Tulis pesan admin..."
+                placeholder={broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Tulis announcement event untuk homepage...' : 'Tulis pesan admin...'}
             />
 
             <div className="mt-3 flex justify-end">
                 <button
                     type="button"
                     onClick={() => void sendMessage()}
-                    disabled={!recipientId || !message.trim() || sending}
+                    disabled={(broadcastType === 'MESSAGE' && !recipientId) || !message.trim() || sending}
                     className="flex items-center gap-2 border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
                 >
-                    <Send size={14} />
-                    {sending ? 'Sending' : 'Send Message'}
+                    {broadcastType === 'ANNOUNCEMENT_EVENT' ? <Megaphone size={14} /> : <Send size={14} />}
+                    {sending ? 'Sending' : broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Publish Announcement' : 'Send Message'}
                 </button>
             </div>
         </section>

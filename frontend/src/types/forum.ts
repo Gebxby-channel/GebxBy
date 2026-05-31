@@ -135,6 +135,16 @@ export interface NotificationItem {
   expiresAt?: string;
 }
 
+export interface AnnouncementItem {
+  id: string;
+  title: string;
+  message: string;
+  adminUserId: string;
+  adminName: string;
+  adminPhoto?: string;
+  createdAt?: string;
+}
+
 export type ActivityLogType =
   | 'PUBLICATION'
   | 'ADMIN_MESSAGE'
