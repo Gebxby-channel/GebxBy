@@ -14,15 +14,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class CommentServiceImpl implements CommentService {
     private static final int MAX_COMMENT_LENGTH = 4_000;
+    private static final long MAX_COMMENTS_PER_WINDOW = 5;
+    private static final Duration RATE_LIMIT_WINDOW = Duration.ofSeconds(30);
+    private static final Duration DUPLICATE_WINDOW = Duration.ofSeconds(10);
 
     private final CommentRepository commentRepository;
     private final ContentRepository contentRepository;
@@ -54,6 +59,9 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public CommentResponse addComment(UUID contentId, CommentRequest request, User author) {
         userService.ensureActive(author);
+        if (author.getUserID() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User belum login");
+        }
         Content content = contentRepository.findById(contentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan"));
         String body = sanitizeBody(request == null ? null : request.body());
@@ -67,6 +75,19 @@ public class CommentServiceImpl implements CommentService {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        Optional<Comment> duplicate = commentRepository.findRecentDuplicate(
+                contentId,
+                parentId,
+                author.getUserID(),
+                body,
+                now.minus(DUPLICATE_WINDOW)
+        );
+        if (duplicate != null && duplicate.isPresent()) {
+            return toResponse(duplicate.get(), List.of());
+        }
+
+        enforceCommentRateLimit(author, now);
+
         Comment comment = new Comment();
         comment.setId(UUID.randomUUID());
         comment.setContentId(contentId);
@@ -141,5 +162,18 @@ public class CommentServiceImpl implements CommentService {
     private String sanitizeBody(String body) {
         String clean = Jsoup.clean(body == null ? "" : body, Safelist.none()).trim();
         return clean.length() <= MAX_COMMENT_LENGTH ? clean : clean.substring(0, MAX_COMMENT_LENGTH);
+    }
+
+    private void enforceCommentRateLimit(User author, LocalDateTime now) {
+        if (userService.isAdmin(author)) {
+            return;
+        }
+        long recentComments = commentRepository.countRecentByAuthor(author.getUserID(), now.minus(RATE_LIMIT_WINDOW));
+        if (recentComments >= MAX_COMMENTS_PER_WINDOW) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Terlalu banyak komentar. Tunggu sebentar sebelum mengirim lagi."
+            );
+        }
     }
 }

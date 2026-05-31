@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Eye, Flag, MessageSquare, Trash2 } from 'lucide-react';
@@ -15,6 +15,9 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const [comments, setComments] = useState<CommentItem[]>([]);
     const [commentBody, setCommentBody] = useState('');
     const [busy, setBusy] = useState(false);
+    const [rootCommentPosting, setRootCommentPosting] = useState(false);
+    const [commentNotice, setCommentNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const commentSubmissionLocks = useRef(new Set<string>());
 
     const fetchComments = useCallback(() => {
         if (!id) return Promise.resolve();
@@ -74,20 +77,44 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     };
 
     const handleComment = async (parentId?: string, body?: string) => {
-        if (!id) return;
+        if (!id) return false;
         if (!user) {
             window.alert('Guest hanya bisa membaca. Login dulu untuk komentar.');
-            return;
+            return false;
         }
         const payload = (body ?? commentBody).trim();
-        if (!payload) return;
+        if (!payload) return false;
+        const lockKey = `${parentId ?? 'root'}:${payload.toLocaleLowerCase('id-ID')}`;
+        if (commentSubmissionLocks.current.has(lockKey)) {
+            return false;
+        }
+        commentSubmissionLocks.current.add(lockKey);
+        if (!parentId) {
+            setRootCommentPosting(true);
+        }
+        setCommentNotice(null);
         try {
-            await api.post(`/content/${id}/comments`, { body: payload, parentId });
-            setCommentBody('');
-            await fetchComments();
-            await fetchStats();
+            const response = await api.post<CommentItem>(`/content/${id}/comments`, { body: payload, parentId });
+            const alreadyRendered = threadContainsComment(comments, response.data.id);
+
+            setComments((current) => mergeCommentIntoThread(current, response.data));
+            if (!parentId) {
+                setCommentBody('');
+            }
+            if (!alreadyRendered) {
+                setStats((current) => current ? { ...current, commentCount: current.commentCount + 1 } : current);
+            }
+            setCommentNotice({ type: 'success', message: alreadyRendered ? 'Komentar ini sudah tercatat.' : 'Komentar berhasil dikirim.' });
+            void fetchStats();
+            return true;
         } catch (error) {
-            handleMutationError(error);
+            setCommentNotice({ type: 'error', message: getMutationErrorMessage(error) });
+            return false;
+        } finally {
+            commentSubmissionLocks.current.delete(lockKey);
+            if (!parentId) {
+                setRootCommentPosting(false);
+            }
         }
     };
 
@@ -225,16 +252,25 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                             value={commentBody}
                             onChange={(event) => setCommentBody(event.target.value)}
                             placeholder={user ? 'Add field note...' : 'Login required to comment...'}
-                            disabled={!user}
+                            disabled={!user || rootCommentPosting}
                             className="min-h-24 w-full resize-y border border-[#333] bg-[#0f0f0f] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#e60000] disabled:opacity-50"
                         />
+                        {commentNotice && (
+                            <div className={`border px-3 py-2 font-mono text-[10px] font-black uppercase tracking-widest ${
+                                commentNotice.type === 'success'
+                                    ? 'border-[#166534] bg-[#071407] text-[#4ade80]'
+                                    : 'border-[#7f1d1d] bg-[#1a0707] text-[#ff5555]'
+                            }`}>
+                                {commentNotice.message}
+                            </div>
+                        )}
                         <button
                             type="button"
                             onClick={() => void handleComment()}
-                            disabled={!user || !commentBody.trim()}
+                            disabled={!user || !commentBody.trim() || rootCommentPosting}
                             className="self-end border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
                         >
-                            Dispatch Comment
+                            {rootCommentPosting ? 'Posting...' : 'Dispatch Comment'}
                         </button>
                     </div>
 
@@ -264,11 +300,83 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 }
 
 function handleMutationError(error: unknown) {
-    if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
-        window.alert('Session atau token keamanan tidak valid. Silakan login ulang lalu coba lagi.');
-        return;
+    window.alert(getMutationErrorMessage(error));
+}
+
+function getMutationErrorMessage(error: unknown) {
+    if (axios.isAxiosError(error)) {
+        if (error.response?.status === 429) {
+            return 'Komentar terlalu cepat. Tunggu sebentar sebelum mengirim lagi.';
+        }
+        if (error.response?.status === 401 || error.response?.status === 403) {
+            return 'Session atau token keamanan tidak valid. Silakan login ulang lalu coba lagi.';
+        }
+        if (error.response?.status === 423) {
+            return 'Akun sedang disuspend sementara. Aksi ditahan.';
+        }
+        const data = error.response?.data;
+        if (typeof data === 'string' && data.trim()) {
+            return data;
+        }
+        if (typeof data === 'object' && data !== null && 'message' in data) {
+            const message = (data as { message?: unknown }).message;
+            if (typeof message === 'string' && message.trim()) {
+                return message;
+            }
+        }
     }
-    window.alert('Request gagal diproses. Coba beberapa saat lagi.');
+    return 'Request gagal diproses. Coba beberapa saat lagi.';
+}
+
+function threadContainsComment(thread: CommentItem[], commentId: string): boolean {
+    return thread.some(comment => comment.id === commentId || threadContainsComment(comment.replies ?? [], commentId));
+}
+
+function mergeCommentIntoThread(thread: CommentItem[], nextComment: CommentItem): CommentItem[] {
+    if (threadContainsComment(thread, nextComment.id)) {
+        return thread;
+    }
+    if (!nextComment.parentId) {
+        return [...thread, normalizeComment(nextComment)];
+    }
+
+    const { thread: nextThread, inserted } = insertReplyIntoThread(thread, nextComment.parentId, normalizeComment(nextComment));
+
+    return inserted ? nextThread : [...nextThread, normalizeComment(nextComment)];
+}
+
+function normalizeComment(comment: CommentItem): CommentItem {
+    return {
+        ...comment,
+        replies: comment.replies ?? [],
+    };
+}
+
+function insertReplyIntoThread(thread: CommentItem[], parentId: string, reply: CommentItem): { thread: CommentItem[]; inserted: boolean } {
+    let inserted = false;
+    const nextThread = thread.map(comment => {
+        if (comment.id === parentId) {
+            inserted = true;
+            return {
+                ...comment,
+                replies: [...(comment.replies ?? []), reply],
+            };
+        }
+
+        const replies = comment.replies ?? [];
+        if (replies.length === 0) {
+            return comment;
+        }
+
+        const result = insertReplyIntoThread(replies, parentId, reply);
+        if (result.inserted) {
+            inserted = true;
+            return { ...comment, replies: result.thread };
+        }
+        return comment;
+    });
+
+    return { thread: nextThread, inserted };
 }
 
 function Meta({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
@@ -316,19 +424,27 @@ function CommentNode({
     comment: CommentItem;
     user: CurrentUser | null;
     depth: number;
-    onReply: (parentId?: string, body?: string) => Promise<void>;
+    onReply: (parentId?: string, body?: string) => Promise<boolean>;
     onDelete: (commentId: string) => Promise<void>;
     onReport: (commentId: string) => Promise<void>;
 }) {
     const [replyOpen, setReplyOpen] = useState(false);
     const [replyBody, setReplyBody] = useState('');
+    const [replyPosting, setReplyPosting] = useState(false);
     const canDelete = Boolean(user && !comment.deleted && (user.role === 'ADMIN' || user.userID === comment.user?.userID));
 
     const submitReply = async () => {
         if (!replyBody.trim()) return;
-        await onReply(comment.id, replyBody);
-        setReplyBody('');
-        setReplyOpen(false);
+        setReplyPosting(true);
+        try {
+            const posted = await onReply(comment.id, replyBody);
+            if (posted) {
+                setReplyBody('');
+                setReplyOpen(false);
+            }
+        } finally {
+            setReplyPosting(false);
+        }
     };
 
     return (
@@ -389,15 +505,17 @@ function CommentNode({
                         <textarea
                             value={replyBody}
                             onChange={(event) => setReplyBody(event.target.value)}
+                            disabled={replyPosting}
                             className="min-h-20 resize-y border border-[#333] bg-[#0b0b0b] p-3 font-sans text-sm text-white outline-none focus:border-[#e60000]"
                             placeholder="Write reply..."
                         />
                         <button
                             type="button"
                             onClick={() => void submitReply()}
-                            className="self-end border border-[#e60000] px-4 py-1.5 font-mono text-[9px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                            disabled={!replyBody.trim() || replyPosting}
+                            className="self-end border border-[#e60000] px-4 py-1.5 font-mono text-[9px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
                         >
-                            Send Reply
+                            {replyPosting ? 'Posting...' : 'Send Reply'}
                         </button>
                     </div>
                 )}

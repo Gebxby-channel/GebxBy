@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,6 +86,45 @@ class CommentServiceImplTest {
         verify(userService).ensureActive(author);
         verify(contentRepository).save(content);
         verify(notificationService).notifyCommentOnContent(any(Content.class), any(Comment.class));
+    }
+
+    @Test
+    void addCommentReturnsRecentDuplicateWithoutIncrementingCount() {
+        Comment existing = new Comment();
+        existing.setId(UUID.randomUUID());
+        existing.setContentId(content.getIdContent());
+        existing.setUser(author);
+        existing.setBody("Same comment");
+        existing.setCreatedAt(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
+
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(commentRepository.findRecentDuplicate(any(), any(), any(), any(), any())).thenReturn(Optional.of(existing));
+
+        CommentResponse response = commentService.addComment(
+                content.getIdContent(),
+                new CommentRequest("Same comment", null),
+                author
+        );
+
+        assertEquals(existing.getId(), response.id());
+        assertEquals(0, content.getCommentCount());
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(contentRepository, never()).save(any(Content.class));
+    }
+
+    @Test
+    void addCommentRateLimitsNonAdminUsers() {
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(commentRepository.countRecentByAuthor(any(), any())).thenReturn(5L);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () ->
+                commentService.addComment(content.getIdContent(), new CommentRequest("Too fast", null), author)
+        );
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, exception.getStatusCode());
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(contentRepository, never()).save(any(Content.class));
     }
 
     @Test
