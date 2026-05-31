@@ -63,6 +63,37 @@ class ContentControllerTest {
     }
 
     @Test
+    void getContentByUserUsesAuthorEndpoint() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(contentService.findByAuthor(eq(userId), isNull())).thenReturn(List.of(sampleContent()));
+
+        mockMvc.perform(get("/content/by-user/{userId}", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].head").value("Title"));
+    }
+
+    @Test
+    void getContentByIdDoesNotIncrementViewForCacheableRead() throws Exception {
+        UUID contentId = UUID.randomUUID();
+        when(contentService.findContentById(eq(contentId), isNull(), eq(false))).thenReturn(sampleContent());
+
+        mockMvc.perform(get("/content/{id}", contentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.head").value("Title"));
+    }
+
+    @Test
+    void viewEndpointIncrementsAndReturnsStats() throws Exception {
+        UUID contentId = UUID.randomUUID();
+        when(contentService.recordView(eq(contentId), isNull()))
+                .thenReturn(new ContentStatsResponse(contentId, 3, 0, 0, 0, VoteDirection.NONE));
+
+        mockMvc.perform(post("/content/{id}/view", contentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.viewCount").value(3));
+    }
+
+    @Test
     void voteRequiresCurrentUserAndReturnsStats() throws Exception {
         UUID contentId = UUID.randomUUID();
         User user = new User();

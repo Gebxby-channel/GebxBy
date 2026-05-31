@@ -17,7 +17,9 @@ public interface ContentService {
     ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, User author) throws IOException;
     List<ContentResponse> findAll(User viewer);
     List<ContentResponse> findByCategory(String category, User viewer);
+    List<ContentResponse> findByAuthor(UUID userId, User viewer);
     ContentResponse findContentById(UUID id, User viewer, boolean incrementView);
+    ContentStatsResponse recordView(UUID id, User viewer);
     ContentResponse updateContent(UUID id, ContentRequest contentDetails, User actor);
     void deleteContent(UUID id, User actor);
     ContentStatsResponse getStats(UUID id, User viewer);

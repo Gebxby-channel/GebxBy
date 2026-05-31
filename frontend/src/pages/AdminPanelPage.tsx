@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Ban, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react';
-import api from '../lib/api';
+import api, { invalidateApiCache } from '../lib/api';
 import type { BadgeCode, ContentItem, CurrentUser } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
 import BadgeStrip from '../components/BadgeStrip';
@@ -38,6 +38,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const suspendUser = async (target: CurrentUser) => {
         if (target.role === 'ADMIN') return;
         await api.post(`/api/admin/users/${target.userID}/suspend`, { hours: suspendHours });
+        invalidateApiCache(`/api/user/${target.userID}`);
         await fetchUsers();
     };
 
@@ -45,22 +46,27 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         if (target.userID === user.userID) return;
         if (!window.confirm(`Delete account ${target.email}?`)) return;
         await api.delete(`/api/admin/users/${target.userID}`);
+        invalidateApiCache(`/api/user/${target.userID}`);
+        invalidateApiCache(`/content/by-user/${target.userID}`);
         await fetchUsers();
     };
 
     const grantBadge = async (target: CurrentUser) => {
         await api.post(`/api/admin/users/${target.userID}/badges/${selectedBadge}`);
+        invalidateApiCache(`/api/user/${target.userID}`);
         await fetchUsers();
     };
 
     const revokeBadge = async (target: CurrentUser) => {
         await api.delete(`/api/admin/users/${target.userID}/badges/${selectedBadge}`);
+        invalidateApiCache(`/api/user/${target.userID}`);
         await fetchUsers();
     };
 
     const deleteContent = async (content: ContentItem) => {
         if (!window.confirm(`Delete writing "${content.head}"?`)) return;
         await api.delete(`/api/admin/contents/${content.idContent}`);
+        invalidateContentCaches(content);
         await fetchUsers();
     };
 
@@ -68,6 +74,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         const body = window.prompt(`Komentar highlight merah untuk "${content.head}":`);
         if (!body?.trim()) return;
         await api.post(`/content/${content.idContent}/comments`, { body });
+        invalidateContentCaches(content);
         window.alert('Komentar admin highlight merah berhasil dikirim.');
     };
 
@@ -239,4 +246,15 @@ function formatDate(dateString: string) {
         hour: '2-digit',
         minute: '2-digit',
     });
+}
+
+function invalidateContentCaches(content: ContentItem) {
+    invalidateApiCache('/content/all-content');
+    invalidateApiCache('/content/analytics');
+    invalidateApiCache('/content/categories');
+    invalidateApiCache(`/content/${content.idContent}`);
+    invalidateApiCache(`/content/${content.idContent}/comments`);
+    if (content.user?.userID) {
+        invalidateApiCache(`/content/by-user/${content.user.userID}`);
+    }
 }

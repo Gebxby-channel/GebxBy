@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../lib/api';
+import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import type { ContentItem, CurrentUser } from '../types/forum';
@@ -11,22 +11,25 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get<string[]>('/content/categories')
-            .then(res => {
-                const merged = Array.from(new Set(['All', ...DEFAULT_CATEGORIES, ...res.data]));
+        cachedGet<string[]>('/content/categories', undefined, { ttlMs: 10 * 60_000 })
+            .then(data => {
+                const merged = Array.from(new Set(['All', ...DEFAULT_CATEGORIES, ...data]));
                 setCategories(merged);
             })
             .catch(() => setCategories(['All', ...DEFAULT_CATEGORIES]));
     }, []);
 
     useEffect(() => {
-        api.get<ContentItem[]>('/content/all-content', {
+        cachedGet<ContentItem[]>('/content/all-content', {
             params: selectedCategory === 'All' ? undefined : { category: selectedCategory },
+        }, {
+            ttlMs: 45_000,
+            scope: user?.userID ?? 'guest',
         })
-            .then(res => setArticles(Array.isArray(res.data) ? res.data : []))
+            .then(data => setArticles(Array.isArray(data) ? data : []))
             .catch(() => setArticles([]))
             .finally(() => setLoading(false));
-    }, [selectedCategory]);
+    }, [selectedCategory, user?.userID]);
 
     const selectCategory = (category: string) => {
         setLoading(true);

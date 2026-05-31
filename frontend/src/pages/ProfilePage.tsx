@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
-import api from '../lib/api';
+import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
@@ -34,11 +34,13 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         || designation !== (user.designation || 'RECONNAISSANCE OFFICER')
         || picture !== (user.picture || '');
 
-    const fetchMyContents = useCallback(async () => {
-        const res = await api.get<ContentItem[]>('/content/all-content');
-        const allData = Array.isArray(res.data) ? res.data : [];
-        const myData = allData
-            .filter(item => item.user?.userID === user.userID)
+    const fetchMyContents = useCallback(async (force = false) => {
+        const data = await cachedGet<ContentItem[]>(`/content/by-user/${user.userID}`, undefined, {
+            ttlMs: 60_000,
+            scope: user.userID,
+            force,
+        });
+        const myData = (Array.isArray(data) ? data : [])
             .sort((a, b) => {
                 const dateA = new Date(a.createdAt || 0).getTime();
                 const dateB = new Date(b.createdAt || 0).getTime();
@@ -70,6 +72,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
             setName(response.data.name || name);
             setDesignation(response.data.designation || designation);
             setPicture(response.data.picture || picture);
+            invalidateApiCache(`/api/user/${response.data.userID}`);
+            invalidateApiCache(`/content/by-user/${response.data.userID}`);
+            invalidateApiCache('/content/all-content');
         } finally {
             setSavingProfile(false);
         }
@@ -104,8 +109,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
 
     const handleUpdate = async (id: string) => {
         await api.put(`/content/edit/${id}`, editForm);
+        invalidateContentCaches(user.userID, id);
         setEditingId(null);
-        await fetchMyContents();
+        await fetchMyContents(true);
     };
 
     const startEdit = (item: ContentItem) => {
@@ -116,7 +122,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const handleDelete = async (idContent: string) => {
         if (!window.confirm('WARNING: Data removal is permanent. Proceed?')) return;
         await api.delete(`/content/${idContent}`);
-        await fetchMyContents();
+        invalidateContentCaches(user.userID, idContent);
+        await fetchMyContents(true);
     };
 
     return (
@@ -338,6 +345,16 @@ function ArchiveItem({
             )}
         </div>
     );
+}
+
+function invalidateContentCaches(userId: string, contentId?: string) {
+    invalidateApiCache('/content/all-content');
+    invalidateApiCache(`/content/by-user/${userId}`);
+    invalidateApiCache('/content/categories');
+    invalidateApiCache('/content/analytics');
+    if (contentId) {
+        invalidateApiCache(`/content/${contentId}`);
+    }
 }
 
 function cropImage(source: string, zoom: number, offsetX: number, offsetY: number) {

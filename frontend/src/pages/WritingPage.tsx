@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Send, Upload } from 'lucide-react';
-import api from '../lib/api';
+import api, { invalidateApiCache } from '../lib/api';
 import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
@@ -32,6 +32,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                 paragrafs: content,
                 kategori: selectedKategori,
             });
+            invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
             handleSubmitError(error);
@@ -54,6 +55,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setSubmitting(true);
         try {
             const response = await api.post<ContentItem>('/content/upload', formData);
+            invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
             handleSubmitError(error);
@@ -138,6 +140,13 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             </div>
         </div>
     );
+}
+
+function invalidatePublishedContentCaches(userId: string) {
+    invalidateApiCache('/content/all-content');
+    invalidateApiCache(`/content/by-user/${userId}`);
+    invalidateApiCache('/content/categories');
+    invalidateApiCache('/content/analytics');
 }
 
 function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../lib/api';
+import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
@@ -8,13 +8,18 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
     const [loading, setLoading] = useState(true);
     const terminalId = useMemo(() => user ? user.userID.replaceAll('-', '').substring(0, 6).toUpperCase() : 'GUEST', [user]);
+    const sortedArticles = useMemo(() => sortArticles(articles, sortOrder), [articles, sortOrder]);
 
     useEffect(() => {
-        api.get<ContentItem[]>('/content/all-content')
-            .then(res => setArticles(sortArticles(Array.isArray(res.data) ? res.data : [], sortOrder)))
+        setLoading(true);
+        cachedGet<ContentItem[]>('/content/all-content', undefined, {
+            ttlMs: 45_000,
+            scope: user?.userID ?? 'guest',
+        })
+            .then(data => setArticles(Array.isArray(data) ? data : []))
             .catch(() => setArticles([]))
             .finally(() => setLoading(false));
-    }, [sortOrder]);
+    }, [user?.userID]);
 
     return (
         <div className="w-full">
@@ -47,13 +52,13 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 <div className="border border-dashed border-[#222] py-32 text-center font-mono text-xs uppercase tracking-[0.4em] text-[#444]">
                     [ Syncing_Database ]
                 </div>
-            ) : articles.length === 0 ? (
+            ) : sortedArticles.length === 0 ? (
                 <div className="border border-dashed border-[#222] py-40 text-center font-mono uppercase tracking-[0.4em] text-[#333]">
                     [ No_Data_Found_In_Sector ]
                 </div>
             ) : (
                 <div className="flex flex-col">
-                    {articles.map((art) => (
+                    {sortedArticles.map((art) => (
                         <ContentCard key={art.idContent} art={art} user={user} />
                     ))}
                 </div>

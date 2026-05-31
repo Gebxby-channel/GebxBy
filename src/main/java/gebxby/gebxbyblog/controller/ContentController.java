@@ -78,11 +78,25 @@ public class ContentController {
         return ResponseEntity.ok(contentService.getAnalytics(optionalUser(principal)));
     }
 
+    @GetMapping("/by-user/{userId}")
+    public ResponseEntity<List<ContentResponse>> getContentByUser(
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.findByAuthor(userId, optionalUser(principal)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ContentResponse> getContentById(
             @PathVariable UUID id,
             @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(contentService.findContentById(id, optionalUser(principal), true));
+        return ResponseEntity.ok(contentService.findContentById(id, optionalUser(principal), false));
+    }
+
+    @PostMapping("/{id}/view")
+    public ResponseEntity<ContentStatsResponse> recordView(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.recordView(id, optionalUser(principal)));
     }
 
     @GetMapping("/{id}/stats")

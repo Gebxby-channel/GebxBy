@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -57,6 +58,8 @@ public class ContentServiceImpl implements ContentService {
     private static final int MAX_TITLE_LENGTH = 180;
     private static final int MAX_CATEGORY_LENGTH = 60;
     private static final int MAX_BODY_LENGTH = 60_000;
+    private static final Duration CATEGORY_CACHE_TTL = Duration.ofMinutes(5);
+    private static final Duration ANALYTICS_CACHE_TTL = Duration.ofSeconds(45);
     private static final Safelist ARTICLE_SAFELIST = Safelist.relaxed()
             .addTags("h1", "h2", "pre", "code", "span")
             .addAttributes("span", "class")
@@ -71,6 +74,8 @@ public class ContentServiceImpl implements ContentService {
     private final ForumMapper mapper;
     private final ActivityLogService activityLogService;
     private final long maxUploadBytes;
+    private volatile CacheEntry<List<String>> categoriesCache;
+    private volatile CacheEntry<AnalyticsSnapshot> analyticsCache;
 
     public ContentServiceImpl(ContentRepository contentRepository,
                               ContentVoteRepository voteRepository,
@@ -102,6 +107,7 @@ public class ContentServiceImpl implements ContentService {
         content.setUpdatedAt(now);
         Content saved = contentRepository.save(content);
         activityLogService.recordPublication(saved, author);
+        invalidateContentCaches();
         return mapper.toContentResponse(saved, VoteDirection.NONE);
     }
 
@@ -139,6 +145,13 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public List<ContentResponse> findByAuthor(UUID userId, User viewer) {
+        return contentRepository.findByAuthorIdOrderByCreatedAtDesc(userId).stream()
+                .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
+                .toList();
+    }
+
+    @Override
     public ContentResponse findContentById(UUID id, User viewer, boolean incrementView) {
         Content content = getContentOrThrow(id);
         if (incrementView) {
@@ -150,13 +163,24 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public ContentStatsResponse recordView(UUID id, User viewer) {
+        Content content = getContentOrThrow(id);
+        content.setViewCount(content.getViewCount() + 1);
+        content.setUpdatedAt(LocalDateTime.now());
+        content = contentRepository.save(content);
+        return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), resolveUserVote(id, viewer));
+    }
+
+    @Override
     public ContentResponse updateContent(UUID id, ContentRequest contentDetails, User actor) {
         userService.ensureActive(actor);
         Content existingContent = getContentOrThrow(id);
         requireOwnerOrAdmin(existingContent, actor);
         applyContentFields(existingContent, contentDetails);
         existingContent.setUpdatedAt(LocalDateTime.now());
-        return mapper.toContentResponse(contentRepository.save(existingContent), resolveUserVote(id, actor));
+        Content saved = contentRepository.save(existingContent);
+        invalidateContentCaches();
+        return mapper.toContentResponse(saved, resolveUserVote(id, actor));
     }
 
     @Override
@@ -168,6 +192,7 @@ public class ContentServiceImpl implements ContentService {
         commentRepository.deleteByContentId(id);
         voteRepository.deleteByContentId(id);
         contentRepository.deleteById(id);
+        invalidateContentCaches();
     }
 
     @Override
@@ -212,28 +237,52 @@ public class ContentServiceImpl implements ContentService {
 
         content.setUpdatedAt(LocalDateTime.now());
         content = contentRepository.save(content);
+        analyticsCache = null;
         return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), requestedVote);
     }
 
     @Override
     public List<String> findCategories() {
+        CacheEntry<List<String>> cached = categoriesCache;
+        if (cached != null && !cached.isExpired()) {
+            return cached.value();
+        }
         Set<String> categories = new LinkedHashSet<>(DEFAULT_CATEGORIES);
-        contentRepository.findAll().stream()
+        contentRepository.findCategoryFields().stream()
                 .map(Content::getKategori)
                 .filter(StringUtils::hasText)
                 .map(this::normalizeCategory)
                 .forEach(categories::add);
-        return new ArrayList<>(categories);
+        List<String> result = List.copyOf(new ArrayList<>(categories));
+        categoriesCache = CacheEntry.of(result, CATEGORY_CACHE_TTL);
+        return result;
     }
 
     @Override
     public AnalyticsResponse getAnalytics(User viewer) {
-        List<ContentResponse> mostRead = contentRepository.findTop10ByOrderByViewCountDesc().stream()
+        AnalyticsSnapshot snapshot = analyticsSnapshot();
+        List<ContentResponse> mostRead = snapshot.mostRead().stream()
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
-        List<ContentResponse> mostUpvoted = contentRepository.findTop10ByOrderByUpCountDesc().stream()
+        List<ContentResponse> mostUpvoted = snapshot.mostUpvoted().stream()
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
+        List<LeaderboardEntryResponse> leaderboard = snapshot.leaderboard().stream()
+                .map(entry -> new LeaderboardEntryResponse(mapper.toPublicUser(entry.user()), entry.upCount()))
+                .filter(entry -> entry.user() != null)
+                .toList();
+
+        return new AnalyticsResponse(mostRead, mostUpvoted, leaderboard);
+    }
+
+    private AnalyticsSnapshot analyticsSnapshot() {
+        CacheEntry<AnalyticsSnapshot> cached = analyticsCache;
+        if (cached != null && !cached.isExpired()) {
+            return cached.value();
+        }
+
+        List<Content> mostRead = List.copyOf(contentRepository.findTop10ByOrderByViewCountDesc());
+        List<Content> mostUpvoted = List.copyOf(contentRepository.findTop10ByOrderByUpCountDesc());
 
         LocalDateTime weekStart = LocalDateTime.now()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -257,14 +306,16 @@ public class ContentServiceImpl implements ContentService {
         Map<UUID, User> usersById = userRepository.findByUserIDIn(upByAuthor.keySet()).stream()
                 .collect(Collectors.toMap(User::getUserID, Function.identity()));
 
-        List<LeaderboardEntryResponse> leaderboard = upByAuthor.entrySet().stream()
+        List<LeaderboardSnapshotEntry> leaderboard = upByAuthor.entrySet().stream()
                 .sorted(Map.Entry.<UUID, Long>comparingByValue(Comparator.reverseOrder()))
                 .limit(10)
-                .map(entry -> new LeaderboardEntryResponse(mapper.toPublicUser(usersById.get(entry.getKey())), entry.getValue()))
+                .map(entry -> new LeaderboardSnapshotEntry(usersById.get(entry.getKey()), entry.getValue()))
                 .filter(entry -> entry.user() != null)
                 .toList();
 
-        return new AnalyticsResponse(mostRead, mostUpvoted, leaderboard);
+        AnalyticsSnapshot snapshot = new AnalyticsSnapshot(mostRead, mostUpvoted, leaderboard);
+        analyticsCache = CacheEntry.of(snapshot, ANALYTICS_CACHE_TTL);
+        return snapshot;
     }
 
     private Content getContentOrThrow(UUID id) {
@@ -371,5 +422,30 @@ public class ContentServiceImpl implements ContentService {
     private String trimToLength(String value, int maxLength) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
+    }
+
+    private void invalidateContentCaches() {
+        categoriesCache = null;
+        analyticsCache = null;
+    }
+
+    private record CacheEntry<T>(T value, long expiresAtMillis) {
+        static <T> CacheEntry<T> of(T value, Duration ttl) {
+            return new CacheEntry<>(value, System.currentTimeMillis() + ttl.toMillis());
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() >= expiresAtMillis;
+        }
+    }
+
+    private record AnalyticsSnapshot(
+            List<Content> mostRead,
+            List<Content> mostUpvoted,
+            List<LeaderboardSnapshotEntry> leaderboard
+    ) {
+    }
+
+    private record LeaderboardSnapshotEntry(User user, long upCount) {
     }
 }

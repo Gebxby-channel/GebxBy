@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowBigUp, Eye, Trophy } from 'lucide-react';
-import api from '../lib/api';
+import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import type { AnalyticsPayload, CurrentUser } from '../types/forum';
 
@@ -10,10 +10,13 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get<AnalyticsPayload>('/content/analytics')
-            .then(res => setAnalytics(res.data))
+        cachedGet<AnalyticsPayload>('/content/analytics', undefined, {
+            ttlMs: 60_000,
+            scope: user.userID,
+        })
+            .then(data => setAnalytics(data))
             .finally(() => setLoading(false));
-    }, []);
+    }, [user.userID]);
 
     return (
         <div className="w-full">

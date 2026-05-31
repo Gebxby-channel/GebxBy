@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -105,6 +107,37 @@ class ContentServiceImplTest {
 
         assertEquals(1, response.viewCount());
         verify(contentRepository).save(content);
+    }
+
+    @Test
+    void findContentByIdCanSkipViewIncrementForCacheableReads() {
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+
+        ContentResponse response = contentService.findContentById(content.getIdContent(), null, false);
+
+        assertEquals(0, response.viewCount());
+        verify(contentRepository, never()).save(any(Content.class));
+    }
+
+    @Test
+    void recordViewIncrementsCountAndReturnsStats() {
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ContentStatsResponse response = contentService.recordView(content.getIdContent(), null);
+
+        assertEquals(1, response.viewCount());
+        verify(contentRepository).save(content);
+    }
+
+    @Test
+    void findByAuthorUsesAuthorSpecificQuery() {
+        when(contentRepository.findByAuthorIdOrderByCreatedAtDesc(author.getUserID())).thenReturn(List.of(content));
+
+        List<ContentResponse> response = contentService.findByAuthor(author.getUserID(), null);
+
+        assertEquals(1, response.size());
+        assertEquals(content.getIdContent(), response.getFirst().idContent());
     }
 
     @Test
@@ -194,5 +227,32 @@ class ContentServiceImplTest {
         assertEquals(1, response.mostRead().size());
         assertEquals(1, response.weeklyLeaderboard().size());
         assertEquals(author.getUserID(), response.weeklyLeaderboard().getFirst().user().userID());
+    }
+
+    @Test
+    void categoriesUseShortLivedServiceCache() {
+        when(contentRepository.findCategoryFields()).thenReturn(List.of(content));
+
+        List<String> first = contentService.findCategories();
+        List<String> second = contentService.findCategories();
+
+        assertEquals(first, second);
+        verify(contentRepository, times(1)).findCategoryFields();
+    }
+
+    @Test
+    void analyticsUseShortLivedServiceCacheForHeavySnapshot() {
+        when(contentRepository.findTop10ByOrderByViewCountDesc()).thenReturn(List.of(content));
+        when(contentRepository.findTop10ByOrderByUpCountDesc()).thenReturn(List.of(content));
+        when(voteRepository.findByVoteAndCreatedAtGreaterThanEqual(eq(VoteDirection.UP), any(LocalDateTime.class))).thenReturn(List.of());
+        when(contentRepository.findAllById(anyCollection())).thenReturn(List.of());
+        when(userRepository.findByUserIDIn(anyCollection())).thenReturn(List.of());
+
+        contentService.getAnalytics(null);
+        contentService.getAnalytics(null);
+
+        verify(contentRepository, times(1)).findTop10ByOrderByViewCountDesc();
+        verify(contentRepository, times(1)).findTop10ByOrderByUpCountDesc();
+        verify(voteRepository, times(1)).findByVoteAndCreatedAtGreaterThanEqual(eq(VoteDirection.UP), any(LocalDateTime.class));
     }
 }

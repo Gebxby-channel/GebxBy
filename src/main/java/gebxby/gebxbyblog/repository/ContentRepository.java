@@ -18,6 +18,12 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
 
     List<Content> findTop10ByOrderByUpCountDesc();
 
+    @Query(value = "{}", fields = "{ 'kategori': 1 }")
+    List<Content> findCategoryFields();
+
     @Query("{ 'user.userID': ?0 }")
     List<Content> findByAuthorId(UUID userId);
+
+    @Query(value = "{ 'user.userID': ?0 }", sort = "{ 'createdAt': -1 }")
+    List<Content> findByAuthorIdOrderByCreatedAtDesc(UUID userId);
 }

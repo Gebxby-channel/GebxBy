@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Eye, Flag, MessageSquare, Trash2 } from 'lucide-react';
 import axios from 'axios';
-import api from '../lib/api';
+import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
 import type { CommentItem, ContentItem, ContentStats, CurrentUser, VoteDirection } from '../types/forum';
 
@@ -19,10 +19,13 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const [commentNotice, setCommentNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const commentSubmissionLocks = useRef(new Set<string>());
 
-    const fetchComments = useCallback(() => {
+    const fetchComments = useCallback((force = false) => {
         if (!id) return Promise.resolve();
-        return api.get<CommentItem[]>(`/content/${id}/comments`)
-            .then(res => setComments(Array.isArray(res.data) ? res.data : []));
+        return cachedGet<CommentItem[]>(`/content/${id}/comments`, undefined, {
+            ttlMs: 10_000,
+            force,
+        })
+            .then(data => setComments(Array.isArray(data) ? data : []));
     }, [id]);
 
     const fetchStats = useCallback(() => {
@@ -33,26 +36,33 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
     useEffect(() => {
         if (!id) return;
-        api.get<ContentItem>(`/content/${id}`)
-            .then(res => {
-                setContent(res.data);
+        cachedGet<ContentItem>(`/content/${id}`, undefined, {
+            ttlMs: 5 * 60_000,
+            scope: user?.userID ?? 'guest',
+        })
+            .then(data => {
+                setContent(data);
                 setStats({
-                    idContent: res.data.idContent,
-                    viewCount: res.data.viewCount,
-                    upCount: res.data.upCount,
-                    downCount: res.data.downCount,
-                    commentCount: res.data.commentCount,
-                    userVote: res.data.userVote,
+                    idContent: data.idContent,
+                    viewCount: data.viewCount,
+                    upCount: data.upCount,
+                    downCount: data.downCount,
+                    commentCount: data.commentCount,
+                    userVote: data.userVote,
                 });
             })
             .catch(() => setContent(null));
+
+        api.post<ContentStats>(`/content/${id}/view`)
+            .then(response => setStats(response.data))
+            .catch(() => void fetchStats());
         void fetchComments();
-    }, [id, fetchComments]);
+    }, [id, fetchComments, fetchStats, user?.userID]);
 
     useEffect(() => {
         const timer = window.setInterval(() => {
             void fetchStats();
-            void fetchComments();
+            void fetchComments(true);
         }, 5000);
         return () => window.clearInterval(timer);
     }, [fetchComments, fetchStats]);
@@ -69,6 +79,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         try {
             const response = await api.post<ContentStats>(`/content/${id}/vote`, { vote });
             setStats(response.data);
+            invalidateContentCacheForMutation(id);
         } catch (error) {
             handleMutationError(error);
         } finally {
@@ -98,6 +109,8 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             const alreadyRendered = threadContainsComment(comments, response.data.id);
 
             setComments((current) => mergeCommentIntoThread(current, response.data));
+            invalidateApiCache(`/content/${id}/comments`);
+            invalidateContentCacheForMutation(id);
             if (!parentId) {
                 setCommentBody('');
             }
@@ -122,7 +135,9 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         if (!id) return;
         try {
             await api.delete(`/content/${id}/comments/${commentId}`);
-            await fetchComments();
+            invalidateApiCache(`/content/${id}/comments`);
+            invalidateContentCacheForMutation(id);
+            await fetchComments(true);
             await fetchStats();
         } catch (error) {
             handleMutationError(error);
@@ -301,6 +316,12 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
 function handleMutationError(error: unknown) {
     window.alert(getMutationErrorMessage(error));
+}
+
+function invalidateContentCacheForMutation(contentId: string) {
+    invalidateApiCache(`/content/${contentId}`);
+    invalidateApiCache('/content/all-content');
+    invalidateApiCache('/content/analytics');
 }
 
 function getMutationErrorMessage(error: unknown) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BadgeCheck, Ban, Eye, Flag, ShieldAlert, Trash2, X } from 'lucide-react';
-import api from '../lib/api';
+import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
@@ -26,14 +26,21 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const navigate = useNavigate();
     const isMyOwnProfile = String(user?.userID) === String(userId);
 
-    const fetchProfileData = useCallback(async (targetUserId: string) => {
+    const fetchProfileData = useCallback(async (targetUserId: string, force = false) => {
         const [profileRes, contentRes] = await Promise.all([
-            api.get<PublicUser>(`/api/user/${targetUserId}`),
-            api.get<ContentItem[]>('/content/all-content'),
+            cachedGet<PublicUser>(`/api/user/${targetUserId}`, undefined, {
+                ttlMs: 2 * 60_000,
+                force,
+            }),
+            cachedGet<ContentItem[]>(`/content/by-user/${targetUserId}`, undefined, {
+                ttlMs: 60_000,
+                scope: user?.userID ?? 'guest',
+                force,
+            }),
         ]);
-        setViewedUser(profileRes.data);
-        setContents((Array.isArray(contentRes.data) ? contentRes.data : []).filter(item => item.user?.userID === targetUserId));
-    }, []);
+        setViewedUser(profileRes);
+        setContents(Array.isArray(contentRes) ? contentRes : []);
+    }, [user?.userID]);
 
     useEffect(() => {
         if (!userId) return;
@@ -98,7 +105,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
             } else {
                 await api.post(`/api/moderation/users/${displayUser.userID}/suspend`);
             }
-            await fetchProfileData(displayUser.userID);
+            invalidateApiCache(`/api/user/${displayUser.userID}`);
+            await fetchProfileData(displayUser.userID, true);
             setDialog(null);
             setActionNotice({
                 type: 'success',
@@ -117,6 +125,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
         setActionNotice(null);
         try {
             await api.delete(`/api/admin/users/${displayUser.userID}`);
+            invalidateApiCache(`/api/user/${displayUser.userID}`);
+            invalidateApiCache(`/content/by-user/${displayUser.userID}`);
             navigate('/');
         } catch (error) {
             setActionNotice({ type: 'error', message: getActionError(error) });
@@ -135,7 +145,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
             } else {
                 await api.delete(`/api/admin/users/${displayUser.userID}/badges/${selectedBadge}`);
             }
-            await fetchProfileData(displayUser.userID);
+            invalidateApiCache(`/api/user/${displayUser.userID}`);
+            await fetchProfileData(displayUser.userID, true);
             setDialog(null);
             setActionNotice({
                 type: 'success',
