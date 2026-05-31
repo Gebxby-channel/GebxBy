@@ -970,6 +970,9 @@ function initialProfileCardForm(): ProfileCardFormState {
             statsY: 78,
             statsW: 30,
             statsH: 12,
+            nameFontSize: 2.6,
+            designationFontSize: 1.25,
+            statsFontSize: 1.05,
             textColor: '#111111',
             accentColor: '#e60000',
         },
@@ -987,10 +990,21 @@ function LayoutEditor({ layout, onChange }: { layout: ProfileCardLayout; onChang
                 <NumberField label="Photo H" value={layout.photoH} onChange={(value) => update('photoH', value)} />
                 <NumberField label="Name X" value={layout.nameX} onChange={(value) => update('nameX', value)} />
                 <NumberField label="Name Y" value={layout.nameY} onChange={(value) => update('nameY', value)} />
+                <NumberField label="Name W" value={layout.nameW} onChange={(value) => update('nameW', value)} />
+                <NumberField label="Name H" value={layout.nameH} onChange={(value) => update('nameH', value)} />
                 <NumberField label="Designation X" value={layout.designationX} onChange={(value) => update('designationX', value)} />
                 <NumberField label="Designation Y" value={layout.designationY} onChange={(value) => update('designationY', value)} />
+                <NumberField label="Designation W" value={layout.designationW} onChange={(value) => update('designationW', value)} />
+                <NumberField label="Designation H" value={layout.designationH} onChange={(value) => update('designationH', value)} />
                 <NumberField label="Stats X" value={layout.statsX} onChange={(value) => update('statsX', value)} />
                 <NumberField label="Stats Y" value={layout.statsY} onChange={(value) => update('statsY', value)} />
+                <NumberField label="Stats W" value={layout.statsW} onChange={(value) => update('statsW', value)} />
+                <NumberField label="Stats H" value={layout.statsH} onChange={(value) => update('statsH', value)} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                <NumberField label="Name Font" value={layout.nameFontSize ?? 2.6} min={0.6} max={12} step={0.1} onChange={(value) => update('nameFontSize', value)} />
+                <NumberField label="Role Font" value={layout.designationFontSize ?? 1.25} min={0.6} max={12} step={0.1} onChange={(value) => update('designationFontSize', value)} />
+                <NumberField label="Stats Font" value={layout.statsFontSize ?? 1.05} min={0.6} max={12} step={0.1} onChange={(value) => update('statsFontSize', value)} />
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <label className="font-mono text-[9px] uppercase text-[#666]">Text Color<input type="color" value={layout.textColor} onChange={(event) => update('textColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
@@ -1000,14 +1014,29 @@ function LayoutEditor({ layout, onChange }: { layout: ProfileCardLayout; onChang
     );
 }
 
-function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+function NumberField({
+    label,
+    value,
+    min = 0,
+    max = 100,
+    step = 1,
+    onChange,
+}: {
+    label: string;
+    value: number;
+    min?: number;
+    max?: number;
+    step?: number;
+    onChange: (value: number) => void;
+}) {
     return (
         <label className="font-mono text-[9px] uppercase text-[#666]">
             {label}
             <input
                 type="number"
-                min={0}
-                max={100}
+                min={min}
+                max={max}
+                step={step}
                 value={value}
                 onChange={(event) => onChange(Number(event.target.value))}
                 className="mt-1 h-8 w-full border border-[#333] bg-[#0b0b0b] px-2 text-white outline-none focus:border-[#e60000]"

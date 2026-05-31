@@ -22,6 +22,9 @@ public class ProfileCardLayout {
     private double statsY = 78;
     private double statsW = 30;
     private double statsH = 12;
+    private double nameFontSize = 3.0;
+    private double designationFontSize = 1.5;
+    private double statsFontSize = 1.2;
     private String textColor = "#111111";
     private String accentColor = "#e60000";
 }

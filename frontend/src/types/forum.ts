@@ -49,6 +49,9 @@ export interface ProfileCardLayout {
   statsY: number;
   statsW: number;
   statsH: number;
+  nameFontSize: number;
+  designationFontSize: number;
+  statsFontSize: number;
   textColor: string;
   accentColor: string;
 }
@@ -61,6 +64,8 @@ export interface ProfileCardItem {
   backgroundImage?: string;
   orientation: 'HORIZONTAL' | 'VERTICAL' | string;
   layout: ProfileCardLayout;
+  displayName?: string;
+  displayPhoto?: string;
   custom: boolean;
   template: boolean;
   grantedAt?: string;

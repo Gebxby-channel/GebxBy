@@ -25,6 +25,8 @@ public class UserProfileCard {
     private String backgroundImage;
     private String orientation = "HORIZONTAL";
     private ProfileCardLayout layout = new ProfileCardLayout();
+    private String displayName;
+    private String displayPhoto;
     private UUID grantedByUserId;
     private LocalDateTime grantedAt;
 }

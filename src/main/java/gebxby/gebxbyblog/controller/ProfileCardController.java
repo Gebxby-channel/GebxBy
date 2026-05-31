@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
+import gebxby.gebxbyblog.dto.ProfileCardCustomizeRequest;
 import gebxby.gebxbyblog.dto.ProfileCardResponse;
 import gebxby.gebxbyblog.dto.ProfileCardSelectionRequest;
 import gebxby.gebxbyblog.model.User;
@@ -11,12 +12,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/profile-cards")
@@ -43,5 +47,22 @@ public class ProfileCardController {
             @AuthenticationPrincipal OAuth2User principal) {
         User user = userService.getCurrentUser(principal);
         return ResponseEntity.ok(mapper.toCurrentUser(profileCardService.setActiveCard(request == null ? null : request.cardId(), user)));
+    }
+
+    @PutMapping("/{cardId}/customize")
+    public ResponseEntity<ProfileCardResponse> customize(
+            @PathVariable UUID cardId,
+            @RequestBody ProfileCardCustomizeRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(profileCardService.customizeUserCard(cardId, request, user));
+    }
+
+    @DeleteMapping("/{cardId}")
+    public ResponseEntity<CurrentUserResponse> deleteCard(
+            @PathVariable UUID cardId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(mapper.toCurrentUser(profileCardService.deleteUserCard(cardId, user)));
     }
 }

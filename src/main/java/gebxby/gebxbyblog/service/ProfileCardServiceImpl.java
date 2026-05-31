@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileCardLayoutResponse;
+import gebxby.gebxbyblog.dto.ProfileCardCustomizeRequest;
 import gebxby.gebxbyblog.dto.ProfileCardRequest;
 import gebxby.gebxbyblog.dto.ProfileCardResponse;
 import gebxby.gebxbyblog.model.Comment;
@@ -31,6 +32,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
     public static final String DEFAULT_STARS = "DEFAULT:STARS";
     public static final String DEFAULT_UMBRELLA = "DEFAULT:UMBRELLA";
     private static final int MAX_CARD_IMAGE_LENGTH = 650_000;
+    private static final int MAX_CARD_PHOTO_LENGTH = 350_000;
     private static final int MAX_NAME_LENGTH = 60;
     private static final int MAX_DESCRIPTION_LENGTH = 180;
 
@@ -175,6 +177,37 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         return saved;
     }
 
+    @Override
+    public ProfileCardResponse customizeUserCard(UUID cardId, ProfileCardCustomizeRequest request, User user) {
+        userService.ensureActive(user);
+        UserProfileCard card = userCardRepository.findById(cardId)
+                .filter(item -> user.getUserID().equals(item.getUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card profile tidak ditemukan"));
+        String displayName = trim(request == null ? null : request.displayName(), 80);
+        card.setDisplayName(StringUtils.hasText(displayName) ? displayName : null);
+        if (request != null && request.displayPhoto() != null) {
+            card.setDisplayPhoto(StringUtils.hasText(request.displayPhoto()) ? validateCardPhoto(request.displayPhoto()) : null);
+        }
+        return toUserCardResponse(userCardRepository.save(card));
+    }
+
+    @Override
+    public User deleteUserCard(UUID cardId, User user) {
+        userService.ensureActive(user);
+        UserProfileCard card = userCardRepository.findById(cardId)
+                .filter(item -> user.getUserID().equals(item.getUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card profile tidak ditemukan"));
+        userCardRepository.delete(card);
+        if (card.getId().toString().equals(user.getActiveProfileCardId())) {
+            user.setActiveProfileCardId(DEFAULT_STARS);
+            user.setUpdatedAt(LocalDateTime.now());
+            User saved = userRepository.save(user);
+            refreshEmbeddedProfiles(saved);
+            return saved;
+        }
+        return user;
+    }
+
     private void applyTemplateFields(ProfileCardTemplate template, ProfileCardRequest request) {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload card wajib diisi");
@@ -260,6 +293,9 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         layout.setStatsY(clamp(response.statsY()));
         layout.setStatsW(clamp(response.statsW()));
         layout.setStatsH(clamp(response.statsH()));
+        layout.setNameFontSize(clampFont(response.nameFontSize(), 3.0));
+        layout.setDesignationFontSize(clampFont(response.designationFontSize(), 1.5));
+        layout.setStatsFontSize(clampFont(response.statsFontSize(), 1.2));
         layout.setTextColor(normalizeHex(response.textColor(), "#111111"));
         layout.setAccentColor(normalizeHex(response.accentColor(), "#e60000"));
         return layout;
@@ -276,6 +312,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
                 safe.getNameX(), safe.getNameY(), safe.getNameW(), safe.getNameH(),
                 safe.getDesignationX(), safe.getDesignationY(), safe.getDesignationW(), safe.getDesignationH(),
                 safe.getStatsX(), safe.getStatsY(), safe.getStatsW(), safe.getStatsH(),
+                safe.getNameFontSize(), safe.getDesignationFontSize(), safe.getStatsFontSize(),
                 safe.getTextColor(), safe.getAccentColor()
         );
     }
@@ -289,6 +326,8 @@ public class ProfileCardServiceImpl implements ProfileCardService {
                 template.getBackgroundImage(),
                 template.getOrientation(),
                 toResponseLayout(template.getLayout()),
+                null,
+                null,
                 true,
                 true,
                 null,
@@ -305,6 +344,8 @@ public class ProfileCardServiceImpl implements ProfileCardService {
                 card.getBackgroundImage(),
                 card.getOrientation(),
                 toResponseLayout(card.getLayout()),
+                card.getDisplayName(),
+                card.getDisplayPhoto(),
                 true,
                 false,
                 card.getGrantedAt(),
@@ -332,6 +373,13 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         return Math.max(0, Math.min(value, 100));
     }
 
+    private double clampFont(double value, double fallback) {
+        if (Double.isNaN(value) || Double.isInfinite(value) || value <= 0) {
+            return fallback;
+        }
+        return Math.max(0.6, Math.min(value, 12));
+    }
+
     private String normalizeHex(String value, String fallback) {
         String clean = trim(value, 24).toLowerCase(Locale.ROOT);
         return clean.matches("^#[0-9a-f]{6}$") ? clean : fallback;
@@ -348,5 +396,20 @@ public class ProfileCardServiceImpl implements ProfileCardService {
     private String trim(String value, int maxLength) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
+    }
+
+    private String validateCardPhoto(String value) {
+        String photo = trim(value, MAX_CARD_PHOTO_LENGTH + 1);
+        if (photo.length() > MAX_CARD_PHOTO_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Foto card terlalu besar");
+        }
+        String lower = photo.toLowerCase(Locale.ROOT);
+        boolean dataImage = lower.startsWith("data:image/png;base64,")
+                || lower.startsWith("data:image/jpeg;base64,")
+                || lower.startsWith("data:image/webp;base64,");
+        if (!dataImage && !lower.startsWith("https://")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Format foto card tidak valid");
+        }
+        return photo;
     }
 }

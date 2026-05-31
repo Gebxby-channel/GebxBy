@@ -2,6 +2,7 @@ package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileCardRequest;
 import gebxby.gebxbyblog.dto.ProfileCardResponse;
+import gebxby.gebxbyblog.dto.ProfileCardCustomizeRequest;
 import gebxby.gebxbyblog.model.User;
 
 import java.util.List;
@@ -16,4 +17,6 @@ public interface ProfileCardService {
     List<ProfileCardResponse> cardsForUser(User user);
     ProfileCardResponse activeCard(User user);
     User setActiveCard(String cardId, User user);
+    ProfileCardResponse customizeUserCard(UUID cardId, ProfileCardCustomizeRequest request, User user);
+    User deleteUserCard(UUID cardId, User user);
 }

@@ -1,6 +1,6 @@
 package gebxby.gebxbyblog.service;
 
-import gebxby.gebxbyblog.dto.ProfileCardRequest;
+import gebxby.gebxbyblog.dto.ProfileCardCustomizeRequest;
 import gebxby.gebxbyblog.dto.ProfileCardResponse;
 import gebxby.gebxbyblog.model.ProfileCardTemplate;
 import gebxby.gebxbyblog.model.User;
@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,5 +101,44 @@ class ProfileCardServiceImplTest {
 
         assertEquals(2, cards.size());
         assertEquals(ProfileCardServiceImpl.DEFAULT_STARS, cards.getFirst().id());
+    }
+
+    @Test
+    void customizeUserCardUpdatesOwnedSnapshotOnly() {
+        UUID cardId = UUID.randomUUID();
+        UserProfileCard card = new UserProfileCard();
+        card.setId(cardId);
+        card.setUserId(target.getUserID());
+        card.setName("FBI Card");
+        card.setBackgroundImage("data:image/webp;base64,aaaa");
+        when(userCardRepository.findById(cardId)).thenReturn(Optional.of(card));
+        when(userCardRepository.save(any(UserProfileCard.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProfileCardResponse response = profileCardService.customizeUserCard(
+                cardId,
+                new ProfileCardCustomizeRequest("Jackline", "data:image/webp;base64,bbbb"),
+                target
+        );
+
+        assertEquals("Jackline", response.displayName());
+        assertEquals("data:image/webp;base64,bbbb", response.displayPhoto());
+        verify(userCardRepository).save(card);
+    }
+
+    @Test
+    void deleteUserCardFallsBackToStarsWhenActive() {
+        UUID cardId = UUID.randomUUID();
+        UserProfileCard card = new UserProfileCard();
+        card.setId(cardId);
+        card.setUserId(target.getUserID());
+        target.setActiveProfileCardId(cardId.toString());
+        when(userCardRepository.findById(cardId)).thenReturn(Optional.of(card));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User response = profileCardService.deleteUserCard(cardId, target);
+
+        assertEquals(ProfileCardServiceImpl.DEFAULT_STARS, response.getActiveProfileCardId());
+        verify(userCardRepository).delete(card);
+        verify(userRepository).save(target);
     }
 }

@@ -7,7 +7,7 @@ import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
-import type { Badge, ContentItem, CurrentUser, PublicUser } from '../types/forum';
+import type { Badge, ContentItem, CurrentUser, ProfileCardItem, PublicUser } from '../types/forum';
 import BadgeStrip from '../components/BadgeStrip';
 import { useFeedback } from '../components/feedback';
 import { formatIndonesiaDate } from '../utils/time';
@@ -32,19 +32,18 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [designation, setDesignation] = useState(user.designation || 'RECONNAISSANCE OFFICER');
     const [picture, setPicture] = useState(user.picture || '');
     const [profileCardId, setProfileCardId] = useState(user.activeProfileCard?.id || 'DEFAULT:STARS');
+    const [cardDisplayName, setCardDisplayName] = useState(user.activeProfileCard?.displayName || '');
+    const [cardDisplayPhoto, setCardDisplayPhoto] = useState(user.activeProfileCard?.displayPhoto || '');
     const [cropSource, setCropSource] = useState('');
     const [cropZoom, setCropZoom] = useState(1);
     const [cropX, setCropX] = useState(0);
     const [cropY, setCropY] = useState(0);
+    const [editingCardPhoto, setEditingCardPhoto] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
     const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
     const navigate = useNavigate();
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(user.name || 'User')}`;
-    const profileDirty = name !== (user.name || '')
-        || designation !== (user.designation || 'RECONNAISSANCE OFFICER')
-        || picture !== (user.picture || '')
-        || profileCardId !== (user.activeProfileCard?.id || 'DEFAULT:STARS');
     const publishedContents = contents.filter(item => item.status !== 'DRAFT');
     const draftContents = contents.filter(item => item.status === 'DRAFT');
     const profileStats = {
@@ -59,7 +58,20 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         { id: 'DEFAULT:UMBRELLA', code: 'DEFAULT:UMBRELLA', name: 'Umbrella Security Card', orientation: 'HORIZONTAL', layout: defaultCardLayout(), custom: false, template: false },
     ];
     const selectedProfileCard = availableProfileCards.find(card => card.id === profileCardId || card.code === profileCardId) ?? user.activeProfileCard;
+    const canCustomizeSelectedCard = isGiftedProfileCard(selectedProfileCard);
+    const cardDirty = canCustomizeSelectedCard && (
+        cardDisplayName !== (selectedProfileCard?.displayName || '')
+        || cardDisplayPhoto !== (selectedProfileCard?.displayPhoto || '')
+    );
+    const profileDirty = name !== (user.name || '')
+        || designation !== (user.designation || 'RECONNAISSANCE OFFICER')
+        || picture !== (user.picture || '')
+        || profileCardId !== (user.activeProfileCard?.id || 'DEFAULT:STARS')
+        || cardDirty;
     const previewUser: CurrentUser = { ...user, name, designation, picture };
+    const previewProfileCard = selectedProfileCard
+        ? { ...selectedProfileCard, displayName: canCustomizeSelectedCard ? cardDisplayName : selectedProfileCard.displayName, displayPhoto: canCustomizeSelectedCard ? cardDisplayPhoto : selectedProfileCard.displayPhoto }
+        : undefined;
 
     const fetchMyContents = useCallback(async (force = false) => {
         const data = await cachedGet<ContentItem[]>(`/content/by-user/${user.userID}`, undefined, {
@@ -105,8 +117,17 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setDesignation(user.designation || 'RECONNAISSANCE OFFICER');
         setPicture(user.picture || '');
         setProfileCardId(user.activeProfileCard?.id || 'DEFAULT:STARS');
+        setCardDisplayName(user.activeProfileCard?.displayName || '');
+        setCardDisplayPhoto(user.activeProfileCard?.displayPhoto || '');
         setCropSource('');
     }, [user]);
+
+    useEffect(() => {
+        setCardDisplayName(canCustomizeSelectedCard ? selectedProfileCard?.displayName || '' : '');
+        setCardDisplayPhoto(canCustomizeSelectedCard ? selectedProfileCard?.displayPhoto || '' : '');
+        setEditingCardPhoto(false);
+        setCropSource('');
+    }, [canCustomizeSelectedCard, profileCardId, selectedProfileCard?.displayName, selectedProfileCard?.displayPhoto]);
 
     const handleSaveProfile = async () => {
         setSavingProfile(true);
@@ -121,12 +142,24 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                 const cardResponse = await api.put<CurrentUser>('/api/profile-cards/active', { cardId: profileCardId });
                 nextUser = cardResponse.data;
             }
+            if (cardDirty && canCustomizeSelectedCard) {
+                await api.put<ProfileCardItem>(`/api/profile-cards/${profileCardId}/customize`, {
+                    displayName: cardDisplayName,
+                    displayPhoto: cardDisplayPhoto,
+                });
+                const refreshed = await api.get<CurrentUser>('/api/user/me');
+                nextUser = refreshed.data;
+            }
             setUser(nextUser);
             setName(nextUser.name || name);
             setDesignation(nextUser.designation || designation);
             setPicture(nextUser.picture || picture);
             setProfileCardId(nextUser.activeProfileCard?.id || 'DEFAULT:STARS');
+            setCardDisplayName(nextUser.activeProfileCard?.displayName || '');
+            setCardDisplayPhoto(nextUser.activeProfileCard?.displayPhoto || '');
             invalidateApiCache(`/api/user/${nextUser.userID}`);
+            invalidateApiCache('/api/user/me');
+            invalidateApiCache('/api/profile-cards/mine');
             invalidateApiCache(`/content/by-user/${nextUser.userID}`);
             invalidateApiCache('/content/all-content');
         } finally {
@@ -139,7 +172,10 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setDesignation(user.designation || 'RECONNAISSANCE OFFICER');
         setPicture(user.picture || '');
         setProfileCardId(user.activeProfileCard?.id || 'DEFAULT:STARS');
+        setCardDisplayName(user.activeProfileCard?.displayName || '');
+        setCardDisplayPhoto(user.activeProfileCard?.displayPhoto || '');
         setCropSource('');
+        setEditingCardPhoto(false);
     };
 
     const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -147,19 +183,60 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         if (!file) return;
         const reader = new FileReader();
         reader.onload = () => {
+            setEditingCardPhoto(false);
             setCropSource(String(reader.result || ''));
             setCropZoom(1);
             setCropX(0);
             setCropY(0);
         };
         reader.readAsDataURL(file);
+        event.currentTarget.value = '';
+    };
+
+    const handleCardPhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            setEditingCardPhoto(true);
+            setCropSource(String(reader.result || ''));
+            setCropZoom(1);
+            setCropX(0);
+            setCropY(0);
+        };
+        reader.readAsDataURL(file);
+        event.currentTarget.value = '';
     };
 
     const applyCroppedPhoto = async () => {
         if (!cropSource) return;
         const cropped = await cropImage(cropSource, cropZoom, cropX, cropY);
-        setPicture(cropped);
+        if (editingCardPhoto) {
+            setCardDisplayPhoto(cropped);
+        } else {
+            setPicture(cropped);
+        }
         setCropSource('');
+        setEditingCardPhoto(false);
+    };
+
+    const handleDeleteProfileCard = async () => {
+        if (!canCustomizeSelectedCard || !selectedProfileCard) return;
+        const accepted = await feedback.confirm({
+            title: 'Delete Profile Card',
+            message: `Card "${selectedProfileCard.name}" akan dihapus permanen dari akunmu.`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
+        const response = await api.delete<CurrentUser>(`/api/profile-cards/${selectedProfileCard.id}`);
+        setUser(response.data);
+        setProfileCardId(response.data.activeProfileCard?.id || 'DEFAULT:STARS');
+        setCardDisplayName(response.data.activeProfileCard?.displayName || '');
+        setCardDisplayPhoto(response.data.activeProfileCard?.displayPhoto || '');
+        invalidateApiCache('/api/user/me');
+        invalidateApiCache('/api/profile-cards/mine');
+        invalidateApiCache(`/api/user/${response.data.userID}`);
     };
 
     const handleUpdate = async (id: string) => {
@@ -253,7 +330,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             </div>
                         </div>
                         ) : (
-                            <ProfileCardRenderer user={previewUser} card={selectedProfileCard} stats={profileStats} />
+                            <ProfileCardRenderer user={previewUser} card={previewProfileCard} stats={profileStats} />
                         )}
                         <div className="mt-3">
                             <BadgeStrip badges={user.badges} />
@@ -270,6 +347,45 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <option key={card.id} value={card.id}>{card.name}</option>
                                 ))}
                             </select>
+                            {canCustomizeSelectedCard ? (
+                                <div className="mt-4 space-y-3 border-t border-[#2a2a2a] pt-4">
+                                    <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
+                                        Name On Card
+                                        <input
+                                            value={cardDisplayName}
+                                            maxLength={80}
+                                            onChange={(event) => setCardDisplayName(event.target.value)}
+                                            placeholder={name || user.name || 'Use profile name'}
+                                            className="mt-2 h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                        />
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        <label className="flex h-9 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                                            Change Card Photo
+                                            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCardPhotoSelect} />
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCardDisplayPhoto('')}
+                                            disabled={!cardDisplayPhoto}
+                                            className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            Use Profile Photo
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleDeleteProfileCard()}
+                                            className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                        >
+                                            Delete Card
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="m-0 mt-3 font-mono text-[9px] uppercase leading-5 text-[#555]">
+                                    Default card mengikuti nama dan foto profil utama.
+                                </p>
+                            )}
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -310,8 +426,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
                                 <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">Apply Photo</button>
-                                    <button type="button" onClick={() => setCropSource('')} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel</button>
+                                    <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">{editingCardPhoto ? 'Apply Card Photo' : 'Apply Photo'}</button>
+                                    <button type="button" onClick={() => { setCropSource(''); setEditingCardPhoto(false); }} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel</button>
                                 </div>
                             </div>
                         )}
@@ -674,6 +790,10 @@ function invalidateContentCaches(userId: string, contentId?: string) {
     }
 }
 
+function isGiftedProfileCard(card?: ProfileCardItem) {
+    return Boolean(card?.custom && !card.template && !card.code && card.id && !card.id.startsWith('DEFAULT:'));
+}
+
 function cropImage(source: string, zoom: number, offsetX: number, offsetY: number) {
     return new Promise<string>((resolve, reject) => {
         const image = new Image();
@@ -720,6 +840,9 @@ function defaultCardLayout() {
         statsY: 78,
         statsW: 30,
         statsH: 12,
+        nameFontSize: 3,
+        designationFontSize: 1.5,
+        statsFontSize: 1.2,
         textColor: '#111111',
         accentColor: '#e60000',
     };

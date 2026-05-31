@@ -28,7 +28,8 @@ export default function ProfileCardRenderer({
 
 function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUser; card: ProfileCardItem; stats: ProfileStats }) {
     const layout = card.layout;
-    const avatar = user.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(user.name || 'User')}`;
+    const displayName = card.displayName || user.name || 'User';
+    const avatar = card.displayPhoto || user.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(displayName)}`;
     const aspect = card.orientation === 'VERTICAL' ? 'aspect-[0.64/1]' : 'aspect-[1.58/1]';
 
     return (
@@ -54,10 +55,10 @@ function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUs
                     width: `${layout.nameW}%`,
                     height: `${layout.nameH}%`,
                     color: layout.textColor,
-                    fontSize: card.orientation === 'VERTICAL' ? '4.2cqw' : '3.1cqw',
+                    fontSize: `${layout.nameFontSize || 3}cqw`,
                 }}
             >
-                {user.name}
+                {displayName}
             </div>
             <div
                 className="absolute overflow-hidden font-mono font-black uppercase leading-none"
@@ -67,7 +68,7 @@ function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUs
                     width: `${layout.designationW}%`,
                     height: `${layout.designationH}%`,
                     color: layout.textColor,
-                    fontSize: card.orientation === 'VERTICAL' ? '2.4cqw' : '1.6cqw',
+                    fontSize: `${layout.designationFontSize || 1.5}cqw`,
                 }}
             >
                 {user.designation || 'Archive Officer'}
@@ -80,7 +81,7 @@ function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUs
                     width: `${layout.statsW}%`,
                     height: `${layout.statsH}%`,
                     color: layout.accentColor,
-                    fontSize: card.orientation === 'VERTICAL' ? '2.2cqw' : '1.2cqw',
+                    fontSize: `${layout.statsFontSize || 1.2}cqw`,
                 }}
             >
                 <span>W {stats.writings}</span>
