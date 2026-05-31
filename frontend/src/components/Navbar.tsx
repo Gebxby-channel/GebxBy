@@ -46,7 +46,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
 
     return (
         <header className="sticky top-0 z-50 border-b border-[#2a2a2a] bg-[#111]/95 shadow-md backdrop-blur">
-            <div className="grid min-h-[92px] grid-cols-[auto_1fr_auto] items-start gap-4 px-5 py-4 md:items-center">
+            <div className="grid min-h-[92px] grid-cols-[auto_1fr_auto] items-start gap-4 px-5 py-3 md:min-h-[108px] md:items-center xl:min-h-[92px]">
                 <div className="flex min-w-0 items-center gap-4">
                     <button
                         type="button"
@@ -68,27 +68,27 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                     </NavLink>
                 </div>
 
-                <nav className="hidden min-w-0 flex-wrap items-center justify-center gap-2 px-2 md:flex">
+                <nav className="hidden min-w-0 max-w-[382px] flex-wrap items-center justify-center gap-1.5 justify-self-center border-y border-[#242424] bg-[#0d0d0d]/55 px-2 py-2 md:flex lg:max-w-[520px] xl:max-w-[780px]">
                     {menuItems.map((item) => {
                         const active = location.pathname === item.path;
                         return (
                             <NavLink
                                 key={item.path}
                                 to={item.path}
-                                className={`flex h-11 min-w-[104px] items-center justify-center gap-2 border px-3 font-mono text-[9px] font-black uppercase tracking-widest transition-all lg:min-w-[122px] lg:text-[10px] ${
+                                className={`flex h-10 w-[88px] items-center justify-center gap-1.5 border px-2 font-mono text-[8px] font-black uppercase tracking-[0.12em] transition-all lg:w-[96px] xl:w-[104px] ${
                                     active
                                         ? 'border-[#e60000] bg-[#e60000] text-white'
-                                        : 'border-[#2a2a2a] bg-[#141414] text-[#777] hover:border-[#e60000]/70 hover:text-white'
+                                        : 'border-[#2a2a2a] bg-[#141414]/80 text-[#777] hover:border-[#e60000]/70 hover:bg-[#181818] hover:text-white'
                                 }`}
                             >
-                                <item.icon size={15} strokeWidth={2.5} />
+                                <item.icon size={14} strokeWidth={2.5} />
                                 <span className="truncate">{item.label}</span>
                             </NavLink>
                         );
                     })}
                 </nav>
 
-                <div className="flex-shrink-0 items-start gap-2">
+                <div className="flex flex-shrink-0 items-start gap-2">
                     {user && (
                         <div className="hidden md:block">
                             <NotificationBell />
