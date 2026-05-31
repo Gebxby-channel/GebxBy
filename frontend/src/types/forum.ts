@@ -39,6 +39,11 @@ export interface ContentImage {
   thumbnail?: string;
   alt?: string;
   size: number;
+  mimeType?: string;
+  storageProvider?: string;
+  storageKey?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface CurrentUser extends PublicUser {

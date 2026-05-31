@@ -12,6 +12,8 @@ import java.util.UUID;
 public interface ContentVoteRepository extends MongoRepository<ContentVote, String> {
     Optional<ContentVote> findByContentIdAndUserId(UUID contentId, UUID userId);
 
+    List<ContentVote> findByUserId(UUID userId);
+
     void deleteByContentId(UUID contentId);
 
     List<ContentVote> findByVoteAndCreatedAtGreaterThanEqual(VoteDirection vote, LocalDateTime createdAt);

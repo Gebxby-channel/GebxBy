@@ -102,4 +102,21 @@ class ActivityLogServiceImplTest {
 
         assertEquals(1, response.size());
     }
+
+    @Test
+    void resolveReportMarksQueueEntryResolved() {
+        ActivityLog log = new ActivityLog();
+        log.setId(UUID.randomUUID());
+        log.setOwnerUserId(reporter.getUserID());
+        log.setType(ActivityLogType.USER_REPORT);
+        log.setDirection(ActivityLogDirection.OUTGOING);
+        log.setReportQueue(true);
+        when(logRepository.findById(log.getId())).thenReturn(Optional.of(log));
+        when(logRepository.save(any(ActivityLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActivityLogResponse response = activityLogService.resolveReport(log.getId(), reporter, true);
+
+        assertTrue(response.resolved());
+        assertEquals(log.getId(), response.id());
+    }
 }

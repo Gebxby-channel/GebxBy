@@ -20,6 +20,7 @@ public interface ContentService {
     }
     ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, List<ContentImageRequest> images, User author) throws IOException;
     List<ContentResponse> findAll(User viewer);
+    List<ContentResponse> feed(String mode, String category, int limit, User viewer);
     List<ContentResponse> findByCategory(String category, User viewer);
     List<ContentResponse> findByAuthor(UUID userId, User viewer);
     ContentResponse findContentById(UUID id, User viewer, boolean incrementView);

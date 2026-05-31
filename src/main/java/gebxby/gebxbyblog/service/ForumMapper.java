@@ -87,7 +87,12 @@ public class ForumMapper {
                 thumbnail,
                 thumbnail,
                 image.getAlt(),
-                image.getSize()
+                image.getSize(),
+                image.getMimeType(),
+                image.getStorageProvider(),
+                image.getStorageKey(),
+                image.getWidth(),
+                image.getHeight()
         );
     }
 
@@ -101,7 +106,12 @@ public class ForumMapper {
                         image.getData(),
                         image.getThumbnail(),
                         image.getAlt(),
-                        image.getSize()
+                        image.getSize(),
+                        image.getMimeType(),
+                        image.getStorageProvider(),
+                        image.getStorageKey(),
+                        image.getWidth(),
+                        image.getHeight()
                 ))
                 .toList();
     }

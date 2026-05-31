@@ -54,6 +54,14 @@ public class ActivityLogController {
         return ResponseEntity.ok(activityLogService.findOne(id, user, userService.isModerator(user)));
     }
 
+    @PostMapping("/reports/{id}/resolve")
+    public ResponseEntity<ActivityLogResponse> resolveReport(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(activityLogService.resolveReport(id, user, userService.isModerator(user)));
+    }
+
     @PostMapping("/reports/content/{contentId}")
     public ResponseEntity<ActivityLogResponse> reportContent(
             @PathVariable UUID contentId,

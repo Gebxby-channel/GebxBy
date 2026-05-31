@@ -361,6 +361,7 @@ function handleMutationError(error: unknown) {
 function invalidateContentCacheForMutation(contentId: string) {
     invalidateApiCache(`/content/${contentId}`);
     invalidateApiCache('/content/all-content');
+    invalidateApiCache('/content/feed');
     invalidateApiCache('/content/analytics');
 }
 

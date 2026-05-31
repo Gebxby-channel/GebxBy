@@ -6,6 +6,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,7 +14,13 @@ import java.util.UUID;
 public interface ContentRepository extends MongoRepository<Content, UUID> {
     List<Content> findAllByOrderByCreatedAtDesc();
 
+    List<Content> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
     List<Content> findByKategoriIgnoreCaseOrderByCreatedAtDesc(String kategori);
+
+    List<Content> findByKategoriIgnoreCaseOrderByCreatedAtDesc(String kategori, Pageable pageable);
+
+    List<Content> findByCreatedAtGreaterThanEqualOrderByUpCountDescCreatedAtDesc(LocalDateTime createdAt, Pageable pageable);
 
     List<Content> findTop10ByOrderByViewCountDesc();
 

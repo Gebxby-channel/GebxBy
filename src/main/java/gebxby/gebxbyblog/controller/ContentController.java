@@ -78,6 +78,15 @@ public class ContentController {
         return ResponseEntity.ok(contents);
     }
 
+    @GetMapping("/feed")
+    public ResponseEntity<List<ContentResponse>> feed(
+            @RequestParam(value = "mode", defaultValue = "all") String mode,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.feed(mode, category, limit, optionalUser(principal)));
+    }
+
     @GetMapping("/categories")
     public ResponseEntity<List<String>> getCategories() {
         return ResponseEntity.ok(contentService.findCategories());

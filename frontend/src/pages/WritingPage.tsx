@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Bold, FileText, Heading1, Heading2, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Quote, Send, Type, Underline, Upload, X } from 'lucide-react';
+import { Bold, Eye, FileText, Heading1, Heading2, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Pencil, Quote, RotateCcw, Send, Type, Underline, Upload, X } from 'lucide-react';
 import api, { invalidateApiCache } from '../lib/api';
 import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
+import { sanitizeArticle, stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
 
 const MAX_IMAGE_ATTACHMENTS = 6;
@@ -12,6 +13,7 @@ const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
 const TARGET_IMAGE_DATA_URL_LENGTH = 380_000;
 const MAX_IMAGE_DATA_URL_LENGTH = 480_000;
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const DRAFT_SCHEMA_VERSION = 2;
 
 type AttachedImage = {
     id: string;
@@ -20,6 +22,18 @@ type AttachedImage = {
     alt: string;
     size: number;
     originalSize: number;
+    width: number;
+    height: number;
+};
+
+type WriterDraft = {
+    version: number;
+    title: string;
+    kategori: string;
+    activeTab: 'manual' | 'upload';
+    content: string;
+    images: AttachedImage[];
+    savedAt: string;
 };
 
 export default function WritingPage({ user }: { user: CurrentUser | null }) {
@@ -34,6 +48,53 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const [images, setImages] = useState<AttachedImage[]>([]);
     const [compressingImages, setCompressingImages] = useState(false);
     const [imageNotice, setImageNotice] = useState<string | null>(null);
+    const [studioMode, setStudioMode] = useState<'edit' | 'preview'>('edit');
+    const [draftNotice, setDraftNotice] = useState<string | null>(null);
+    const draftKey = useMemo(() => `gebxby:writer-draft:${user?.userID ?? 'guest'}`, [user?.userID]);
+    const articleText = useMemo(() => stripHtml(content), [content]);
+    const wordCount = useMemo(() => articleText ? articleText.split(/\s+/).filter(Boolean).length : 0, [articleText]);
+    const readMinutes = Math.max(1, Math.ceil(wordCount / 220));
+
+    useEffect(() => {
+        if (!user) return;
+        const stored = localStorage.getItem(draftKey);
+        if (!stored) return;
+        try {
+            const draft = JSON.parse(stored) as WriterDraft;
+            if (draft.version !== DRAFT_SCHEMA_VERSION) return;
+            setTitle(draft.title ?? '');
+            setSelectedKategori(draft.kategori ?? 'General');
+            setActiveTab(draft.activeTab ?? 'manual');
+            setContent(draft.content ?? '');
+            setImages(Array.isArray(draft.images) ? draft.images : []);
+            setDraftNotice('Draft restored');
+        } catch {
+            localStorage.removeItem(draftKey);
+        }
+    }, [draftKey, user]);
+
+    useEffect(() => {
+        if (!user) return;
+        const timer = window.setTimeout(() => {
+            const hasDraft = title.trim() || content.trim() || images.length > 0;
+            if (!hasDraft) {
+                localStorage.removeItem(draftKey);
+                return;
+            }
+            const draft: WriterDraft = {
+                version: DRAFT_SCHEMA_VERSION,
+                title,
+                kategori: selectedKategori,
+                activeTab,
+                content,
+                images,
+                savedAt: new Date().toISOString(),
+            };
+            localStorage.setItem(draftKey, JSON.stringify(draft));
+            setDraftNotice('Draft autosaved');
+        }, 900);
+        return () => window.clearTimeout(timer);
+    }, [activeTab, content, draftKey, images, selectedKategori, title, user]);
 
     if (!user) {
         return <div className="mt-20 text-center font-mono italic text-white">ACCESS DENIED: SESSION REQUIRED</div>;
@@ -52,6 +113,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                 kategori: selectedKategori,
                 images: buildImagePayload(images),
             });
+            localStorage.removeItem(draftKey);
             invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
@@ -76,6 +138,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setSubmitting(true);
         try {
             const response = await api.post<ContentItem>('/content/upload', formData);
+            localStorage.removeItem(draftKey);
             invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
@@ -87,6 +150,17 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
     const submit = activeTab === 'manual' ? handlePublishManual : handleUploadFile;
     const actionDisabled = submitting || compressingImages;
+    const resetDraft = () => {
+        setTitle('');
+        setContent('');
+        setFile(null);
+        setImages([]);
+        setSelectedKategori('General');
+        setActiveTab('manual');
+        setStudioMode('edit');
+        setDraftNotice('Draft cleared');
+        localStorage.removeItem(draftKey);
+    };
 
     const applyEditorCommand = (command: string, value?: string) => {
         editorRef.current?.focus();
@@ -136,21 +210,42 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         <div className="min-h-screen bg-[#0a0a0a] p-4 font-mono text-[#eee] lg:p-8">
             <div className="mx-auto max-w-4xl border border-[#333] bg-[#111] p-6 shadow-2xl">
                 <div className="mb-8 flex flex-col gap-4 border-b border-[#e60000] pb-4 md:flex-row md:items-center md:justify-between">
-                    <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">New Entry Protocol</h2>
-                    <button
-                        type="button"
-                        onClick={submit}
-                        disabled={actionDisabled}
-                        className="flex items-center justify-center gap-2 bg-[#e60000] px-8 py-2 font-black text-white shadow-[4px_4px_0px_#444] transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60"
-                    >
-                        {activeTab === 'manual' ? <Send size={16} /> : <Upload size={16} />}
-                        {actionDisabled ? 'PROCESSING' : activeTab === 'manual' ? 'UPLOAD DATA' : 'DECRYPT FILE'}
-                    </button>
+                    <div>
+                        <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">Writer Studio v2</h2>
+                        <p className="m-0 mt-1 font-mono text-[10px] uppercase tracking-widest text-[#666]">
+                            {wordCount} words // {readMinutes} min read // {draftNotice ?? 'Draft standby'}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={resetDraft}
+                            className="flex items-center justify-center gap-2 border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] transition-all hover:border-white hover:text-white"
+                        >
+                            <RotateCcw size={14} />
+                            Clear
+                        </button>
+                        <button
+                            type="button"
+                            onClick={submit}
+                            disabled={actionDisabled}
+                            className="flex items-center justify-center gap-2 bg-[#e60000] px-8 py-2 font-black text-white shadow-[4px_4px_0px_#444] transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60"
+                        >
+                            {activeTab === 'manual' ? <Send size={16} /> : <Upload size={16} />}
+                            {actionDisabled ? 'PROCESSING' : activeTab === 'manual' ? 'UPLOAD DATA' : 'DECRYPT FILE'}
+                        </button>
+                    </div>
                 </div>
 
-                <div className="mb-6 flex gap-4">
-                    <ModeButton active={activeTab === 'manual'} onClick={() => setActiveTab('manual')} icon={<FileText size={15} />} label="MANUAL INPUT" />
-                    <ModeButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload size={15} />} label="DOCX FILE UPLOAD" />
+                <div className="mb-6 grid gap-3 md:grid-cols-2">
+                    <div className="flex gap-3">
+                        <ModeButton active={activeTab === 'manual'} onClick={() => setActiveTab('manual')} icon={<FileText size={15} />} label="MANUAL INPUT" />
+                        <ModeButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload size={15} />} label="DOCX FILE UPLOAD" />
+                    </div>
+                    <div className="flex gap-3">
+                        <ModeButton active={studioMode === 'edit'} onClick={() => setStudioMode('edit')} icon={<Pencil size={15} />} label="EDIT" />
+                        <ModeButton active={studioMode === 'preview'} onClick={() => setStudioMode('preview')} icon={<Eye size={15} />} label="PREVIEW" />
+                    </div>
                 </div>
 
                 <div className="space-y-6">
@@ -178,7 +273,9 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         </div>
                     </div>
 
-                    {activeTab === 'manual' ? (
+                    {studioMode === 'preview' ? (
+                        <ArticlePreview title={title} kategori={selectedKategori} content={content} images={images} />
+                    ) : activeTab === 'manual' ? (
                         <RichTextEditor
                             editorRef={editorRef}
                             content={content}
@@ -209,6 +306,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         compressing={compressingImages}
                         onSelect={handleImageSelection}
                         onRemove={(id) => setImages(current => current.filter(image => image.id !== id))}
+                        onAltChange={(id, alt) => setImages(current => current.map(image => image.id === id ? { ...image, alt } : image))}
                     />
                 </div>
             </div>
@@ -218,6 +316,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
 function invalidatePublishedContentCaches(userId: string) {
     invalidateApiCache('/content/all-content');
+    invalidateApiCache('/content/feed');
     invalidateApiCache(`/content/by-user/${userId}`);
     invalidateApiCache('/content/categories');
     invalidateApiCache('/content/analytics');
@@ -228,7 +327,50 @@ function buildImagePayload(images: AttachedImage[]) {
         data: image.data,
         thumbnail: image.thumbnail,
         alt: image.alt,
+        width: image.width,
+        height: image.height,
     }));
+}
+
+function ArticlePreview({
+    title,
+    kategori,
+    content,
+    images,
+}: {
+    title: string;
+    kategori: string;
+    content: string;
+    images: AttachedImage[];
+}) {
+    return (
+        <section className="border border-[#333] bg-[#0f0f0f]">
+            <header className="border-b border-[#252525] p-5">
+                <span className="inline-flex border border-[#e60000] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest text-[#e60000]">
+                    {kategori || 'General'}
+                </span>
+                <h1 className="m-0 mt-4 break-words font-mono text-3xl font-black uppercase tracking-normal text-white">
+                    {title || 'Untitled Entry'}
+                </h1>
+            </header>
+            <div
+                className="min-h-[360px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"
+                dangerouslySetInnerHTML={{ __html: sanitizeArticle(content || '<p>No decrypted data.</p>') }}
+            />
+            {images.length > 0 && (
+                <div className="grid gap-3 border-t border-[#252525] p-5 md:grid-cols-2">
+                    {images.map((image) => (
+                        <figure key={image.id} className="m-0 border border-[#333] bg-black">
+                            <img src={image.data} alt={image.alt} className="max-h-80 w-full object-contain" />
+                            <figcaption className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#777]">
+                                {image.alt || 'Attached visual'}
+                            </figcaption>
+                        </figure>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
 }
 
 function RichTextEditor({
@@ -307,12 +449,14 @@ function ImageAttachmentPanel({
     compressing,
     onSelect,
     onRemove,
+    onAltChange,
 }: {
     images: AttachedImage[];
     notice: string | null;
     compressing: boolean;
     onSelect: (files: FileList | null) => Promise<void>;
     onRemove: (id: string) => void;
+    onAltChange: (id: string, alt: string) => void;
 }) {
     return (
         <section className="border border-[#333] bg-[#0d0d0d] p-4">
@@ -354,9 +498,18 @@ function ImageAttachmentPanel({
                     {images.map(image => (
                         <figure key={image.id} className="relative m-0 border border-[#333] bg-black">
                             <img src={image.data} alt={image.alt} className="h-32 w-full object-cover" />
-                            <figcaption className="flex items-center justify-between gap-2 border-t border-[#222] px-2 py-2 text-[9px] uppercase text-[#777]">
-                                <span className="truncate">{image.alt}</span>
-                                <span>{formatBytes(image.size)}</span>
+                            <figcaption className="border-t border-[#222] px-2 py-2 text-[9px] uppercase text-[#777]">
+                                <input
+                                    value={image.alt}
+                                    onChange={(event) => onAltChange(image.id, event.target.value)}
+                                    className="mb-2 w-full border border-[#222] bg-[#0b0b0b] px-2 py-1 font-mono text-[9px] uppercase text-white outline-none focus:border-[#e60000]"
+                                    placeholder="Image caption"
+                                    maxLength={120}
+                                />
+                                <div className="flex items-center justify-between gap-2">
+                                    <span>{image.width}x{image.height}</span>
+                                    <span>{formatBytes(image.size)}</span>
+                                </div>
                             </figcaption>
                             <button
                                 type="button"
@@ -422,6 +575,8 @@ async function compressImageForUpload(file: File): Promise<AttachedImage> {
                 alt: cleanImageName(file.name),
                 size: blob.size,
                 originalSize: file.size,
+                width: canvas.width,
+                height: canvas.height,
             };
 
             if (data.length <= TARGET_IMAGE_DATA_URL_LENGTH) {

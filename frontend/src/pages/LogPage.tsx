@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AlertTriangle, FileText, Inbox, Radio, ShieldAlert, UserRound, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileText, Inbox, Radio, ShieldAlert, UserRound, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import type { ActivityLogItem, CurrentUser } from '../types/forum';
@@ -16,6 +16,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
     const [basis, setBasis] = useState<ActivityLogItem[]>([]);
     const [reports, setReports] = useState<ActivityLogItem[]>([]);
     const [selected, setSelected] = useState<ActivityLogItem | null>(null);
+    const [reportFilter, setReportFilter] = useState<'open' | 'resolved' | 'all'>('open');
     const [loading, setLoading] = useState(true);
 
     const fetchLogs = useCallback(async () => {
@@ -39,6 +40,12 @@ export default function LogPage({ user }: { user: CurrentUser }) {
     }, [fetchLogs]);
 
     useEffect(() => {
+        if (searchParams.get('tab') === 'reports' && canReviewReports) {
+            setActiveTab('reports');
+        }
+    }, [canReviewReports, searchParams]);
+
+    useEffect(() => {
         const openId = searchParams.get('open');
         if (!openId) return;
         api.get<ActivityLogItem>(`/api/logs/${openId}`)
@@ -46,7 +53,9 @@ export default function LogPage({ user }: { user: CurrentUser }) {
             .catch(() => setSearchParams({}));
     }, [searchParams, setSearchParams]);
 
-    const items = activeTab === 'reports' ? reports : basis;
+    const items = activeTab === 'reports'
+        ? reports.filter((item) => reportFilter === 'all' ? true : reportFilter === 'resolved' ? item.resolved : !item.resolved)
+        : basis;
     const stats = useMemo(() => ({
         incoming: basis.filter((item) => item.direction === 'INCOMING').length,
         outgoing: basis.filter((item) => item.direction === 'OUTGOING').length,
@@ -87,6 +96,14 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                 )}
             </div>
 
+            {activeTab === 'reports' && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                    <QueueFilter active={reportFilter === 'open'} label="Open" onClick={() => setReportFilter('open')} />
+                    <QueueFilter active={reportFilter === 'resolved'} label="Resolved" onClick={() => setReportFilter('resolved')} />
+                    <QueueFilter active={reportFilter === 'all'} label="All" onClick={() => setReportFilter('all')} />
+                </div>
+            )}
+
             <div className="min-h-[420px] border border-[#2a2a2a] bg-[#111]">
                 {loading ? (
                     <LoadingSpinner label="Reading Ledger" />
@@ -97,7 +114,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                         <button
                             key={item.id}
                             type="button"
-                            onClick={() => activeTab === 'reports' ? openDestination(item) : setSelected(item)}
+                            onClick={() => setSelected(item)}
                             className="group relative flex w-full gap-4 border-b border-[#202020] px-5 py-4 text-left transition-all hover:bg-[#171717]"
                         >
                             <LogIcon item={item} />
@@ -106,6 +123,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                                     <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">{item.type}</span>
                                     <span className="font-mono text-[9px] uppercase text-[#555]">{item.direction}</span>
                                     {item.reportQueue && <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">Queue</span>}
+                                    {item.resolved && <span className="border border-[#166534] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#4ade80]">Resolved</span>}
                                 </div>
                                 <h2 className="m-0 truncate font-mono text-sm font-black uppercase text-white group-hover:text-[#e60000]">{item.title}</h2>
                                 <p className="m-0 mt-1 line-clamp-2 font-sans text-sm leading-6 text-[#999]">{item.message || item.reason}</p>
@@ -130,9 +148,30 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                         setSearchParams({});
                     }}
                     onOpenDestination={openDestination}
+                    canResolve={canReviewReports && selected.reportQueue && !selected.resolved}
+                    onResolve={async (item) => {
+                        const response = await api.post<ActivityLogItem>(`/api/logs/reports/${item.id}/resolve`);
+                        setReports((current) => current.map((entry) => entry.id === item.id ? response.data : entry));
+                        setBasis((current) => current.map((entry) => entry.id === item.id ? response.data : entry));
+                        setSelected(response.data);
+                    }}
                 />
             )}
         </div>
+    );
+}
+
+function QueueFilter({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`h-8 border px-3 font-mono text-[9px] font-black uppercase tracking-widest ${
+                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-white hover:text-white'
+            }`}
+        >
+            {label}
+        </button>
     );
 }
 
@@ -169,7 +208,19 @@ function LogIcon({ item }: { item: ActivityLogItem }) {
     );
 }
 
-function LogDetailModal({ item, onClose, onOpenDestination }: { item: ActivityLogItem; onClose: () => void; onOpenDestination: (item: ActivityLogItem) => void }) {
+function LogDetailModal({
+    item,
+    onClose,
+    onOpenDestination,
+    canResolve,
+    onResolve,
+}: {
+    item: ActivityLogItem;
+    onClose: () => void;
+    onOpenDestination: (item: ActivityLogItem) => void;
+    canResolve: boolean;
+    onResolve: (item: ActivityLogItem) => Promise<void>;
+}) {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
             <div className="relative w-full max-w-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-6 shadow-2xl">
@@ -195,8 +246,18 @@ function LogDetailModal({ item, onClose, onOpenDestination }: { item: ActivityLo
                     <Meta label="Direction" value={item.direction} />
                     <Meta label="Queue" value={item.reportQueue ? 'REPORT_QUEUE' : 'BASIS'} />
                 </div>
-                {(item.contentId || item.targetUserId) && (
-                    <div className="mt-6 flex justify-end">
+                {(item.contentId || item.targetUserId || canResolve) && (
+                    <div className="mt-6 flex flex-wrap justify-end gap-3">
+                        {canResolve && (
+                            <button
+                                type="button"
+                                onClick={() => void onResolve(item)}
+                                className="flex items-center gap-2 border border-[#166534] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#4ade80] hover:bg-[#166534] hover:text-white"
+                            >
+                                <CheckCircle2 size={13} />
+                                Resolve
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => onOpenDestination(item)}

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -70,6 +71,7 @@ class ContentServiceImplTest {
                 commentRepository,
                 userRepository,
                 userService,
+                new MediaPipelineServiceImpl(),
                 new ForumMapper(badgeService),
                 activityLogService,
                 5_242_880
@@ -216,6 +218,33 @@ class ContentServiceImplTest {
 
         assertEquals(1, response.size());
         assertEquals(content.getIdContent(), response.getFirst().idContent());
+    }
+
+    @Test
+    void feedTrendingRanksBySignals() {
+        Content quiet = new Content();
+        quiet.setIdContent(UUID.randomUUID());
+        quiet.setHead("Quiet");
+        quiet.setParagrafs("Body");
+        quiet.setKategori("General");
+        quiet.setCreatedAt(LocalDateTime.now());
+
+        Content active = new Content();
+        active.setIdContent(UUID.randomUUID());
+        active.setHead("Active");
+        active.setParagrafs("Body");
+        active.setKategori("General");
+        active.setCreatedAt(LocalDateTime.now().minusHours(2));
+        active.setUpCount(5);
+        active.setCommentCount(3);
+        active.setViewCount(20);
+
+        when(contentRepository.findByCreatedAtGreaterThanEqualOrderByUpCountDescCreatedAtDesc(any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(List.of(quiet, active));
+
+        List<ContentResponse> response = contentService.feed("trending", null, 10, null);
+
+        assertEquals(active.getIdContent(), response.getFirst().idContent());
     }
 
     @Test

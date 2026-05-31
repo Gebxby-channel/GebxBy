@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Ban, CheckCircle2, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import api, { invalidateApiCache } from '../lib/api';
-import type { BadgeCode, ContentItem, CurrentUser } from '../types/forum';
+import type { ActivityLogItem, BadgeCode, ContentItem, CurrentUser } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
 import BadgeStrip from '../components/BadgeStrip';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -9,8 +10,10 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
 export default function AdminPanelPage({ user }: { user: CurrentUser }) {
+    const navigate = useNavigate();
     const [users, setUsers] = useState<CurrentUser[]>([]);
     const [contents, setContents] = useState<ContentItem[]>([]);
+    const [reports, setReports] = useState<ActivityLogItem[]>([]);
     const [suspendHours, setSuspendHours] = useState(24);
     const [selectedBadge, setSelectedBadge] = useState<BadgeCode>('WRITERS');
     const [loading, setLoading] = useState(true);
@@ -18,15 +21,18 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const [userResponse, contentResponse] = await Promise.all([
+            const [userResponse, contentResponse, reportResponse] = await Promise.all([
                 api.get<CurrentUser[]>('/api/admin/users'),
                 api.get<ContentItem[]>('/content/all-content'),
+                api.get<ActivityLogItem[]>('/api/logs/reports', { params: { limit: 50 } }),
             ]);
             setUsers(Array.isArray(userResponse.data) ? userResponse.data : []);
             setContents(Array.isArray(contentResponse.data) ? contentResponse.data : []);
+            setReports(Array.isArray(reportResponse.data) ? reportResponse.data : []);
         } catch {
             setUsers([]);
             setContents([]);
+            setReports([]);
         } finally {
             setLoading(false);
         }
@@ -79,6 +85,23 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         window.alert('Komentar admin highlight merah berhasil dikirim.');
     };
 
+    const resolveReport = async (report: ActivityLogItem) => {
+        const response = await api.post<ActivityLogItem>(`/api/logs/reports/${report.id}/resolve`);
+        setReports(current => current.map(item => item.id === report.id ? response.data : item));
+    };
+
+    const openReportTarget = (report: ActivityLogItem) => {
+        if (report.contentId) {
+            navigate(`/read/${report.contentId}`);
+            return;
+        }
+        if (report.targetUserId) {
+            navigate(`/profile/${report.targetUserId}`);
+        }
+    };
+
+    const openReports = reports.filter(report => !report.resolved);
+
     return (
         <div className="w-full">
             <div className="mb-10 border-l-4 border-[#e60000] pl-6">
@@ -91,6 +114,65 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             </div>
 
             <AdminMessagePanel user={user} />
+
+            <section className="mb-8 border border-[#2a2a2a] bg-[#151515] p-5">
+                <div className="mb-5 flex flex-col gap-4 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+                            <AlertTriangle size={16} />
+                            <span className="font-mono text-[10px] font-black uppercase tracking-[0.35em]">Moderation Center</span>
+                        </div>
+                        <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Report Queue</h2>
+                        <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">{openReports.length} open case // {reports.length} total signal</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/logs?tab=reports')}
+                        className="h-9 border border-[#333] px-4 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]"
+                    >
+                        Open Ledger
+                    </button>
+                </div>
+
+                {openReports.length === 0 ? (
+                    <div className="py-10 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ Queue Clear ]</div>
+                ) : (
+                    <div className="grid gap-3">
+                        {openReports.slice(0, 6).map((report) => (
+                            <div key={report.id} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
+                                <div className="min-w-0">
+                                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                                        <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">{report.targetType}</span>
+                                        <span className="font-mono text-[9px] uppercase text-[#555]">{formatDate(report.createdAt ?? '')}</span>
+                                    </div>
+                                    <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{report.title}</p>
+                                    <p className="m-0 mt-1 line-clamp-2 text-sm leading-6 text-[#999]">{report.reason || report.message}</p>
+                                    <p className="m-0 mt-2 font-mono text-[9px] uppercase text-[#555]">
+                                        Reporter: {report.actorName || 'Unknown'} // Target: {report.targetUserName || report.contentTitle || 'Unknown'}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => openReportTarget(report)}
+                                        className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white"
+                                    >
+                                        Review
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void resolveReport(report)}
+                                        className="flex h-9 items-center gap-2 border border-[#166534] px-3 font-mono text-[10px] font-black uppercase text-[#4ade80] hover:bg-[#166534] hover:text-white"
+                                    >
+                                        <CheckCircle2 size={13} />
+                                        Resolve
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
 
             <section className="border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-5 flex flex-col gap-4 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-center md:justify-between">
@@ -240,6 +322,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
 }
 
 function formatDate(dateString: string) {
+    if (!dateString) return 'NO_DATE';
     return new Date(dateString).toLocaleString('id-ID', {
         day: '2-digit',
         month: 'short',
@@ -251,6 +334,7 @@ function formatDate(dateString: string) {
 
 function invalidateContentCaches(content: ContentItem) {
     invalidateApiCache('/content/all-content');
+    invalidateApiCache('/content/feed');
     invalidateApiCache('/content/analytics');
     invalidateApiCache('/content/categories');
     invalidateApiCache(`/content/${content.idContent}`);

@@ -6,8 +6,8 @@ import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.LeaderboardEntryResponse;
+import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
-import gebxby.gebxbyblog.model.ContentImage;
 import gebxby.gebxbyblog.model.ContentVote;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
@@ -19,6 +19,7 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -34,8 +35,9 @@ import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,14 +63,11 @@ public class ContentServiceImpl implements ContentService {
     private static final int MAX_TITLE_LENGTH = 180;
     private static final int MAX_CATEGORY_LENGTH = 60;
     private static final int MAX_BODY_LENGTH = 120_000;
-    private static final int MAX_IMAGES = 6;
-    private static final int MAX_IMAGE_DATA_URL_LENGTH = 480_000;
-    private static final int MAX_IMAGE_BYTES = 360_000;
-    private static final int MAX_THUMBNAIL_DATA_URL_LENGTH = 90_000;
-    private static final int MAX_THUMBNAIL_BYTES = 70_000;
-    private static final int MAX_TOTAL_IMAGE_BYTES = 1_800_000;
     private static final Duration CATEGORY_CACHE_TTL = Duration.ofMinutes(5);
     private static final Duration ANALYTICS_CACHE_TTL = Duration.ofSeconds(45);
+    private static final int DEFAULT_FEED_LIMIT = 20;
+    private static final int MAX_FEED_LIMIT = 50;
+    private static final int RECOMMENDATION_POOL_SIZE = 120;
     private static final Safelist ARTICLE_SAFELIST = Safelist.relaxed()
             .removeTags("img")
             .addTags("h1", "h2", "pre", "code", "span", "u", "strong", "em", "blockquote", "ul", "ol", "li")
@@ -81,6 +80,7 @@ public class ContentServiceImpl implements ContentService {
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final MediaPipelineService mediaPipelineService;
     private final ForumMapper mapper;
     private final ActivityLogService activityLogService;
     private final long maxUploadBytes;
@@ -92,6 +92,7 @@ public class ContentServiceImpl implements ContentService {
                               CommentRepository commentRepository,
                               UserRepository userRepository,
                               UserService userService,
+                              MediaPipelineService mediaPipelineService,
                               ForumMapper mapper,
                               ActivityLogService activityLogService,
                               @Value("${app.max-upload-bytes:5242880}") long maxUploadBytes) {
@@ -100,6 +101,7 @@ public class ContentServiceImpl implements ContentService {
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.userService = userService;
+        this.mediaPipelineService = mediaPipelineService;
         this.mapper = mapper;
         this.activityLogService = activityLogService;
         this.maxUploadBytes = maxUploadBytes;
@@ -141,6 +143,21 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public List<ContentResponse> findAll(User viewer) {
         return contentRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
+                .toList();
+    }
+
+    @Override
+    public List<ContentResponse> feed(String mode, String category, int limit, User viewer) {
+        String feedMode = normalizeFeedMode(mode);
+        int pageSize = clampFeedLimit(limit);
+        List<Content> contents = switch (feedMode) {
+            case "category" -> feedByCategory(category, pageSize);
+            case "trending" -> trendingFeed(pageSize);
+            case "recommended" -> recommendedFeed(viewer, pageSize);
+            default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, pageSize));
+        };
+        return contents.stream()
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
     }
@@ -329,6 +346,135 @@ public class ContentServiceImpl implements ContentService {
         return snapshot;
     }
 
+    private List<Content> feedByCategory(String category, int limit) {
+        if (!StringUtils.hasText(category) || "all".equalsIgnoreCase(category)) {
+            return contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit));
+        }
+        return contentRepository.findByKategoriIgnoreCaseOrderByCreatedAtDesc(normalizeCategory(category), PageRequest.of(0, limit));
+    }
+
+    private List<Content> trendingFeed(int limit) {
+        LocalDateTime recentWindow = LocalDateTime.now().minusDays(14);
+        int poolSize = Math.min(RECOMMENDATION_POOL_SIZE, Math.max(limit * 4, limit));
+        List<Content> recent = contentRepository.findByCreatedAtGreaterThanEqualOrderByUpCountDescCreatedAtDesc(
+                recentWindow,
+                PageRequest.of(0, poolSize)
+        );
+        if (recent.isEmpty()) {
+            recent = contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, poolSize));
+        }
+        return recent.stream()
+                .sorted(Comparator.comparingDouble(this::trendingScore).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    private List<Content> recommendedFeed(User viewer, int limit) {
+        if (viewer == null || viewer.getUserID() == null) {
+            return trendingFeed(limit);
+        }
+
+        RecommendationProfile profile = buildRecommendationProfile(viewer);
+        if (profile.isEmpty()) {
+            return trendingFeed(limit);
+        }
+
+        List<Content> pool = contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, RECOMMENDATION_POOL_SIZE));
+        return pool.stream()
+                .sorted(Comparator.comparingDouble((Content content) -> recommendationScore(content, profile)).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    private RecommendationProfile buildRecommendationProfile(User viewer) {
+        Map<String, Integer> categoryWeights = new HashMap<>();
+        Set<UUID> preferredAuthors = new HashSet<>();
+        Set<UUID> interactedContentIds = new HashSet<>();
+
+        List<ContentVote> votes = voteRepository.findByUserId(viewer.getUserID());
+        Map<UUID, ContentVote> votesByContent = votes.stream()
+                .collect(Collectors.toMap(ContentVote::getContentId, Function.identity(), (first, second) -> first));
+        interactedContentIds.addAll(votesByContent.keySet());
+
+        Set<UUID> contentIds = new HashSet<>(votesByContent.keySet());
+        commentRepository.findByAuthorId(viewer.getUserID()).stream()
+                .map(Comment::getContentId)
+                .filter(Objects::nonNull)
+                .forEach(id -> {
+                    contentIds.add(id);
+                    interactedContentIds.add(id);
+                });
+
+        Map<UUID, Content> interactedContents = contentRepository.findAllById(contentIds).stream()
+                .collect(Collectors.toMap(Content::getIdContent, Function.identity(), (first, second) -> first));
+
+        interactedContents.forEach((contentId, content) -> {
+            ContentVote vote = votesByContent.get(contentId);
+            int weight = vote == null
+                    ? 1
+                    : vote.getVote() == VoteDirection.UP ? 3
+                    : vote.getVote() == VoteDirection.DOWN ? -2
+                    : 0;
+            if (StringUtils.hasText(content.getKategori()) && weight != 0) {
+                categoryWeights.merge(normalizeCategory(content.getKategori()), weight, Integer::sum);
+            }
+            if (weight > 0 && content.getUser() != null && content.getUser().getUserID() != null) {
+                preferredAuthors.add(content.getUser().getUserID());
+            }
+        });
+
+        contentRepository.findByAuthorIdOrderByCreatedAtDesc(viewer.getUserID()).stream()
+                .limit(8)
+                .map(Content::getKategori)
+                .filter(StringUtils::hasText)
+                .map(this::normalizeCategory)
+                .forEach(category -> categoryWeights.merge(category, 1, Integer::sum));
+
+        return new RecommendationProfile(categoryWeights, preferredAuthors, interactedContentIds);
+    }
+
+    private double recommendationScore(Content content, RecommendationProfile profile) {
+        double score = trendingScore(content);
+        String category = normalizeCategory(content.getKategori());
+        score += profile.categoryWeights().getOrDefault(category, 0) * 14.0;
+        UUID authorId = content.getUser() == null ? null : content.getUser().getUserID();
+        if (authorId != null && profile.preferredAuthors().contains(authorId)) {
+            score += 18.0;
+        }
+        if (profile.interactedContentIds().contains(content.getIdContent())) {
+            score -= 60.0;
+        }
+        return score;
+    }
+
+    private double trendingScore(Content content) {
+        LocalDateTime createdAt = content.getCreatedAt() == null ? LocalDateTime.now().minusDays(30) : content.getCreatedAt();
+        long ageHours = Math.max(1, Duration.between(createdAt, LocalDateTime.now()).toHours());
+        double freshness = 80.0 / Math.sqrt(ageHours + 12.0);
+        return content.getUpCount() * 6.0
+                + content.getCommentCount() * 2.5
+                + content.getViewCount() * 0.45
+                - content.getDownCount() * 3.0
+                + freshness;
+    }
+
+    private String normalizeFeedMode(String mode) {
+        if (!StringUtils.hasText(mode)) {
+            return "all";
+        }
+        return switch (mode.trim().toLowerCase(Locale.ROOT)) {
+            case "recommended", "for-you", "foryou", "untukmu" -> "recommended";
+            case "trending", "popular" -> "trending";
+            case "category", "kategori" -> "category";
+            default -> "all";
+        };
+    }
+
+    private int clampFeedLimit(int limit) {
+        int requested = limit <= 0 ? DEFAULT_FEED_LIMIT : limit;
+        return Math.max(1, Math.min(requested, MAX_FEED_LIMIT));
+    }
+
     private Content getContentOrThrow(UUID id) {
         return contentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan"));
@@ -352,7 +498,7 @@ public class ContentServiceImpl implements ContentService {
         content.setParagrafs(sanitizeArticle(normalizedBody));
         content.setKategori(normalizeCategory(request.kategori()));
         if (request.images() != null) {
-            content.setImages(validateImages(request.images()));
+            content.setImages(mediaPipelineService.prepareContentImages(request.images()));
         }
     }
 
@@ -379,73 +525,6 @@ public class ContentServiceImpl implements ContentService {
 
     private boolean looksLikeHtml(String value) {
         return value.matches("(?s).*<\\s*/?\\s*[a-zA-Z][^>]*>.*");
-    }
-
-    private List<ContentImage> validateImages(List<ContentImageRequest> images) {
-        if (images == null || images.isEmpty()) {
-            return List.of();
-        }
-        if (images.size() > MAX_IMAGES) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Maksimal 6 gambar per tulisan");
-        }
-
-        List<ContentImage> result = new ArrayList<>();
-        long totalBytes = 0;
-        for (ContentImageRequest request : images) {
-            if (request == null || !StringUtils.hasText(request.data())) {
-                continue;
-            }
-            String dataUrl = request.data().trim();
-            ImagePayload payload = validateImageDataUrl(dataUrl, MAX_IMAGE_DATA_URL_LENGTH, MAX_IMAGE_BYTES);
-            totalBytes += payload.size();
-            if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
-                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Total gambar terlalu besar");
-            }
-            String thumbnail = null;
-            if (StringUtils.hasText(request.thumbnail())) {
-                thumbnail = request.thumbnail().trim();
-                validateImageDataUrl(thumbnail, MAX_THUMBNAIL_DATA_URL_LENGTH, MAX_THUMBNAIL_BYTES);
-            }
-
-            ContentImage image = new ContentImage();
-            image.setId(UUID.randomUUID().toString());
-            image.setData(dataUrl);
-            image.setThumbnail(thumbnail);
-            image.setAlt(trimToLength(Jsoup.clean(request.alt() == null ? "" : request.alt(), Safelist.none()), 120));
-            image.setSize(payload.size());
-            result.add(image);
-        }
-        return result;
-    }
-
-    private ImagePayload validateImageDataUrl(String dataUrl, int maxLength, int maxBytes) {
-        if (dataUrl.length() > maxLength) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran gambar terlalu besar");
-        }
-        int commaIndex = dataUrl.indexOf(',');
-        if (!dataUrl.startsWith("data:image/") || commaIndex < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Format gambar tidak valid");
-        }
-
-        String metadata = dataUrl.substring(5, commaIndex).toLowerCase(Locale.ROOT);
-        if (!metadata.endsWith(";base64")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Gambar wajib memakai base64 data URL");
-        }
-        String mimeType = metadata.substring(0, metadata.length() - ";base64".length());
-        if (!Set.of("image/webp", "image/jpeg", "image/png").contains(mimeType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipe gambar tidak didukung");
-        }
-
-        byte[] decoded;
-        try {
-            decoded = Base64.getDecoder().decode(dataUrl.substring(commaIndex + 1));
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data gambar rusak");
-        }
-        if (decoded.length > maxBytes) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran gambar terlalu besar");
-        }
-        return new ImagePayload(decoded.length);
     }
 
     private void validateDocx(MultipartFile file) {
@@ -551,6 +630,14 @@ public class ContentServiceImpl implements ContentService {
     private record LeaderboardSnapshotEntry(User user, long upCount) {
     }
 
-    private record ImagePayload(long size) {
+    private record RecommendationProfile(
+            Map<String, Integer> categoryWeights,
+            Set<UUID> preferredAuthors,
+            Set<UUID> interactedContentIds
+    ) {
+        boolean isEmpty() {
+            return categoryWeights.isEmpty() && preferredAuthors.isEmpty();
+        }
     }
+
 }

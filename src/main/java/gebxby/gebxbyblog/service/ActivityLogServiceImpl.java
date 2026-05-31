@@ -74,6 +74,23 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     }
 
     @Override
+    public ActivityLogResponse resolveReport(UUID id, User actor, boolean allowed) {
+        requireUser(actor);
+        if (!allowed) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Report queue access required");
+        }
+        ActivityLog log = logRepository.findById(id)
+                .filter(ActivityLog::isReportQueue)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report tidak ditemukan"));
+        if (!log.isResolved()) {
+            log.setResolved(true);
+            log.setResolvedAt(LocalDateTime.now());
+            log = logRepository.save(log);
+        }
+        return toResponse(log);
+    }
+
+    @Override
     public ActivityLog recordPublication(Content content, User actor) {
         if (content == null || actor == null) {
             return null;
