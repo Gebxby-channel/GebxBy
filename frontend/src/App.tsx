@@ -21,6 +21,7 @@ import SettingsPage from './pages/SettingsPage';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 import BackgroundMusic from './components/BackgroundMusic';
+import Footer from './components/Footer';
 import { MUSIC_TRACKS } from './utils/musicLibrary';
 import type { ThemeMode } from './types/forum';
 
@@ -43,6 +44,7 @@ function MainLayout({
                         {children}
                     </div>
                 </main>
+                <Footer />
             </div>
         </div>
     );

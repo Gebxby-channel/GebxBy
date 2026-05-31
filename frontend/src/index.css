@@ -135,3 +135,79 @@ html[data-theme="light"] .border-\[\#2a2a2a\],
 html[data-theme="light"] .border-\[\#333\] {
     border-color: #d1d5db !important;
 }
+
+html[data-theme="light"] header.sticky {
+    background: rgba(255, 255, 255, 0.96) !important;
+    border-color: #d1d5db !important;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-theme="light"] .bg-\[\#111\]\/95,
+html[data-theme="light"] .bg-\[\#111\]\/70,
+html[data-theme="light"] .bg-\[\#141414\]\/80,
+html[data-theme="light"] .bg-\[\#1a1a1a\]\/50,
+html[data-theme="light"] .bg-black\/70 {
+    background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+html[data-theme="light"] .hover\:bg-\[\#111\]\/70:hover,
+html[data-theme="light"] .hover\:bg-\[\#181818\]:hover,
+html[data-theme="light"] .hover\:bg-\[\#151515\]:hover {
+    background-color: #f8fafc !important;
+}
+
+html[data-theme="light"] .bg-\[\#050505\],
+html[data-theme="light"] .bg-black {
+    background-color: #f8fafc !important;
+}
+
+html[data-theme="light"] .archive-card {
+    background-color: rgba(255, 255, 255, 0.52);
+}
+
+html[data-theme="light"] .archive-card:hover {
+    background-color: #f8fafc !important;
+}
+
+html[data-theme="light"] .archive-card::after {
+    background: linear-gradient(90deg, transparent, rgba(230, 0, 0, 0.05), transparent);
+}
+
+html[data-theme="light"] .bg-\[\#e60000\],
+html[data-theme="light"] .hover\:bg-\[\#e60000\]:hover {
+    background-color: #e60000 !important;
+    border-color: #e60000 !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .bg-\[\#e60000\] *,
+html[data-theme="light"] .hover\:bg-\[\#e60000\]:hover * {
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .text-\[\#e60000\] {
+    color: #dc0000 !important;
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea,
+html[data-theme="light"] [contenteditable="true"] {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+    color: #9ca3af !important;
+}
+
+html[data-theme="light"] .opacity-65,
+html[data-theme="light"] .opacity-90 {
+    opacity: 1 !important;
+}
+
+html[data-theme="light"] .shadow-2xl,
+html[data-theme="light"] .shadow-md {
+    box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08) !important;
+}

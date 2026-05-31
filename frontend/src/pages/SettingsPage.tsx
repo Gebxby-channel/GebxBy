@@ -32,9 +32,14 @@ export default function SettingsPage({
                     <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Policy</h2>
                 </div>
                 <div className="space-y-3 font-sans text-sm leading-7 text-[#aaa]">
-                    <p className="m-0">Gunakan forum untuk diskusi tulisan, teori, QNA, dan arsip komunitas dengan tetap menghormati pengguna lain.</p>
-                    <p className="m-0">Admin dan moderator dapat menghapus konten, komentar, memberi suspend sementara, dan mengirim pesan jika ada pelanggaran.</p>
-                    <p className="m-0">Guest boleh membaca dan melihat kategori. Aksi menulis, vote, komentar, dan personalisasi memerlukan login.</p>
+                    <p className="m-0">1. Gunakan forum untuk diskusi tulisan, teori, QNA, dan arsip komunitas dengan tetap menghormati pengguna lain.</p>
+                    <p className="m-0">2. Admin dan moderator dapat menghapus konten, komentar, memberi suspend sementara, dan mengirim pesan jika ada pelanggaran.</p>
+                    <p className="m-0">3. Guest boleh membaca dan melihat kategori. Aksi menulis, vote, komentar, dan personalisasi memerlukan login.</p>
+                    <p className="m-0">4. Konten yang diunggah harus sesuai dengan tema forum. Admin berhak menolak atau menghapus konten yang tidak relevan.</p>
+                    <p className="m-0">5. Dilarang memposting konten yang mengandung SARA, pornografi, kekerasan, atau pelanggaran hak cipta. Pelanggaran akan ditindak tegas.</p>
+                    <p className="m-0">6. Forum ini bebas biaya dan tidak untuk tujuan komersial. Dilarang mempromosikan produk, jasa, atau konten berbayar tanpa izin.</p>
+                    <p className="m-0">7. Pengguna bertanggung jawab atas keamanan akun masing-masing. Forum tidak bertanggung jawab atas kerugian akibat kebocoran atau penyalahgunaan akun.</p>
+                    <p className="m-0">8. Dengan menggunakan forum ini, pengguna dianggap telah membaca, memahami, dan menyetujui semua ketentuan di atas.</p>
                 </div>
             </section>
 
@@ -47,6 +52,9 @@ export default function SettingsPage({
                     <ThemeButton active={theme === 'dark'} label="Black Default" onClick={() => onThemeChange('dark')} />
                     <ThemeButton active={theme === 'light'} label="White" onClick={() => onThemeChange('light')} />
                 </div>
+                <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555]">
+                   jika tak suka dengan kegelapan, ganti ke tema cahaya. Atau tetap di default untuk pengalaman yang lebih atmosferik dan nyaman di mata saat menulis dalam waktu lama.
+                </p>
             </section>
 
             <section className="border border-[#2a2a2a] bg-[#151515] p-5">
@@ -80,7 +88,7 @@ export default function SettingsPage({
                     </select>
                 </div>
                 <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555]">
-                    Default mati. Taruh file musik di frontend/src/assets/music lalu rebuild untuk muncul di daftar.
+                   buat suasana menulis jadi atmosferik dengan musik latar. Pilih track favoritmu atau matikan jika ingin fokus dalam keheningan.
                 </p>
             </section>
         </div>
