@@ -24,6 +24,49 @@ export interface Badge {
   custom?: boolean;
 }
 
+export interface GenreItem {
+  id: string;
+  name: string;
+  color: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProfileCardLayout {
+  photoX: number;
+  photoY: number;
+  photoW: number;
+  photoH: number;
+  nameX: number;
+  nameY: number;
+  nameW: number;
+  nameH: number;
+  designationX: number;
+  designationY: number;
+  designationW: number;
+  designationH: number;
+  statsX: number;
+  statsY: number;
+  statsW: number;
+  statsH: number;
+  textColor: string;
+  accentColor: string;
+}
+
+export interface ProfileCardItem {
+  id: string;
+  code?: string | null;
+  name: string;
+  description?: string;
+  backgroundImage?: string;
+  orientation: 'HORIZONTAL' | 'VERTICAL' | string;
+  layout: ProfileCardLayout;
+  custom: boolean;
+  template: boolean;
+  grantedAt?: string;
+  sourceTemplateId?: string;
+}
+
 export interface PublicUser {
   userID: string;
   name: string;
@@ -33,6 +76,7 @@ export interface PublicUser {
   suspensionMarked?: boolean;
   suspendedUntil?: string;
   badges?: Badge[];
+  activeProfileCard?: ProfileCardItem;
 }
 
 export interface ContentImage {
@@ -54,6 +98,7 @@ export interface CurrentUser extends PublicUser {
   role: 'USER' | 'ADMIN' | string;
   bookmarkedContentIds?: string[];
   followingUserIds?: string[];
+  profileCards?: ProfileCardItem[];
 }
 
 export interface ContentItem {

@@ -5,9 +5,10 @@ import api, { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GlobalSearch from '../components/GlobalSearch';
-import type { AnnouncementItem, ContentItem, CurrentUser, FeedPayload } from '../types/forum';
+import type { AnnouncementItem, ContentItem, CurrentUser, FeedPayload, GenreItem } from '../types/forum';
 import { useFeedback } from '../components/feedback';
 import { profilePathForUser } from '../utils/profilePath';
+import { setRuntimeCategoryColors } from '../utils/categoryColors';
 
 type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
 
@@ -68,9 +69,16 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 ttlMs: 5 * 60_000,
                 scope: 'public',
             }),
+            cachedGet<GenreItem[]>('/content/genre-definitions', undefined, {
+                ttlMs: 5 * 60_000,
+                scope: 'public',
+            }),
         ])
-            .then(([announcementResult, categoriesResult]) => {
+            .then(([announcementResult, categoriesResult, genreResult]) => {
                 setAnnouncement(announcementResult.status === 'fulfilled' && isAnnouncement(announcementResult.value) ? announcementResult.value : null);
+                if (genreResult.status === 'fulfilled' && Array.isArray(genreResult.value)) {
+                    setRuntimeCategoryColors(genreResult.value);
+                }
                 if (categoriesResult.status === 'fulfilled' && Array.isArray(categoriesResult.value)) {
                     setCategories(categoriesResult.value);
                     if (!categoriesResult.value.includes(selectedCategory)) {

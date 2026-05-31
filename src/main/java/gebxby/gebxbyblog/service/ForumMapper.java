@@ -9,6 +9,7 @@ import gebxby.gebxbyblog.dto.ContentImageResponse;
 import gebxby.gebxbyblog.model.ContentImage;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -19,9 +20,16 @@ import java.util.UUID;
 @Component
 public class ForumMapper {
     private final BadgeService badgeService;
+    private final ProfileCardService profileCardService;
 
     public ForumMapper(BadgeService badgeService) {
+        this(badgeService, null);
+    }
+
+    @Autowired
+    public ForumMapper(BadgeService badgeService, ProfileCardService profileCardService) {
         this.badgeService = badgeService;
+        this.profileCardService = profileCardService;
     }
 
     public PublicUserResponse toPublicUser(User user) {
@@ -36,7 +44,8 @@ public class ForumMapper {
                 user.getMoto(),
                 user.isSuspensionMarked(),
                 user.getSuspendedUntil(),
-                badgeService.effectiveBadges(user)
+                badgeService.effectiveBadges(user),
+                profileCardService == null ? null : profileCardService.activeCard(user)
         );
     }
 
@@ -53,7 +62,9 @@ public class ForumMapper {
                 user.getSuspendedUntil(),
                 badgeService.effectiveBadges(user),
                 copyUuidSet(user.getBookmarkedContentIds()),
-                copyUuidSet(user.getFollowingUserIds())
+                copyUuidSet(user.getFollowingUserIds()),
+                profileCardService == null ? null : profileCardService.activeCard(user),
+                profileCardService == null ? List.of() : profileCardService.cardsForUser(user)
         );
     }
 

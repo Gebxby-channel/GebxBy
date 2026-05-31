@@ -42,6 +42,7 @@ public class User {
     private Set<UUID> customBadgeIds = new LinkedHashSet<>();
     private Set<UUID> bookmarkedContentIds = new LinkedHashSet<>();
     private Set<UUID> followingUserIds = new LinkedHashSet<>();
+    private String activeProfileCardId = "DEFAULT:STARS";
 
     public boolean isAdmin() {
         return "ADMIN".equalsIgnoreCase(role);

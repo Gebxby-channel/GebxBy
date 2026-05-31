@@ -17,6 +17,7 @@ public interface ActivityLogService {
     List<ActivityLogResponse> findReportQueue(User viewer, int limit, boolean allowed);
     ActivityLogResponse findOne(UUID id, User viewer, boolean queueAllowed);
     ActivityLogResponse resolveReport(UUID id, User actor, boolean allowed);
+    void rejectReport(UUID id, User actor, boolean allowed);
     ActivityLog recordPublication(Content content, User actor);
     ActivityLog recordAdminMessage(User recipient, User actor, String title, String message);
     ActivityLog recordModeratorReport(User admin, User moderator, String message);

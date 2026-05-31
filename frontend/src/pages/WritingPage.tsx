@@ -8,7 +8,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
-import api, { invalidateApiCache } from '../lib/api';
+import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
 import { sanitizeArticle, stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
@@ -48,6 +48,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const feedback = useFeedback();
     const [title, setTitle] = useState('');
     const [selectedKategori, setSelectedKategori] = useState('General');
+    const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
     const [activeTab, setActiveTab] = useState<'manual' | 'upload'>('manual');
     const [content, setContent] = useState('');
     const [file, setFile] = useState<File | null>(null);
@@ -63,6 +64,13 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const articleText = useMemo(() => stripHtml(content), [content]);
     const wordCount = useMemo(() => articleText ? articleText.split(/\s+/).filter(Boolean).length : 0, [articleText]);
     const readMinutes = Math.max(1, Math.ceil(wordCount / 220));
+
+    useEffect(() => {
+        if (!user) return;
+        cachedGet<string[]>('/content/categories', undefined, { ttlMs: 5 * 60_000 })
+            .then((categories) => setCategoryOptions(Array.from(new Set([...DEFAULT_CATEGORIES, ...categories]))))
+            .catch(() => setCategoryOptions(DEFAULT_CATEGORIES));
+    }, [user]);
 
     useEffect(() => {
         if (!user) return;
@@ -286,7 +294,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             value={selectedKategori}
                             onChange={(event) => setSelectedKategori(event.target.value)}
                         >
-                            {DEFAULT_CATEGORIES.map((category) => (
+                            {categoryOptions.map((category) => (
                                 <option key={category} value={category}>{category}</option>
                             ))}
                         </select>

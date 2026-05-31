@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
-import type { ContentItem, CurrentUser } from '../types/forum';
+import { DEFAULT_CATEGORIES, getCategoryColor, setRuntimeCategoryColors } from '../utils/categoryColors';
+import type { ContentItem, CurrentUser, GenreItem } from '../types/forum';
 
 export default function CategoryPage({ user }: { user: CurrentUser | null }) {
     const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
@@ -12,10 +12,16 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        cachedGet<string[]>('/content/categories', undefined, { ttlMs: 10 * 60_000 })
-            .then(data => {
-                const merged = Array.from(new Set(['All', ...DEFAULT_CATEGORIES, ...data]));
-                setCategories(merged);
+        Promise.allSettled([
+            cachedGet<string[]>('/content/categories', undefined, { ttlMs: 10 * 60_000 }),
+            cachedGet<GenreItem[]>('/content/genre-definitions', undefined, { ttlMs: 10 * 60_000 }),
+        ])
+            .then(([categoryResult, genreResult]) => {
+                const data = categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value) ? categoryResult.value : [];
+                if (genreResult.status === 'fulfilled' && Array.isArray(genreResult.value)) {
+                    setRuntimeCategoryColors(genreResult.value);
+                }
+                setCategories(Array.from(new Set(['All', ...DEFAULT_CATEGORIES, ...data])));
             })
             .catch(() => setCategories(['All', ...DEFAULT_CATEGORIES]));
     }, []);

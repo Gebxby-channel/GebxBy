@@ -10,8 +10,15 @@ import { useFeedback } from '../components/feedback';
 import { profilePathForUser } from '../utils/profilePath';
 import { formatIndonesiaDateTime } from '../utils/time';
 import { Button as UiButton, Input, Modal, Panel, Select, StatChip } from '../components/ui';
+import type { GenreItem, ProfileCardItem, ProfileCardLayout } from '../types/forum';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
+const genrePalette = [
+    '#e60000', '#ffffff', '#111827', '#3b82f6', '#38bdf8', '#22c55e', '#4ade80', '#eab308',
+    '#f97316', '#ec4899', '#a855f7', '#8b5cf6', '#14b8a6', '#06b6d4', '#f43f5e', '#64748b',
+    '#f8fafc', '#fde047', '#fb7185', '#c084fc', '#60a5fa', '#34d399', '#facc15', '#fb923c',
+    '#991b1b', '#1d4ed8', '#166534', '#854d0e', '#581c87', '#0f172a',
+];
 const customBadgeIcons = [
     '⭐', '🌟', '✨', '🔥', '⚡', '💎', '🎖️', '🏅', '🥇', '👑',
     '🛡️', '🗡️', '🧭', '🕯️', '🔦', '🔮', '🧪', '🧬', '🧠', '👁️',
@@ -27,6 +34,11 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [reports, setReports] = useState<ActivityLogItem[]>([]);
     const [customBadges, setCustomBadges] = useState<Badge[]>([]);
+    const [genres, setGenres] = useState<GenreItem[]>([]);
+    const [genreForm, setGenreForm] = useState({ name: '', color: '#e60000', editingId: '' });
+    const [profileCardTemplates, setProfileCardTemplates] = useState<ProfileCardItem[]>([]);
+    const [selectedProfileCardTemplate, setSelectedProfileCardTemplate] = useState('');
+    const [cardForm, setCardForm] = useState<ProfileCardFormState>(initialProfileCardForm());
     const [suspendHours, setSuspendHours] = useState(24);
     const [selectedBadge, setSelectedBadge] = useState<BadgeCode>('WRITERS');
     const [selectedCustomBadge, setSelectedCustomBadge] = useState('');
@@ -40,11 +52,13 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const [userResponse, contentResponse, reportResponse, customBadgeResponse] = await Promise.all([
+            const [userResponse, contentResponse, reportResponse, customBadgeResponse, genreResponse, cardTemplateResponse] = await Promise.all([
                 api.get<CurrentUser[]>('/api/admin/users'),
                 api.get<ContentItem[]>('/content/all-content'),
                 api.get<ActivityLogItem[]>('/api/logs/reports', { params: { limit: 50 } }),
                 api.get<Badge[]>('/api/admin/custom-badges'),
+                api.get<GenreItem[]>('/api/admin/genres'),
+                api.get<ProfileCardItem[]>('/api/admin/profile-card-templates'),
             ]);
             setUsers(Array.isArray(userResponse.data) ? userResponse.data : []);
             setContents(Array.isArray(contentResponse.data) ? contentResponse.data : []);
@@ -52,11 +66,17 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             const custom = Array.isArray(customBadgeResponse.data) ? customBadgeResponse.data : [];
             setCustomBadges(custom);
             setSelectedCustomBadge(current => current || custom[0]?.id || '');
+            setGenres(Array.isArray(genreResponse.data) ? genreResponse.data : []);
+            const templates = Array.isArray(cardTemplateResponse.data) ? cardTemplateResponse.data : [];
+            setProfileCardTemplates(templates);
+            setSelectedProfileCardTemplate(current => current || templates[0]?.id || '');
         } catch {
             setUsers([]);
             setContents([]);
             setReports([]);
             setCustomBadges([]);
+            setGenres([]);
+            setProfileCardTemplates([]);
         } finally {
             setLoading(false);
         }
@@ -147,6 +167,97 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         await fetchUsers();
     };
 
+    const saveGenre = async () => {
+        if (!genreForm.name.trim()) {
+            feedback.toast('Nama genre wajib diisi.', 'error');
+            return;
+        }
+        if (genreForm.editingId) {
+            const response = await api.post<GenreItem>(`/api/admin/genres/${genreForm.editingId}`, { name: genreForm.name, color: genreForm.color });
+            setGenres(current => current.map(item => item.id === response.data.id ? response.data : item));
+        } else {
+            const response = await api.post<GenreItem>('/api/admin/genres', { name: genreForm.name, color: genreForm.color });
+            setGenres(current => [...current, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+        }
+        invalidateApiCache('/content/categories');
+        invalidateApiCache('/content/genre-definitions');
+        setGenreForm({ name: '', color: '#e60000', editingId: '' });
+        feedback.toast('Genre berhasil disimpan.', 'success');
+    };
+
+    const deleteGenre = async (genre: GenreItem) => {
+        const accepted = await feedback.confirm({
+            title: 'Delete Genre',
+            message: `Hapus genre "${genre.name}"? Tulisan lama tetap punya labelnya, tapi genre tidak lagi tampil sebagai pilihan admin.`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
+        await api.delete(`/api/admin/genres/${genre.id}`);
+        setGenres(current => current.filter(item => item.id !== genre.id));
+        invalidateApiCache('/content/categories');
+        invalidateApiCache('/content/genre-definitions');
+    };
+
+    const saveProfileCardTemplate = async () => {
+        if (!cardForm.name.trim() || !cardForm.backgroundImage) {
+            feedback.toast('Nama dan background card wajib ada.', 'error');
+            return;
+        }
+        const payload = {
+            name: cardForm.name,
+            description: cardForm.description,
+            backgroundImage: cardForm.backgroundImage,
+            orientation: cardForm.orientation,
+            layout: cardForm.layout,
+        };
+        const response = cardForm.editingId
+            ? await api.post<ProfileCardItem>(`/api/admin/profile-card-templates/${cardForm.editingId}`, payload)
+            : await api.post<ProfileCardItem>('/api/admin/profile-card-templates', payload);
+        setProfileCardTemplates(current => {
+            const without = current.filter(item => item.id !== response.data.id);
+            return [response.data, ...without];
+        });
+        setSelectedProfileCardTemplate(response.data.id);
+        setCardForm(initialProfileCardForm());
+        feedback.toast('Template profile card tersimpan.', 'success');
+    };
+
+    const editProfileCardTemplate = (template: ProfileCardItem) => {
+        setCardForm({
+            editingId: template.id,
+            name: template.name,
+            description: template.description || '',
+            backgroundImage: template.backgroundImage || '',
+            orientation: template.orientation === 'VERTICAL' ? 'VERTICAL' : 'HORIZONTAL',
+            layout: template.layout,
+        });
+        setSelectedProfileCardTemplate(template.id);
+    };
+
+    const deleteProfileCardTemplate = async (template: ProfileCardItem) => {
+        const accepted = await feedback.confirm({
+            title: 'Delete Profile Card Template',
+            message: `Hapus template "${template.name}"? Card yang sudah diberikan ke user tetap aman sebagai snapshot.`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
+        await api.delete(`/api/admin/profile-card-templates/${template.id}`);
+        setProfileCardTemplates(current => current.filter(item => item.id !== template.id));
+    };
+
+    const grantProfileCard = async (target: CurrentUser) => {
+        if (!selectedProfileCardTemplate) {
+            feedback.toast('Pilih template profile card dulu.', 'info');
+            return;
+        }
+        await api.post(`/api/admin/users/${target.userID}/profile-cards/${selectedProfileCardTemplate}`);
+        invalidateApiCache(`/api/user/${target.userID}`);
+        feedback.toast('Profile card berhasil diberikan dan masuk notifikasi user.', 'success');
+        await fetchUsers();
+    };
+
     const deleteContent = async (content: ContentItem) => {
         const accepted = await feedback.confirm({
             title: 'Delete Writing',
@@ -191,6 +302,19 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const resolveReport = async (report: ActivityLogItem) => {
         const response = await api.post<ActivityLogItem>(`/api/logs/reports/${report.id}/resolve`);
         setReports(current => current.map(item => item.id === report.id ? response.data : item));
+    };
+
+    const rejectReport = async (report: ActivityLogItem) => {
+        const accepted = await feedback.confirm({
+            title: 'Reject Report',
+            message: 'Report akan dihapus permanen dari queue dan tidak bisa diakses lagi.',
+            confirmLabel: 'Reject',
+            danger: true,
+        });
+        if (!accepted) return;
+        await api.delete(`/api/logs/reports/${report.id}`);
+        setReports(current => current.filter(item => item.id !== report.id));
+        feedback.toast('Report direject dan dihapus permanen.', 'success');
     };
 
     const openReportTarget = (report: ActivityLogItem) => {
@@ -324,6 +448,16 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                         <CheckCircle2 size={13} />
                                         Resolve
                                     </button>
+                                    {user.role === 'ADMIN' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => void rejectReport(report)}
+                                            className="flex h-9 items-center gap-2 border border-[#7f1d1d] px-3 font-mono text-[10px] font-black uppercase text-[#ff5555] hover:bg-[#7f1d1d] hover:text-white"
+                                        >
+                                            <Trash2 size={13} />
+                                            Reject
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -390,6 +524,126 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+            </Panel>
+
+            <Panel
+                title="Genre Protocol"
+                subtitle="Tambah, hapus, dan atur warna genre tulisan"
+                className="mb-8"
+                action={<UiButton onClick={() => void saveGenre()} variant="danger">{genreForm.editingId ? 'Update Genre' : 'Create Genre'}</UiButton>}
+            >
+                <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+                    <div className="space-y-3">
+                        <Input
+                            value={genreForm.name}
+                            onChange={(event) => setGenreForm(current => ({ ...current, name: event.target.value }))}
+                            placeholder="Genre name..."
+                            maxLength={60}
+                        />
+                        <div className="flex gap-2">
+                            <input
+                                type="color"
+                                value={genreForm.color}
+                                onChange={(event) => setGenreForm(current => ({ ...current, color: event.target.value }))}
+                                className="h-10 w-16 border border-[#333] bg-[#101010]"
+                                title="Genre color"
+                            />
+                            <Input
+                                value={genreForm.color}
+                                onChange={(event) => setGenreForm(current => ({ ...current, color: event.target.value }))}
+                                placeholder="#e60000"
+                            />
+                        </div>
+                        <div className="grid grid-cols-10 gap-1 border border-[#242424] bg-[#101010] p-2">
+                            {genrePalette.map((color) => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setGenreForm(current => ({ ...current, color }))}
+                                    className={`h-7 border ${genreForm.color === color ? 'border-white' : 'border-[#333]'}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                        {genres.length === 0 ? (
+                            <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444] md:col-span-2">[ No Custom Genre ]</div>
+                        ) : genres.map((genre) => (
+                            <div key={genre.id} className="flex items-center justify-between gap-3 border border-[#242424] bg-[#101010] p-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className="h-4 w-4 border border-[#333]" style={{ backgroundColor: genre.color }} />
+                                        <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{genre.name}</p>
+                                    </div>
+                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{genre.color}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <UiButton onClick={() => setGenreForm({ name: genre.name, color: genre.color, editingId: genre.id })}>Edit</UiButton>
+                                    <UiButton onClick={() => void deleteGenre(genre)} variant="danger">Delete</UiButton>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </Panel>
+
+            <Panel
+                title="Profile Card Lab"
+                subtitle="Template admin-only; saat diberikan ke user berubah menjadi snapshot hadiah"
+                className="mb-8"
+                action={<UiButton onClick={() => void saveProfileCardTemplate()} variant="danger">{cardForm.editingId ? 'Update Template' : 'Create Template'}</UiButton>}
+            >
+                <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+                    <div className="space-y-3">
+                        <Input value={cardForm.name} onChange={(event) => setCardForm(current => ({ ...current, name: event.target.value }))} placeholder="Card template name..." />
+                        <Input value={cardForm.description} onChange={(event) => setCardForm(current => ({ ...current, description: event.target.value }))} placeholder="Description..." />
+                        <Select value={cardForm.orientation} onChange={(event) => setCardForm(current => ({ ...current, orientation: event.target.value as 'HORIZONTAL' | 'VERTICAL' }))}>
+                            <option value="HORIZONTAL">Horizontal</option>
+                            <option value="VERTICAL">Vertical</option>
+                        </Select>
+                        <input
+                            id="profileCardBackground"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={(event) => {
+                                void readCardImage(event.target.files?.[0]).then((backgroundImage) => {
+                                    if (backgroundImage) setCardForm(current => ({ ...current, backgroundImage }));
+                                });
+                                event.currentTarget.value = '';
+                            }}
+                        />
+                        <label htmlFor="profileCardBackground" className="flex h-10 cursor-pointer items-center justify-center border border-[#333] font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                            Upload Compressed Background
+                        </label>
+                        <LayoutEditor layout={cardForm.layout} onChange={(layout) => setCardForm(current => ({ ...current, layout }))} />
+                    </div>
+                    <div className="space-y-4">
+                        <div className={`relative overflow-hidden border border-[#333] bg-[#050505] ${cardForm.orientation === 'VERTICAL' ? 'aspect-[0.64/1] max-w-[320px]' : 'aspect-[1.58/1] max-w-[620px]'}`}>
+                            {cardForm.backgroundImage ? <img src={cardForm.backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#333]">[ Upload Background ]</div>}
+                            <TemplateOverlay layout={cardForm.layout} />
+                        </div>
+                        <div className="grid gap-2">
+                            {profileCardTemplates.length === 0 ? (
+                                <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Template ]</div>
+                            ) : profileCardTemplates.map(template => (
+                                <div key={template.id} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-3 md:flex-row md:items-center md:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{template.name}</p>
+                                        <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{template.orientation} // {template.description || 'No description'}</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <UiButton onClick={() => editProfileCardTemplate(template)}>Edit</UiButton>
+                                        <UiButton onClick={() => setSelectedProfileCardTemplate(template.id)} variant={selectedProfileCardTemplate === template.id ? 'primary' : 'ghost'}>Select Gift</UiButton>
+                                        <UiButton onClick={() => void deleteProfileCardTemplate(template)} variant="danger">Delete</UiButton>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </Panel>
@@ -619,6 +873,15 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                     <UiButton onClick={() => void revokeCustomBadge(drawerUser)} disabled={!selectedCustomBadge} variant="danger">Revoke Custom</UiButton>
                                 </div>
                             </div>
+                            <div className="border border-[#242424] bg-[#101010] p-4 md:col-span-2">
+                                <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Profile Card Gift</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <UiButton onClick={() => void grantProfileCard(drawerUser)} disabled={!selectedProfileCardTemplate} variant="success">Grant Selected Card</UiButton>
+                                    <span className="self-center font-mono text-[10px] uppercase text-[#666]">
+                                        {profileCardTemplates.find(template => template.id === selectedProfileCardTemplate)?.name || 'No template selected'}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                         <div className="border border-[#242424] bg-[#101010] p-4 font-mono text-[10px] uppercase text-[#777]">
                             <p className="m-0">Role: {drawerUser.role}</p>
@@ -672,6 +935,123 @@ function ProfileTextButton({
             {label}
         </button>
     );
+}
+
+type ProfileCardFormState = {
+    editingId: string;
+    name: string;
+    description: string;
+    backgroundImage: string;
+    orientation: 'HORIZONTAL' | 'VERTICAL';
+    layout: ProfileCardLayout;
+};
+
+function initialProfileCardForm(): ProfileCardFormState {
+    return {
+        editingId: '',
+        name: '',
+        description: '',
+        backgroundImage: '',
+        orientation: 'HORIZONTAL',
+        layout: {
+            photoX: 68,
+            photoY: 16,
+            photoW: 22,
+            photoH: 28,
+            nameX: 36,
+            nameY: 62,
+            nameW: 50,
+            nameH: 10,
+            designationX: 36,
+            designationY: 72,
+            designationW: 50,
+            designationH: 8,
+            statsX: 5,
+            statsY: 78,
+            statsW: 30,
+            statsH: 12,
+            textColor: '#111111',
+            accentColor: '#e60000',
+        },
+    };
+}
+
+function LayoutEditor({ layout, onChange }: { layout: ProfileCardLayout; onChange: (layout: ProfileCardLayout) => void }) {
+    const update = (key: keyof ProfileCardLayout, value: number | string) => onChange({ ...layout, [key]: value });
+    return (
+        <div className="grid gap-3 border border-[#242424] bg-[#101010] p-3">
+            <div className="grid grid-cols-2 gap-2">
+                <NumberField label="Photo X" value={layout.photoX} onChange={(value) => update('photoX', value)} />
+                <NumberField label="Photo Y" value={layout.photoY} onChange={(value) => update('photoY', value)} />
+                <NumberField label="Photo W" value={layout.photoW} onChange={(value) => update('photoW', value)} />
+                <NumberField label="Photo H" value={layout.photoH} onChange={(value) => update('photoH', value)} />
+                <NumberField label="Name X" value={layout.nameX} onChange={(value) => update('nameX', value)} />
+                <NumberField label="Name Y" value={layout.nameY} onChange={(value) => update('nameY', value)} />
+                <NumberField label="Designation X" value={layout.designationX} onChange={(value) => update('designationX', value)} />
+                <NumberField label="Designation Y" value={layout.designationY} onChange={(value) => update('designationY', value)} />
+                <NumberField label="Stats X" value={layout.statsX} onChange={(value) => update('statsX', value)} />
+                <NumberField label="Stats Y" value={layout.statsY} onChange={(value) => update('statsY', value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+                <label className="font-mono text-[9px] uppercase text-[#666]">Text Color<input type="color" value={layout.textColor} onChange={(event) => update('textColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
+                <label className="font-mono text-[9px] uppercase text-[#666]">Accent Color<input type="color" value={layout.accentColor} onChange={(event) => update('accentColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
+            </div>
+        </div>
+    );
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+    return (
+        <label className="font-mono text-[9px] uppercase text-[#666]">
+            {label}
+            <input
+                type="number"
+                min={0}
+                max={100}
+                value={value}
+                onChange={(event) => onChange(Number(event.target.value))}
+                className="mt-1 h-8 w-full border border-[#333] bg-[#0b0b0b] px-2 text-white outline-none focus:border-[#e60000]"
+            />
+        </label>
+    );
+}
+
+function TemplateOverlay({ layout }: { layout: ProfileCardLayout }) {
+    return (
+        <>
+            <div className="absolute border-2 border-[#e60000]" style={{ left: `${layout.photoX}%`, top: `${layout.photoY}%`, width: `${layout.photoW}%`, height: `${layout.photoH}%` }} />
+            <div className="absolute border border-[#38bdf8] bg-[#38bdf8]/20" style={{ left: `${layout.nameX}%`, top: `${layout.nameY}%`, width: `${layout.nameW}%`, height: `${layout.nameH}%` }} />
+            <div className="absolute border border-[#22c55e] bg-[#22c55e]/20" style={{ left: `${layout.designationX}%`, top: `${layout.designationY}%`, width: `${layout.designationW}%`, height: `${layout.designationH}%` }} />
+            <div className="absolute border border-[#facc15] bg-[#facc15]/20" style={{ left: `${layout.statsX}%`, top: `${layout.statsY}%`, width: `${layout.statsW}%`, height: `${layout.statsH}%` }} />
+        </>
+    );
+}
+
+async function readCardImage(file?: File) {
+    if (!file) return '';
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        return '';
+    }
+    const source = URL.createObjectURL(file);
+    try {
+        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = source;
+        });
+        const maxDimension = 1200;
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext('2d');
+        if (!context) return '';
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/webp', 0.76);
+    } finally {
+        URL.revokeObjectURL(source);
+    }
 }
 
 function getAdminError(error: unknown) {

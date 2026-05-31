@@ -91,6 +91,18 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     }
 
     @Override
+    public void rejectReport(UUID id, User actor, boolean allowed) {
+        requireUser(actor);
+        if (!allowed) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        }
+        ActivityLog log = logRepository.findById(id)
+                .filter(ActivityLog::isReportQueue)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report tidak ditemukan"));
+        logRepository.delete(log);
+    }
+
+    @Override
     public ActivityLog recordPublication(Content content, User actor) {
         if (content == null || actor == null) {
             return null;

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ActivityLogServiceImplTest {
@@ -118,5 +119,20 @@ class ActivityLogServiceImplTest {
 
         assertTrue(response.resolved());
         assertEquals(log.getId(), response.id());
+    }
+
+    @Test
+    void rejectReportDeletesQueueEntryPermanently() {
+        ActivityLog log = new ActivityLog();
+        log.setId(UUID.randomUUID());
+        log.setOwnerUserId(reporter.getUserID());
+        log.setType(ActivityLogType.USER_REPORT);
+        log.setDirection(ActivityLogDirection.OUTGOING);
+        log.setReportQueue(true);
+        when(logRepository.findById(log.getId())).thenReturn(Optional.of(log));
+
+        activityLogService.rejectReport(log.getId(), reporter, true);
+
+        verify(logRepository).delete(log);
     }
 }

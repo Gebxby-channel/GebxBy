@@ -15,7 +15,9 @@ import gebxby.gebxbyblog.model.VoteDirection;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ContentVoteRepository;
+import gebxby.gebxbyblog.repository.GenreRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
@@ -84,18 +86,21 @@ public class ContentServiceImpl implements ContentService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final MediaPipelineService mediaPipelineService;
+    private final GenreRepository genreRepository;
     private final ForumMapper mapper;
     private final ActivityLogService activityLogService;
     private final long maxUploadBytes;
     private volatile CacheEntry<List<String>> categoriesCache;
     private volatile CacheEntry<AnalyticsSnapshot> analyticsCache;
 
+    @Autowired
     public ContentServiceImpl(ContentRepository contentRepository,
                               ContentVoteRepository voteRepository,
                               CommentRepository commentRepository,
                               UserRepository userRepository,
                               UserService userService,
                               MediaPipelineService mediaPipelineService,
+                              GenreRepository genreRepository,
                               ForumMapper mapper,
                               ActivityLogService activityLogService,
                               @Value("${app.max-upload-bytes:5242880}") long maxUploadBytes) {
@@ -105,9 +110,23 @@ public class ContentServiceImpl implements ContentService {
         this.userRepository = userRepository;
         this.userService = userService;
         this.mediaPipelineService = mediaPipelineService;
+        this.genreRepository = genreRepository;
         this.mapper = mapper;
         this.activityLogService = activityLogService;
         this.maxUploadBytes = maxUploadBytes;
+    }
+
+    public ContentServiceImpl(ContentRepository contentRepository,
+                              ContentVoteRepository voteRepository,
+                              CommentRepository commentRepository,
+                              UserRepository userRepository,
+                              UserService userService,
+                              MediaPipelineService mediaPipelineService,
+                              ForumMapper mapper,
+                              ActivityLogService activityLogService,
+                              long maxUploadBytes) {
+        this(contentRepository, voteRepository, commentRepository, userRepository, userService,
+                mediaPipelineService, null, mapper, activityLogService, maxUploadBytes);
     }
 
     @Override
@@ -343,12 +362,18 @@ public class ContentServiceImpl implements ContentService {
             return cached.value();
         }
         Set<String> categories = new LinkedHashSet<>(DEFAULT_CATEGORIES);
-        contentRepository.findCategoryFields().stream()
-                .filter(this::isPublished)
-                .map(Content::getKategori)
-                .filter(StringUtils::hasText)
-                .map(this::normalizeCategory)
-                .forEach(categories::add);
+        if (genreRepository != null) {
+            genreRepository.findAllByOrderByNameAsc().stream()
+                    .map(genre -> normalizeCategory(genre.getName()))
+                    .forEach(categories::add);
+        } else {
+            contentRepository.findCategoryFields().stream()
+                    .filter(this::isPublished)
+                    .map(Content::getKategori)
+                    .filter(StringUtils::hasText)
+                    .map(this::normalizeCategory)
+                    .forEach(categories::add);
+        }
         List<String> result = List.copyOf(new ArrayList<>(categories));
         categoriesCache = CacheEntry.of(result, CATEGORY_CACHE_TTL);
         return result;

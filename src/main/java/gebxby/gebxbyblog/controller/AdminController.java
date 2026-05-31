@@ -5,8 +5,12 @@ import gebxby.gebxbyblog.dto.AdminNotificationRequest;
 import gebxby.gebxbyblog.dto.AnnouncementResponse;
 import gebxby.gebxbyblog.dto.BadgeResponse;
 import gebxby.gebxbyblog.dto.CustomBadgeRequest;
+import gebxby.gebxbyblog.dto.GenreRequest;
+import gebxby.gebxbyblog.dto.GenreResponse;
 import gebxby.gebxbyblog.dto.MediaSmokeTestResponse;
 import gebxby.gebxbyblog.dto.NotificationResponse;
+import gebxby.gebxbyblog.dto.ProfileCardRequest;
+import gebxby.gebxbyblog.dto.ProfileCardResponse;
 import gebxby.gebxbyblog.dto.SuspendUserRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.User;
@@ -16,8 +20,10 @@ import gebxby.gebxbyblog.service.AnnouncementService;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.GenreService;
 import gebxby.gebxbyblog.service.MediaPipelineService;
 import gebxby.gebxbyblog.service.NotificationService;
+import gebxby.gebxbyblog.service.ProfileCardService;
 import gebxby.gebxbyblog.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -47,6 +53,8 @@ public class AdminController {
     private final BadgeService badgeService;
     private final ActivityLogService activityLogService;
     private final MediaPipelineService mediaPipelineService;
+    private final GenreService genreService;
+    private final ProfileCardService profileCardService;
     private final ForumMapper mapper;
 
     public AdminController(UserService userService,
@@ -57,6 +65,8 @@ public class AdminController {
                            BadgeService badgeService,
                            ActivityLogService activityLogService,
                            MediaPipelineService mediaPipelineService,
+                           GenreService genreService,
+                           ProfileCardService profileCardService,
                            ForumMapper mapper) {
         this.userService = userService;
         this.contentService = contentService;
@@ -66,6 +76,8 @@ public class AdminController {
         this.badgeService = badgeService;
         this.activityLogService = activityLogService;
         this.mediaPipelineService = mediaPipelineService;
+        this.genreService = genreService;
+        this.profileCardService = profileCardService;
         this.mapper = mapper;
     }
 
@@ -243,5 +255,86 @@ public class AdminController {
                 .map(BadgeResponse::label)
                 .findFirst()
                 .orElse(badgeId.toString());
+    }
+
+    @GetMapping("/genres")
+    public ResponseEntity<List<GenreResponse>> listGenres(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
+        }
+        return ResponseEntity.ok(genreService.findAll());
+    }
+
+    @PostMapping("/genres")
+    public ResponseEntity<GenreResponse> createGenre(
+            @RequestBody GenreRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(genreService.create(request, admin));
+    }
+
+    @PostMapping("/genres/{genreId}")
+    public ResponseEntity<GenreResponse> updateGenre(
+            @PathVariable UUID genreId,
+            @RequestBody GenreRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(genreService.update(genreId, request, admin));
+    }
+
+    @DeleteMapping("/genres/{genreId}")
+    public ResponseEntity<Void> deleteGenre(
+            @PathVariable UUID genreId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        genreService.delete(genreId, admin);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/profile-card-templates")
+    public ResponseEntity<List<ProfileCardResponse>> listProfileCardTemplates(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(profileCardService.findTemplates(admin));
+    }
+
+    @PostMapping("/profile-card-templates")
+    public ResponseEntity<ProfileCardResponse> createProfileCardTemplate(
+            @RequestBody ProfileCardRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(profileCardService.createTemplate(request, admin));
+    }
+
+    @PostMapping("/profile-card-templates/{templateId}")
+    public ResponseEntity<ProfileCardResponse> updateProfileCardTemplate(
+            @PathVariable UUID templateId,
+            @RequestBody ProfileCardRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(profileCardService.updateTemplate(templateId, request, admin));
+    }
+
+    @DeleteMapping("/profile-card-templates/{templateId}")
+    public ResponseEntity<Void> deleteProfileCardTemplate(
+            @PathVariable UUID templateId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        profileCardService.deleteTemplate(templateId, admin);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/users/{userId}/profile-cards/{templateId}")
+    public ResponseEntity<ProfileCardResponse> grantProfileCard(
+            @PathVariable UUID userId,
+            @PathVariable UUID templateId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        ProfileCardResponse card = profileCardService.grantCard(templateId, userId, admin);
+        notificationService.sendAdminMessage(userId, new AdminNotificationRequest(
+                "Profile card granted",
+                "Admin memberikan profile card baru: %s".formatted(card.name())
+        ), admin);
+        return ResponseEntity.ok(card);
     }
 }

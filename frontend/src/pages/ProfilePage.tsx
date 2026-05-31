@@ -11,6 +11,7 @@ import type { Badge, ContentItem, CurrentUser, PublicUser } from '../types/forum
 import BadgeStrip from '../components/BadgeStrip';
 import { useFeedback } from '../components/feedback';
 import { formatIndonesiaDate } from '../utils/time';
+import ProfileCardRenderer from '../components/ProfileCardRenderer';
 
 interface EditForm {
     head: string;
@@ -30,6 +31,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [name, setName] = useState(user.name || '');
     const [designation, setDesignation] = useState(user.designation || 'RECONNAISSANCE OFFICER');
     const [picture, setPicture] = useState(user.picture || '');
+    const [profileCardId, setProfileCardId] = useState(user.activeProfileCard?.id || 'DEFAULT:STARS');
     const [cropSource, setCropSource] = useState('');
     const [cropZoom, setCropZoom] = useState(1);
     const [cropX, setCropX] = useState(0);
@@ -41,7 +43,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(user.name || 'User')}`;
     const profileDirty = name !== (user.name || '')
         || designation !== (user.designation || 'RECONNAISSANCE OFFICER')
-        || picture !== (user.picture || '');
+        || picture !== (user.picture || '')
+        || profileCardId !== (user.activeProfileCard?.id || 'DEFAULT:STARS');
     const publishedContents = contents.filter(item => item.status !== 'DRAFT');
     const draftContents = contents.filter(item => item.status === 'DRAFT');
     const profileStats = {
@@ -51,6 +54,12 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         comments: contents.reduce((sum, item) => sum + (item.commentCount || 0), 0),
         views: contents.reduce((sum, item) => sum + (item.viewCount || 0), 0),
     };
+    const availableProfileCards = user.profileCards?.length ? user.profileCards : [
+        { id: 'DEFAULT:STARS', code: 'DEFAULT:STARS', name: 'S.T.A.R.S. Archive Card', orientation: 'HORIZONTAL', layout: defaultCardLayout(), custom: false, template: false },
+        { id: 'DEFAULT:UMBRELLA', code: 'DEFAULT:UMBRELLA', name: 'Umbrella Security Card', orientation: 'HORIZONTAL', layout: defaultCardLayout(), custom: false, template: false },
+    ];
+    const selectedProfileCard = availableProfileCards.find(card => card.id === profileCardId || card.code === profileCardId) ?? user.activeProfileCard;
+    const previewUser: CurrentUser = { ...user, name, designation, picture };
 
     const fetchMyContents = useCallback(async (force = false) => {
         const data = await cachedGet<ContentItem[]>(`/content/by-user/${user.userID}`, undefined, {
@@ -95,6 +104,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setName(user.name || '');
         setDesignation(user.designation || 'RECONNAISSANCE OFFICER');
         setPicture(user.picture || '');
+        setProfileCardId(user.activeProfileCard?.id || 'DEFAULT:STARS');
         setCropSource('');
     }, [user]);
 
@@ -106,12 +116,18 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                 designation,
                 picture,
             });
-            setUser(response.data);
-            setName(response.data.name || name);
-            setDesignation(response.data.designation || designation);
-            setPicture(response.data.picture || picture);
-            invalidateApiCache(`/api/user/${response.data.userID}`);
-            invalidateApiCache(`/content/by-user/${response.data.userID}`);
+            let nextUser = response.data;
+            if (profileCardId !== (nextUser.activeProfileCard?.id || 'DEFAULT:STARS')) {
+                const cardResponse = await api.put<CurrentUser>('/api/profile-cards/active', { cardId: profileCardId });
+                nextUser = cardResponse.data;
+            }
+            setUser(nextUser);
+            setName(nextUser.name || name);
+            setDesignation(nextUser.designation || designation);
+            setPicture(nextUser.picture || picture);
+            setProfileCardId(nextUser.activeProfileCard?.id || 'DEFAULT:STARS');
+            invalidateApiCache(`/api/user/${nextUser.userID}`);
+            invalidateApiCache(`/content/by-user/${nextUser.userID}`);
             invalidateApiCache('/content/all-content');
         } finally {
             setSavingProfile(false);
@@ -122,6 +138,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setName(user.name || '');
         setDesignation(user.designation || 'RECONNAISSANCE OFFICER');
         setPicture(user.picture || '');
+        setProfileCardId(user.activeProfileCard?.id || 'DEFAULT:STARS');
         setCropSource('');
     };
 
@@ -182,6 +199,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                 <div className="flex flex-col items-start gap-10 lg:flex-row">
                     <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
                         <p className="mb-3 pl-2 text-[10px] uppercase tracking-[0.3em] text-[#444]">Personnel Side ID</p>
+                        {profileCardId === 'DEFAULT:STARS' ? (
                         <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
                             <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4">
                                 <img src={logo} alt="S.T.A.R.S. Logo" className="w-[85%] object-contain" />
@@ -234,8 +252,24 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 </div>
                             </div>
                         </div>
+                        ) : (
+                            <ProfileCardRenderer user={previewUser} card={selectedProfileCard} stats={profileStats} />
+                        )}
                         <div className="mt-3">
                             <BadgeStrip badges={user.badges} />
+                        </div>
+
+                        <div className="mt-4 border border-[#2a2a2a] bg-[#151515] p-3">
+                            <label className="mb-2 block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Card Model</label>
+                            <select
+                                value={profileCardId}
+                                onChange={(event) => setProfileCardId(event.target.value)}
+                                className="h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
+                            >
+                                {availableProfileCards.map(card => (
+                                    <option key={card.id} value={card.id}>{card.name}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -666,6 +700,29 @@ function cropImage(source: string, zoom: number, offsetX: number, offsetY: numbe
         image.onerror = reject;
         image.src = source;
     });
+}
+
+function defaultCardLayout() {
+    return {
+        photoX: 68,
+        photoY: 16,
+        photoW: 22,
+        photoH: 28,
+        nameX: 36,
+        nameY: 62,
+        nameW: 50,
+        nameH: 10,
+        designationX: 36,
+        designationY: 72,
+        designationW: 50,
+        designationH: 8,
+        statsX: 5,
+        statsY: 78,
+        statsW: 30,
+        statsH: 12,
+        textColor: '#111111',
+        accentColor: '#e60000',
+    };
 }
 
 function formatDate(dateString?: string) {
