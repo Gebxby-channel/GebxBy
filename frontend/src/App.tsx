@@ -22,6 +22,7 @@ import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 import BackgroundMusic from './components/BackgroundMusic';
 import Footer from './components/Footer';
+import { FeedbackProvider } from './components/FeedbackProvider';
 import { MUSIC_TRACKS } from './utils/musicLibrary';
 import type { ThemeMode } from './types/forum';
 
@@ -91,39 +92,41 @@ export default function App() {
 
     return (
         <Router>
-            <BackgroundMusic enabled={musicEnabled} trackId={musicTrackId} />
-            <Routes>
-                <Route path="/login" element={<Login user={user} setUser={setUser} />} />
+            <FeedbackProvider>
+                <BackgroundMusic enabled={musicEnabled} trackId={musicTrackId} />
+                <Routes>
+                    <Route path="/login" element={<Login user={user} setUser={setUser} />} />
 
-                <Route path="/*" element={
-                    <MainLayout user={user} onLogout={becomeGuest}>
-                        <Routes>
-                            <Route path="/" element={<HomePage user={user} />} />
-                            <Route path="/category" element={<CategoryPage user={user} />} />
-                            <Route path="/settings" element={
-                                <SettingsPage
-                                    theme={theme}
-                                    musicEnabled={musicEnabled}
-                                    musicTrackId={musicTrackId}
-                                    onThemeChange={setTheme}
-                                    onMusicEnabledChange={setMusicEnabled}
-                                    onMusicTrackChange={setMusicTrackId}
-                                />
-                            } />
-                            <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
-                            <Route path="/logs" element={user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
-                            <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
-                            <Route path="/analytics" element={user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
-                            <Route path="/control-room" element={user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
-                            <Route path="/admin" element={<NotFoundPage />} />
+                    <Route path="/*" element={
+                        <MainLayout user={user} onLogout={becomeGuest}>
+                            <Routes>
+                                <Route path="/" element={<HomePage user={user} />} />
+                                <Route path="/category" element={<CategoryPage user={user} />} />
+                                <Route path="/settings" element={
+                                    <SettingsPage
+                                        theme={theme}
+                                        musicEnabled={musicEnabled}
+                                        musicTrackId={musicTrackId}
+                                        onThemeChange={setTheme}
+                                        onMusicEnabledChange={setMusicEnabled}
+                                        onMusicTrackChange={setMusicTrackId}
+                                    />
+                                } />
+                                <Route path="/profile" element={user ? <ProfilePage user={user} setUser={setUser} /> : <GuestAccessPage title="Biodata Locked" />} />
+                                <Route path="/logs" element={user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
+                                <Route path="/write" element={user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
+                                <Route path="/analytics" element={user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
+                                <Route path="/control-room" element={user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
+                                <Route path="/admin" element={<NotFoundPage />} />
 
-                            <Route path="/read/:id" element={<ReadPage user={user} />} />
-                            <Route path="/profile/:userId" element={<OtherProfilePage user={user} />} />
-                            <Route path="*" element={<NotFoundPage />} />
-                        </Routes>
-                    </MainLayout>
-                } />
-            </Routes>
+                                <Route path="/read/:id" element={<ReadPage user={user} />} />
+                                <Route path="/profile/:userId" element={<OtherProfilePage user={user} />} />
+                                <Route path="*" element={<NotFoundPage />} />
+                            </Routes>
+                        </MainLayout>
+                    } />
+                </Routes>
+            </FeedbackProvider>
         </Router>
     );
 }

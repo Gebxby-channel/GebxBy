@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Megaphone } from 'lucide-react';
-import { cachedGet } from '../lib/api';
+import api, { cachedGet } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GlobalSearch from '../components/GlobalSearch';
-import type { AnnouncementItem, ContentItem, CurrentUser } from '../types/forum';
+import type { AnnouncementItem, ContentItem, CurrentUser, FeedPayload } from '../types/forum';
+import { useFeedback } from '../components/feedback';
 
-type FeedMode = 'all' | 'recommended' | 'trending' | 'category';
+type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
 
 export default function HomePage({ user }: { user: CurrentUser | null }) {
+    const feedback = useFeedback();
     const [articles, setArticles] = useState<ContentItem[]>([]);
     const [announcement, setAnnouncement] = useState<AnnouncementItem | null>(null);
     const [categories, setCategories] = useState<string[]>([]);
@@ -16,22 +18,45 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
     const [selectedCategory, setSelectedCategory] = useState('General');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
     const [loading, setLoading] = useState(true);
+    const [pageLoading, setPageLoading] = useState(false);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
     const terminalId = useMemo(() => user ? user.userID.replaceAll('-', '').substring(0, 6).toUpperCase() : 'GUEST', [user]);
     const sortedArticles = useMemo(() => sortArticles(articles, sortOrder), [articles, sortOrder]);
 
-    useEffect(() => {
-        setLoading(true);
-        Promise.allSettled([
-            cachedGet<ContentItem[]>('/content/feed', {
+    const loadFeedPage = useCallback(async (targetPage: number, replace = false) => {
+        setPageLoading(true);
+        try {
+            const response = await api.get<FeedPayload>('/content/feed-page', {
                 params: {
                     mode: feedMode,
                     category: feedMode === 'category' ? selectedCategory : undefined,
-                    limit: 30,
+                    page: targetPage,
+                    limit: 12,
                 },
-            }, {
-                ttlMs: 45_000,
-                scope: `${user?.userID ?? 'guest'}:${feedMode}:${selectedCategory}`,
-            }),
+            });
+            const payload = response.data;
+            setArticles((current) => replace ? payload.items : mergeArticles(current, payload.items));
+            setPage(payload.page);
+            setHasMore(payload.hasMore);
+        } catch {
+            if (replace) {
+                setArticles([]);
+                setHasMore(false);
+            }
+            feedback.toast('Feed gagal dimuat. Coba sync ulang sebentar lagi.', 'error');
+        } finally {
+            setPageLoading(false);
+        }
+    }, [feedback, feedMode, selectedCategory]);
+
+    useEffect(() => {
+        setLoading(true);
+        void loadFeedPage(0, true).finally(() => setLoading(false));
+    }, [loadFeedPage, user?.userID]);
+
+    useEffect(() => {
+        Promise.allSettled([
             cachedGet<AnnouncementItem | ''>('/api/announcements/latest', undefined, {
                 ttlMs: 60_000,
                 scope: 'public',
@@ -41,8 +66,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 scope: 'public',
             }),
         ])
-            .then(([contentResult, announcementResult, categoriesResult]) => {
-                setArticles(contentResult.status === 'fulfilled' && Array.isArray(contentResult.value) ? contentResult.value : []);
+            .then(([announcementResult, categoriesResult]) => {
                 setAnnouncement(announcementResult.status === 'fulfilled' && isAnnouncement(announcementResult.value) ? announcementResult.value : null);
                 if (categoriesResult.status === 'fulfilled' && Array.isArray(categoriesResult.value)) {
                     setCategories(categoriesResult.value);
@@ -50,9 +74,16 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                         setSelectedCategory(categoriesResult.value[0] ?? 'General');
                     }
                 }
-            })
-            .finally(() => setLoading(false));
-    }, [feedMode, selectedCategory, user?.userID]);
+            });
+    }, [selectedCategory]);
+
+    const selectFeedMode = (nextMode: FeedMode) => {
+        if (nextMode === 'following' && !user) {
+            feedback.toast('Login dulu untuk membuka feed following.', 'info');
+            return;
+        }
+        setFeedMode(nextMode);
+    };
 
     return (
         <div className="w-full">
@@ -63,17 +94,18 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
             <section className="mb-8 border border-[#2a2a2a] bg-[#111]/70 p-4">
                 <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Feed v2</p>
-                        <h2 className="m-0 mt-1 font-mono text-xl font-black uppercase tracking-normal text-white">Recommendation Protocol</h2>
+                        <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Feed</p>
+                        <h2 className="m-0 mt-1 font-mono text-xl font-black uppercase tracking-normal text-white">Archive Routing</h2>
                     </div>
                     <p className="m-0 font-mono text-[10px] uppercase tracking-widest text-[#555]">Adaptive archive routing</p>
                 </div>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-wrap gap-2">
-                        <FeedButton active={feedMode === 'all'} label="All" onClick={() => setFeedMode('all')} />
-                        <FeedButton active={feedMode === 'recommended'} label="Recommended" onClick={() => setFeedMode('recommended')} />
-                        <FeedButton active={feedMode === 'trending'} label="Trending" onClick={() => setFeedMode('trending')} />
-                        <FeedButton active={feedMode === 'category'} label="Category" onClick={() => setFeedMode('category')} />
+                        <FeedButton active={feedMode === 'all'} label="All" onClick={() => selectFeedMode('all')} />
+                        <FeedButton active={feedMode === 'recommended'} label="Recommended" onClick={() => selectFeedMode('recommended')} />
+                        <FeedButton active={feedMode === 'trending'} label="Trending" onClick={() => selectFeedMode('trending')} />
+                        <FeedButton active={feedMode === 'following'} label="Following" onClick={() => selectFeedMode('following')} />
+                        <FeedButton active={feedMode === 'category'} label="Category" onClick={() => selectFeedMode('category')} />
                     </div>
                     {feedMode === 'category' && (
                         <select
@@ -157,10 +189,25 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                     {sortedArticles.map((art) => (
                         <ContentCard key={art.idContent} art={art} user={user} />
                     ))}
+                    {hasMore && (
+                        <button
+                            type="button"
+                            onClick={() => void loadFeedPage(page + 1)}
+                            disabled={pageLoading}
+                            className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
+                        >
+                            {pageLoading ? 'Loading...' : 'Load More'}
+                        </button>
+                    )}
                 </div>
             )}
         </div>
     );
+}
+
+function mergeArticles(current: ContentItem[], incoming: ContentItem[]) {
+    const known = new Set(current.map((item) => item.idContent));
+    return [...current, ...incoming.filter((item) => !known.has(item.idContent))];
 }
 
 function FeedButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {

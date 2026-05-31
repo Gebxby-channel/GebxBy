@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Megaphone, Send, Trash2 } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import type { AnnouncementItem, CurrentUser } from '../types/forum';
+import { useFeedback } from './feedback';
 
 type BroadcastType = 'MESSAGE' | 'ANNOUNCEMENT_EVENT';
 
 export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
+    const feedback = useFeedback();
     const [users, setUsers] = useState<CurrentUser[]>([]);
     const [recipientId, setRecipientId] = useState('');
     const [broadcastType, setBroadcastType] = useState<BroadcastType>('MESSAGE');
@@ -53,7 +55,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
             }
             setMessage('');
             await fetchLatestAnnouncement(true);
-            window.alert(broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Announcement homepage berhasil dipublish.' : 'Pesan admin berhasil dikirim.');
+            feedback.toast(broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Announcement homepage berhasil dipublish.' : 'Pesan admin berhasil dikirim.', 'success');
         } finally {
             setSending(false);
         }
@@ -61,7 +63,13 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
 
     const deleteLatestAnnouncement = async () => {
         if (!latestAnnouncement) return;
-        if (!window.confirm('Hapus announcement ini dari homepage?')) return;
+        const accepted = await feedback.confirm({
+            title: 'Hapus Announcement',
+            message: 'Announcement akan dihapus permanen dari homepage dan database.',
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
         await api.delete(`/api/admin/announcements/${latestAnnouncement.id}`);
         invalidateApiCache('/api/announcements/latest');
         await fetchLatestAnnouncement(true);

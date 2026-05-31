@@ -14,6 +14,7 @@ public class ContentImage {
     private String mimeType;
     private String storageProvider;
     private String storageKey;
+    private String thumbnailStorageKey;
     private Integer width;
     private Integer height;
 }

@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
+import gebxby.gebxbyblog.dto.FeedResponse;
 import gebxby.gebxbyblog.dto.LeaderboardEntryResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
@@ -149,17 +150,27 @@ public class ContentServiceImpl implements ContentService {
 
     @Override
     public List<ContentResponse> feed(String mode, String category, int limit, User viewer) {
+        return feedPage(mode, category, 0, limit, viewer).items();
+    }
+
+    @Override
+    public FeedResponse feedPage(String mode, String category, int page, int limit, User viewer) {
         String feedMode = normalizeFeedMode(mode);
         int pageSize = clampFeedLimit(limit);
+        int pageNumber = Math.max(0, page);
         List<Content> contents = switch (feedMode) {
-            case "category" -> feedByCategory(category, pageSize);
-            case "trending" -> trendingFeed(pageSize);
-            case "recommended" -> recommendedFeed(viewer, pageSize);
-            default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, pageSize));
+            case "category" -> feedByCategory(category, pageNumber, pageSize + 1);
+            case "trending" -> trendingFeed(pageNumber, pageSize + 1);
+            case "recommended" -> recommendedFeed(viewer, pageNumber, pageSize + 1);
+            case "following" -> followingFeed(viewer, pageNumber, pageSize + 1);
+            default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(pageNumber, pageSize + 1));
         };
-        return contents.stream()
+        boolean hasMore = contents.size() > pageSize;
+        List<ContentResponse> items = contents.stream()
+                .limit(pageSize)
                 .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
+        return new FeedResponse(items, pageNumber, pageSize, hasMore);
     }
 
     @Override
@@ -346,16 +357,17 @@ public class ContentServiceImpl implements ContentService {
         return snapshot;
     }
 
-    private List<Content> feedByCategory(String category, int limit) {
+    private List<Content> feedByCategory(String category, int page, int limit) {
         if (!StringUtils.hasText(category) || "all".equalsIgnoreCase(category)) {
-            return contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit));
+            return contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, limit));
         }
-        return contentRepository.findByKategoriIgnoreCaseOrderByCreatedAtDesc(normalizeCategory(category), PageRequest.of(0, limit));
+        return contentRepository.findByKategoriIgnoreCaseOrderByCreatedAtDesc(normalizeCategory(category), PageRequest.of(page, limit));
     }
 
-    private List<Content> trendingFeed(int limit) {
+    private List<Content> trendingFeed(int page, int limit) {
+        int needed = (page + 1) * limit;
         LocalDateTime recentWindow = LocalDateTime.now().minusDays(14);
-        int poolSize = Math.min(RECOMMENDATION_POOL_SIZE, Math.max(limit * 4, limit));
+        int poolSize = Math.min(RECOMMENDATION_POOL_SIZE, Math.max(needed * 4, needed));
         List<Content> recent = contentRepository.findByCreatedAtGreaterThanEqualOrderByUpCountDescCreatedAtDesc(
                 recentWindow,
                 PageRequest.of(0, poolSize)
@@ -365,30 +377,39 @@ public class ContentServiceImpl implements ContentService {
         }
         return recent.stream()
                 .sorted(Comparator.comparingDouble(this::trendingScore).reversed())
+                .skip((long) page * limit)
                 .limit(limit)
                 .toList();
     }
 
-    private List<Content> recommendedFeed(User viewer, int limit) {
+    private List<Content> recommendedFeed(User viewer, int page, int limit) {
         if (viewer == null || viewer.getUserID() == null) {
-            return trendingFeed(limit);
+            return trendingFeed(page, limit);
         }
 
         RecommendationProfile profile = buildRecommendationProfile(viewer);
         if (profile.isEmpty()) {
-            return trendingFeed(limit);
+            return trendingFeed(page, limit);
         }
 
         List<Content> pool = contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, RECOMMENDATION_POOL_SIZE));
         return pool.stream()
                 .sorted(Comparator.comparingDouble((Content content) -> recommendationScore(content, profile)).reversed())
+                .skip((long) page * limit)
                 .limit(limit)
                 .toList();
     }
 
+    private List<Content> followingFeed(User viewer, int page, int limit) {
+        if (viewer == null || viewer.getUserID() == null || viewer.getFollowingUserIds() == null || viewer.getFollowingUserIds().isEmpty()) {
+            return List.of();
+        }
+        return contentRepository.findFollowingFeed(viewer.getFollowingUserIds(), List.of(), PageRequest.of(page, limit));
+    }
+
     private RecommendationProfile buildRecommendationProfile(User viewer) {
         Map<String, Integer> categoryWeights = new HashMap<>();
-        Set<UUID> preferredAuthors = new HashSet<>();
+        Set<UUID> preferredAuthors = new HashSet<>(viewer.getFollowingUserIds() == null ? Set.of() : viewer.getFollowingUserIds());
         Set<UUID> interactedContentIds = new HashSet<>();
 
         List<ContentVote> votes = voteRepository.findByUserId(viewer.getUserID());
@@ -466,6 +487,7 @@ public class ContentServiceImpl implements ContentService {
             case "recommended", "for-you", "foryou", "untukmu" -> "recommended";
             case "trending", "popular" -> "trending";
             case "category", "kategori" -> "category";
+            case "following", "followed" -> "following";
             default -> "all";
         };
     }

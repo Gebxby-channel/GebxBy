@@ -3,6 +3,7 @@ package gebxby.gebxbyblog.controller;
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.AdminNotificationRequest;
 import gebxby.gebxbyblog.dto.AnnouncementResponse;
+import gebxby.gebxbyblog.dto.MediaSmokeTestResponse;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.dto.SuspendUserRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
@@ -13,11 +14,13 @@ import gebxby.gebxbyblog.service.AnnouncementService;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.MediaPipelineService;
 import gebxby.gebxbyblog.service.NotificationService;
 import gebxby.gebxbyblog.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.util.List;
@@ -40,6 +44,7 @@ public class AdminController {
     private final AnnouncementService announcementService;
     private final BadgeService badgeService;
     private final ActivityLogService activityLogService;
+    private final MediaPipelineService mediaPipelineService;
     private final ForumMapper mapper;
 
     public AdminController(UserService userService,
@@ -49,6 +54,7 @@ public class AdminController {
                            AnnouncementService announcementService,
                            BadgeService badgeService,
                            ActivityLogService activityLogService,
+                           MediaPipelineService mediaPipelineService,
                            ForumMapper mapper) {
         this.userService = userService;
         this.contentService = contentService;
@@ -57,6 +63,7 @@ public class AdminController {
         this.announcementService = announcementService;
         this.badgeService = badgeService;
         this.activityLogService = activityLogService;
+        this.mediaPipelineService = mediaPipelineService;
         this.mapper = mapper;
     }
 
@@ -66,6 +73,15 @@ public class AdminController {
         return ResponseEntity.ok(userService.getAllUsers(admin).stream()
                 .map(mapper::toCurrentUser)
                 .toList());
+    }
+
+    @PostMapping("/media/smoke-test")
+    public ResponseEntity<MediaSmokeTestResponse> smokeTestMedia(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
+        }
+        return ResponseEntity.ok(mediaPipelineService.smokeTest());
     }
 
     @PostMapping("/users/{userId}/suspend")

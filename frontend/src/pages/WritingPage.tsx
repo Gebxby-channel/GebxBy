@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Bold, Eye, FileText, Heading1, Heading2, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Pencil, Quote, RotateCcw, Send, Type, Underline, Upload, X } from 'lucide-react';
+import { Bold, Eye, FileText, Heading1, Heading2, ImagePlus, Italic, Link as LinkIcon, List, ListOrdered, LoaderCircle, Pencil, Quote, Redo2, RotateCcw, Send, Type, Underline as UnderlineIcon, Undo2, Upload, X } from 'lucide-react';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
 import api, { invalidateApiCache } from '../lib/api';
 import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
 import { sanitizeArticle, stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
+import { useFeedback } from '../components/feedback';
 
 const MAX_IMAGE_ATTACHMENTS = 6;
 const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -38,7 +44,7 @@ type WriterDraft = {
 
 export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const navigate = useNavigate();
-    const editorRef = useRef<HTMLDivElement | null>(null);
+    const feedback = useFeedback();
     const [title, setTitle] = useState('');
     const [selectedKategori, setSelectedKategori] = useState('General');
     const [activeTab, setActiveTab] = useState<'manual' | 'upload'>('manual');
@@ -102,7 +108,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
     const handlePublishManual = async () => {
         if (!title.trim() || !hasReadableText(content)) {
-            window.alert('Judul dan isi laporan wajib ada!');
+            feedback.toast('Judul dan isi laporan wajib ada.', 'error');
             return;
         }
         setSubmitting(true);
@@ -117,7 +123,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
-            handleSubmitError(error);
+            handleSubmitError(error, feedback.toast, navigate);
         } finally {
             setSubmitting(false);
         }
@@ -125,7 +131,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
     const handleUploadFile = async () => {
         if (!file || !title.trim()) {
-            window.alert('Pilih file dan isi judul dulu, Officer!');
+            feedback.toast('Pilih file dan isi judul dulu, Officer.', 'error');
             return;
         }
 
@@ -142,7 +148,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
-            handleSubmitError(error);
+            handleSubmitError(error, feedback.toast, navigate);
         } finally {
             setSubmitting(false);
         }
@@ -160,25 +166,6 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setStudioMode('edit');
         setDraftNotice('Draft cleared');
         localStorage.removeItem(draftKey);
-    };
-
-    const applyEditorCommand = (command: string, value?: string) => {
-        editorRef.current?.focus();
-        document.execCommand(command, false, value);
-        setContent(editorRef.current?.innerHTML ?? '');
-    };
-
-    const transformSelection = (mode: 'upper' | 'lower') => {
-        editorRef.current?.focus();
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
-        const range = selection.getRangeAt(0);
-        const selectedText = range.toString();
-        if (!selectedText) return;
-        range.deleteContents();
-        range.insertNode(document.createTextNode(mode === 'upper' ? selectedText.toUpperCase() : selectedText.toLowerCase()));
-        selection.removeAllRanges();
-        setContent(editorRef.current?.innerHTML ?? '');
     };
 
     const handleImageSelection = async (files: FileList | null) => {
@@ -211,7 +198,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             <div className="mx-auto max-w-4xl border border-[#333] bg-[#111] p-6 shadow-2xl">
                 <div className="mb-8 flex flex-col gap-4 border-b border-[#e60000] pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">Writer Studio v2</h2>
+                        <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">Writer Studio</h2>
                         <p className="m-0 mt-1 font-mono text-[10px] uppercase tracking-widest text-[#666]">
                             {wordCount} words // {readMinutes} min read // {draftNotice ?? 'Draft standby'}
                         </p>
@@ -277,11 +264,8 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         <ArticlePreview title={title} kategori={selectedKategori} content={content} images={images} />
                     ) : activeTab === 'manual' ? (
                         <RichTextEditor
-                            editorRef={editorRef}
                             content={content}
-                            onInput={setContent}
-                            onCommand={applyEditorCommand}
-                            onTransformSelection={transformSelection}
+                            onChange={setContent}
                         />
                     ) : (
                         <div className="border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#e60000]">
@@ -374,69 +358,113 @@ function ArticlePreview({
 }
 
 function RichTextEditor({
-    editorRef,
     content,
-    onInput,
-    onCommand,
-    onTransformSelection,
+    onChange,
 }: {
-    editorRef: RefObject<HTMLDivElement | null>;
     content: string;
-    onInput: (value: string) => void;
-    onCommand: (command: string, value?: string) => void;
-    onTransformSelection: (mode: 'upper' | 'lower') => void;
+    onChange: (value: string) => void;
 }) {
-    useEffect(() => {
-        const editor = editorRef.current;
-        if (!editor || document.activeElement === editor || editor.innerHTML === content) {
-            return;
-        }
-        editor.innerHTML = content;
-    }, [content, editorRef]);
+    const feedback = useFeedback();
+    const editor = useEditor({
+        extensions: [
+            StarterKit.configure({
+                heading: {
+                    levels: [1, 2, 3],
+                },
+            }),
+            Underline,
+            Link.configure({
+                openOnClick: false,
+                autolink: true,
+                defaultProtocol: 'https',
+            }),
+            Placeholder.configure({
+                placeholder: 'Input decrypted data here...',
+            }),
+        ],
+        content,
+        immediatelyRender: false,
+        editorProps: {
+            attributes: {
+                class: 'min-h-[460px] w-full overflow-y-auto p-5 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:bg-[#0d0d0d]',
+            },
+        },
+        onUpdate: ({ editor: currentEditor }) => onChange(currentEditor.getHTML()),
+    });
 
     useEffect(() => {
-        document.execCommand('defaultParagraphSeparator', false, 'p');
-    }, []);
+        if (!editor || editor.isFocused || editor.getHTML() === content) {
+            return;
+        }
+        editor.commands.setContent(content || '', { emitUpdate: false });
+    }, [content, editor]);
+
+    const transformSelection = (mode: 'upper' | 'lower') => {
+        if (!editor) return;
+        const { from, to } = editor.state.selection;
+        if (from === to) {
+            feedback.toast('Pilih teks dulu untuk mengubah besar kecil huruf.', 'info');
+            return;
+        }
+        const selectedText = editor.state.doc.textBetween(from, to, ' ');
+        editor.chain().focus().insertContentAt({ from, to }, mode === 'upper' ? selectedText.toUpperCase() : selectedText.toLowerCase()).run();
+    };
+
+    const setLink = async () => {
+        if (!editor) return;
+        const url = await feedback.prompt({
+            title: 'Pasang Link',
+            message: 'Masukkan URL yang akan ditempel ke teks terpilih.',
+            placeholder: 'https://example.com',
+            confirmLabel: 'Apply Link',
+            maxLength: 300,
+        });
+        if (!url) {
+            return;
+        }
+        const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+        editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+    };
 
     return (
         <section className="border border-[#333] bg-[#0f0f0f]">
             <div className="flex flex-wrap gap-1 border-b border-[#252525] bg-[#111] p-2">
-                <EditorButton icon={<Bold size={14} />} label="Bold" onClick={() => onCommand('bold')} />
-                <EditorButton icon={<Italic size={14} />} label="Italic" onClick={() => onCommand('italic')} />
-                <EditorButton icon={<Underline size={14} />} label="Underline" onClick={() => onCommand('underline')} />
-                <EditorButton icon={<Heading1 size={15} />} label="Heading 1" onClick={() => onCommand('formatBlock', 'h1')} />
-                <EditorButton icon={<Heading2 size={15} />} label="Heading 2" onClick={() => onCommand('formatBlock', 'h2')} />
-                <EditorButton icon={<Type size={14} />} label="Paragraph" onClick={() => onCommand('formatBlock', 'p')} />
-                <EditorButton icon={<List size={14} />} label="Bullet list" onClick={() => onCommand('insertUnorderedList')} />
-                <EditorButton icon={<ListOrdered size={14} />} label="Number list" onClick={() => onCommand('insertOrderedList')} />
-                <EditorButton icon={<Quote size={14} />} label="Quote" onClick={() => onCommand('formatBlock', 'blockquote')} />
-                <EditorButton text="UPPER" label="Uppercase selection" onClick={() => onTransformSelection('upper')} />
-                <EditorButton text="lower" label="Lowercase selection" onClick={() => onTransformSelection('lower')} />
+                <EditorButton active={editor?.isActive('bold')} icon={<Bold size={14} />} label="Bold" onClick={() => editor?.chain().focus().toggleBold().run()} />
+                <EditorButton active={editor?.isActive('italic')} icon={<Italic size={14} />} label="Italic" onClick={() => editor?.chain().focus().toggleItalic().run()} />
+                <EditorButton active={editor?.isActive('underline')} icon={<UnderlineIcon size={14} />} label="Underline" onClick={() => editor?.chain().focus().toggleUnderline().run()} />
+                <EditorButton active={editor?.isActive('heading', { level: 1 })} icon={<Heading1 size={15} />} label="Heading 1" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} />
+                <EditorButton active={editor?.isActive('heading', { level: 2 })} icon={<Heading2 size={15} />} label="Heading 2" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} />
+                <EditorButton active={editor?.isActive('paragraph')} icon={<Type size={14} />} label="Paragraph" onClick={() => editor?.chain().focus().setParagraph().run()} />
+                <EditorButton active={editor?.isActive('bulletList')} icon={<List size={14} />} label="Bullet list" onClick={() => editor?.chain().focus().toggleBulletList().run()} />
+                <EditorButton active={editor?.isActive('orderedList')} icon={<ListOrdered size={14} />} label="Number list" onClick={() => editor?.chain().focus().toggleOrderedList().run()} />
+                <EditorButton active={editor?.isActive('blockquote')} icon={<Quote size={14} />} label="Quote" onClick={() => editor?.chain().focus().toggleBlockquote().run()} />
+                <EditorButton active={editor?.isActive('link')} icon={<LinkIcon size={14} />} label="Link" onClick={() => void setLink()} />
+                <EditorButton icon={<Undo2 size={14} />} label="Undo" onClick={() => editor?.chain().focus().undo().run()} />
+                <EditorButton icon={<Redo2 size={14} />} label="Redo" onClick={() => editor?.chain().focus().redo().run()} />
+                <EditorButton text="UPPER" label="Uppercase selection" onClick={() => transformSelection('upper')} />
+                <EditorButton text="lower" label="Lowercase selection" onClick={() => transformSelection('lower')} />
             </div>
-            <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                className="min-h-[460px] w-full overflow-y-auto p-5 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:bg-[#0d0d0d] [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
-                data-placeholder="Input decrypted data here..."
-                onInput={(event) => onInput(event.currentTarget.innerHTML)}
-                onBlur={(event) => onInput(event.currentTarget.innerHTML)}
+            <EditorContent
+                editor={editor}
+                className="writer-prose [&_.ProseMirror]:min-h-[460px] [&_.ProseMirror]:w-full [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:p-5 [&_.ProseMirror]:font-sans [&_.ProseMirror]:text-base [&_.ProseMirror]:leading-8 [&_.ProseMirror]:text-[#ddd] [&_.ProseMirror]:outline-none [&_.ProseMirror:focus]:bg-[#0d0d0d] [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
             />
             <div className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#555]">
-                Rich text protocol // headings, bold, italic, underline, quote, lists, case tools
+                ProseMirror protocol // headings, bold, italic, underline, link, quote, lists, undo, redo
             </div>
         </section>
     );
 }
 
-function EditorButton({ icon, text, label, onClick }: { icon?: ReactNode; text?: string; label: string; onClick: () => void }) {
+function EditorButton({ icon, text, label, active = false, onClick }: { icon?: ReactNode; text?: string; label: string; active?: boolean; onClick: () => void }) {
     return (
         <button
             type="button"
             title={label}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onClick}
-            className="flex h-8 min-w-8 items-center justify-center border border-[#2a2a2a] px-2 font-mono text-[9px] font-black uppercase text-[#888] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+            className={`flex h-8 min-w-8 items-center justify-center border px-2 font-mono text-[9px] font-black uppercase transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white ${
+                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#2a2a2a] text-[#888]'
+            }`}
         >
             {icon ?? text}
         </button>
@@ -664,15 +692,15 @@ function hasReadableText(html: string) {
     return Boolean(element.textContent?.trim());
 }
 
-function handleSubmitError(error: unknown) {
+function handleSubmitError(error: unknown, toast: (message: string, tone?: 'success' | 'error' | 'info') => void, navigate: (path: string) => void) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-        window.alert('Sesi akses berakhir. Silakan login ulang.');
-        window.location.href = '/login';
+        toast('Sesi akses berakhir. Silakan login ulang.', 'error');
+        navigate('/login');
         return;
     }
     if (axios.isAxiosError(error) && error.response?.status === 423) {
-        window.alert('Akun sedang disuspend sementara. Publikasi ditahan.');
+        toast('Akun sedang disuspend sementara. Publikasi ditahan.', 'error');
         return;
     }
-    window.alert('Critical Error: Gagal sinkronisasi dengan database.');
+    toast('Critical Error: Gagal sinkronisasi dengan database.', 'error');
 }

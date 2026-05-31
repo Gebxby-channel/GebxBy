@@ -2,6 +2,7 @@ package gebxby.gebxbyblog.dto;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public record CurrentUserResponse(
@@ -14,6 +15,8 @@ public record CurrentUserResponse(
         String role,
         boolean suspensionMarked,
         LocalDateTime suspendedUntil,
-        List<BadgeResponse> badges
+        List<BadgeResponse> badges,
+        Set<UUID> bookmarkedContentIds,
+        Set<UUID> followingUserIds
 ) {
 }

@@ -1,22 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowBigDown, ArrowBigUp, Eye, Flag, MessageSquare, Trash2 } from 'lucide-react';
+import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, Eye, Flag, MessageSquare, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
 import type { CommentItem, ContentItem, ContentStats, CurrentUser, VoteDirection } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useFeedback } from '../components/feedback';
 
 export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const { id } = useParams();
     const navigate = useNavigate();
+    const feedback = useFeedback();
     const [content, setContent] = useState<ContentItem | null>(null);
     const [stats, setStats] = useState<ContentStats | null>(null);
     const [comments, setComments] = useState<CommentItem[]>([]);
     const [commentBody, setCommentBody] = useState('');
     const [busy, setBusy] = useState(false);
     const [rootCommentPosting, setRootCommentPosting] = useState(false);
+    const [bookmarked, setBookmarked] = useState(false);
     const [commentNotice, setCommentNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const commentSubmissionLocks = useRef(new Set<string>());
     const readCompletionRef = useRef<HTMLDivElement | null>(null);
@@ -96,10 +99,14 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
     const safeBody = useMemo(() => sanitizeArticle(content?.paragrafs), [content?.paragrafs]);
 
+    useEffect(() => {
+        setBookmarked(Boolean(id && user?.bookmarkedContentIds?.includes(id)));
+    }, [id, user?.bookmarkedContentIds]);
+
     const handleVote = async (vote: VoteDirection) => {
         if (!id) return;
         if (!user) {
-            window.alert('Guest hanya bisa membaca. Login dulu untuk vote.');
+            feedback.toast('Guest hanya bisa membaca. Login dulu untuk vote.', 'info');
             return;
         }
         setBusy(true);
@@ -108,7 +115,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             setStats(response.data);
             invalidateContentCacheForMutation(id);
         } catch (error) {
-            handleMutationError(error);
+            feedback.toast(getMutationErrorMessage(error), 'error');
         } finally {
             setBusy(false);
         }
@@ -117,7 +124,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const handleComment = async (parentId?: string, body?: string) => {
         if (!id) return false;
         if (!user) {
-            window.alert('Guest hanya bisa membaca. Login dulu untuk komentar.');
+            feedback.toast('Guest hanya bisa membaca. Login dulu untuk komentar.', 'info');
             return false;
         }
         const payload = (body ?? commentBody).trim();
@@ -148,7 +155,9 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             void fetchStats();
             return true;
         } catch (error) {
-            setCommentNotice({ type: 'error', message: getMutationErrorMessage(error) });
+            const message = getMutationErrorMessage(error);
+            setCommentNotice({ type: 'error', message });
+            feedback.toast(message, 'error');
             return false;
         } finally {
             commentSubmissionLocks.current.delete(lockKey);
@@ -160,6 +169,13 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
     const handleDeleteComment = async (commentId: string) => {
         if (!id) return;
+        const accepted = await feedback.confirm({
+            title: 'Hapus Komentar',
+            message: 'Komentar akan dihapus dari thread. Aksi ini mengikuti izin pemilik komentar atau admin.',
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
         try {
             await api.delete(`/content/${id}/comments/${commentId}`);
             invalidateApiCache(`/content/${id}/comments`);
@@ -167,32 +183,68 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             await fetchComments(true);
             await fetchStats();
         } catch (error) {
-            handleMutationError(error);
+            feedback.toast(getMutationErrorMessage(error), 'error');
         }
     };
 
     const handleReportContent = async () => {
         if (!id) return;
         if (!user) {
-            window.alert('Login dulu untuk mengirim report.');
+            feedback.toast('Login dulu untuk mengirim report.', 'info');
             return;
         }
-        const reason = window.prompt('Alasan report tulisan ini:');
-        if (!reason?.trim()) return;
+        const reason = await feedback.prompt({
+            title: 'Report Tulisan',
+            message: 'Masukkan alasan yang jelas agar moderator/admin bisa menilai laporan.',
+            placeholder: 'Contoh: spam, pelecehan, spoiler berat...',
+            confirmLabel: 'Send Report',
+            multiline: true,
+            maxLength: 500,
+        });
+        if (!reason) return;
         await api.post(`/api/logs/reports/content/${id}`, { reason });
-        window.alert('Report masuk ke queue moderator/admin.');
+        feedback.toast('Report masuk ke queue moderator/admin.', 'success');
     };
 
     const handleReportComment = async (commentId: string) => {
         if (!id) return;
         if (!user) {
-            window.alert('Login dulu untuk mengirim report.');
+            feedback.toast('Login dulu untuk mengirim report.', 'info');
             return;
         }
-        const reason = window.prompt('Alasan report komentar ini:');
-        if (!reason?.trim()) return;
+        const reason = await feedback.prompt({
+            title: 'Report Komentar',
+            message: 'Masukkan alasan laporan komentar.',
+            placeholder: 'Tulis alasan laporan...',
+            confirmLabel: 'Send Report',
+            multiline: true,
+            maxLength: 500,
+        });
+        if (!reason) return;
         await api.post(`/api/logs/reports/content/${id}/comments/${commentId}`, { reason });
-        window.alert('Report komentar masuk ke queue moderator/admin.');
+        feedback.toast('Report komentar masuk ke queue moderator/admin.', 'success');
+    };
+
+    const handleBookmark = async () => {
+        if (!id) return;
+        if (!user) {
+            feedback.toast('Login dulu untuk menyimpan bookmark.', 'info');
+            return;
+        }
+        try {
+            if (bookmarked) {
+                await api.delete(`/api/user/bookmarks/${id}`);
+                setBookmarked(false);
+                feedback.toast('Bookmark dihapus dari profile.', 'success');
+            } else {
+                await api.post(`/api/user/bookmarks/${id}`);
+                setBookmarked(true);
+                feedback.toast('Tulisan tersimpan di bookmark profile.', 'success');
+            }
+            invalidateApiCache('/api/user/bookmarks');
+        } catch (error) {
+            feedback.toast(getMutationErrorMessage(error), 'error');
+        }
     };
 
     if (!content) {
@@ -288,6 +340,16 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                             <VoteButton active={stats?.userVote === 'UP'} disabled={busy} icon={<ArrowBigUp size={18} />} value={stats?.upCount ?? content.upCount} onClick={() => void handleVote('UP')} />
                             <VoteButton active={stats?.userVote === 'DOWN'} disabled={busy} icon={<ArrowBigDown size={18} />} value={stats?.downCount ?? content.downCount} onClick={() => void handleVote('DOWN')} />
                             <Counter icon={<MessageSquare size={16} />} label="COMMENTS" value={stats?.commentCount ?? content.commentCount} />
+                            <button
+                                type="button"
+                                onClick={() => void handleBookmark()}
+                                className={`flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-black transition-all ${
+                                    bookmarked ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-white'
+                                }`}
+                            >
+                                {bookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                                {bookmarked ? 'SAVED' : 'SAVE'}
+                            </button>
                         </div>
                         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-[#444]">
                             End_Of_Transmission
@@ -352,10 +414,6 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             </div>
         </div>
     );
-}
-
-function handleMutationError(error: unknown) {
-    window.alert(getMutationErrorMessage(error));
 }
 
 function invalidateContentCacheForMutation(contentId: string) {
@@ -490,6 +548,7 @@ function CommentNode({
     onDelete: (commentId: string) => Promise<void>;
     onReport: (commentId: string) => Promise<void>;
 }) {
+    const feedback = useFeedback();
     const [replyOpen, setReplyOpen] = useState(false);
     const [replyBody, setReplyBody] = useState('');
     const [replyPosting, setReplyPosting] = useState(false);
@@ -556,7 +615,7 @@ function CommentNode({
                 {!comment.deleted && (
                     <button
                         type="button"
-                        onClick={() => user ? setReplyOpen(!replyOpen) : window.alert('Guest hanya bisa membaca. Login dulu untuk membalas komentar.')}
+                        onClick={() => user ? setReplyOpen(!replyOpen) : feedback.toast('Guest hanya bisa membaca. Login dulu untuk membalas komentar.', 'info')}
                         className="mt-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:text-white"
                     >
                         Reply

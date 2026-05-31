@@ -1,5 +1,6 @@
 package gebxby.gebxbyblog.service;
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
@@ -18,6 +19,12 @@ public interface UserService {
     User suspendUser(UUID userId, Duration duration, User admin);
     User moderatorSuspendUser(UUID userId, User moderator);
     void deleteUser(UUID userId, User admin);
+    User bookmarkContent(UUID contentId, User user);
+    User removeBookmark(UUID contentId, User user);
+    List<Content> getBookmarkedContents(User user);
+    User followUser(UUID targetUserId, User user);
+    User unfollowUser(UUID targetUserId, User user);
+    List<User> getFollowingUsers(User user);
     boolean isAdmin(User user);
     boolean isModerator(User user);
     void ensureActive(User user);

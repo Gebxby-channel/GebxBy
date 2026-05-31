@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,6 +35,9 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
 
     @Query(value = "{ 'user.userID': ?0 }", sort = "{ 'createdAt': -1 }")
     List<Content> findByAuthorIdOrderByCreatedAtDesc(UUID userId);
+
+    @Query(value = "{ '$or': [ { 'user.userID': { '$in': ?0 } }, { 'kategori': { '$in': ?1 } } ] }", sort = "{ 'createdAt': -1 }")
+    List<Content> findFollowingFeed(Collection<UUID> userIds, Collection<String> categories, Pageable pageable);
 
     @Query("{ '$or': [ { 'head': { $regex: ?0, $options: 'i' } }, { 'subtitle': { $regex: ?0, $options: 'i' } }, { 'kategori': { $regex: ?0, $options: 'i' } } ] }")
     List<Content> searchByHeadline(String query, Pageable pageable);

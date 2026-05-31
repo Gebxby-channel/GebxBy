@@ -42,6 +42,7 @@ export interface ContentImage {
   mimeType?: string;
   storageProvider?: string;
   storageKey?: string;
+  thumbnailStorageKey?: string;
   width?: number;
   height?: number;
 }
@@ -49,6 +50,8 @@ export interface ContentImage {
 export interface CurrentUser extends PublicUser {
   email: string;
   role: 'USER' | 'ADMIN' | string;
+  bookmarkedContentIds?: string[];
+  followingUserIds?: string[];
 }
 
 export interface ContentItem {
@@ -67,6 +70,21 @@ export interface ContentItem {
   downCount: number;
   commentCount: number;
   userVote: VoteDirection;
+}
+
+export interface FeedPayload {
+  items: ContentItem[];
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface MediaSmokeTestResult {
+  provider: string;
+  url: string;
+  storageKey: string;
+  publicReadable: boolean;
+  message: string;
 }
 
 export interface ContentStats {

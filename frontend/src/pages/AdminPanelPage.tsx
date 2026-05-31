@@ -2,20 +2,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Ban, CheckCircle2, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import api, { invalidateApiCache } from '../lib/api';
-import type { ActivityLogItem, BadgeCode, ContentItem, CurrentUser } from '../types/forum';
+import type { ActivityLogItem, BadgeCode, ContentItem, CurrentUser, MediaSmokeTestResult } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
 import BadgeStrip from '../components/BadgeStrip';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useFeedback } from '../components/feedback';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
 export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const navigate = useNavigate();
+    const feedback = useFeedback();
     const [users, setUsers] = useState<CurrentUser[]>([]);
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [reports, setReports] = useState<ActivityLogItem[]>([]);
     const [suspendHours, setSuspendHours] = useState(24);
     const [selectedBadge, setSelectedBadge] = useState<BadgeCode>('WRITERS');
+    const [mediaSmoke, setMediaSmoke] = useState<MediaSmokeTestResult | null>(null);
+    const [mediaSmokeBusy, setMediaSmokeBusy] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const fetchUsers = useCallback(async () => {
@@ -51,7 +55,13 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
 
     const deleteUser = async (target: CurrentUser) => {
         if (target.userID === user.userID) return;
-        if (!window.confirm(`Delete account ${target.email}?`)) return;
+        const accepted = await feedback.confirm({
+            title: 'Delete Account',
+            message: `Delete account ${target.email}?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
         await api.delete(`/api/admin/users/${target.userID}`);
         invalidateApiCache(`/api/user/${target.userID}`);
         invalidateApiCache(`/content/by-user/${target.userID}`);
@@ -71,18 +81,44 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     };
 
     const deleteContent = async (content: ContentItem) => {
-        if (!window.confirm(`Delete writing "${content.head}"?`)) return;
+        const accepted = await feedback.confirm({
+            title: 'Delete Writing',
+            message: `Delete writing "${content.head}"?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
         await api.delete(`/api/admin/contents/${content.idContent}`);
         invalidateContentCaches(content);
         await fetchUsers();
     };
 
     const commentAsAdmin = async (content: ContentItem) => {
-        const body = window.prompt(`Komentar highlight merah untuk "${content.head}":`);
-        if (!body?.trim()) return;
+        const body = await feedback.prompt({
+            title: 'Red Comment',
+            message: `Komentar highlight merah untuk "${content.head}".`,
+            placeholder: 'Tulis komentar admin...',
+            confirmLabel: 'Publish',
+            multiline: true,
+            maxLength: 800,
+        });
+        if (!body) return;
         await api.post(`/content/${content.idContent}/comments`, { body });
         invalidateContentCaches(content);
-        window.alert('Komentar admin highlight merah berhasil dikirim.');
+        feedback.toast('Komentar admin highlight merah berhasil dikirim.', 'success');
+    };
+
+    const runMediaSmokeTest = async () => {
+        setMediaSmokeBusy(true);
+        try {
+            const response = await api.post<MediaSmokeTestResult>('/api/admin/media/smoke-test');
+            setMediaSmoke(response.data);
+            feedback.toast(response.data.message, response.data.publicReadable ? 'success' : 'info');
+        } catch (error) {
+            feedback.toast(getAdminError(error), 'error');
+        } finally {
+            setMediaSmokeBusy(false);
+        }
     };
 
     const resolveReport = async (report: ActivityLogItem) => {
@@ -114,6 +150,33 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             </div>
 
             <AdminMessagePanel user={user} />
+
+            <section className="mb-8 border border-[#2a2a2a] bg-[#151515] p-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Media Storage Smoke Test</h2>
+                        <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">Upload kecil ke pipeline media produksi dan cek URL publik R2.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void runMediaSmokeTest()}
+                        disabled={mediaSmokeBusy}
+                        className="h-10 border border-[#e60000] px-4 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-wait disabled:border-[#333] disabled:text-[#555]"
+                    >
+                        {mediaSmokeBusy ? 'Testing...' : 'Run Smoke Test'}
+                    </button>
+                </div>
+                {mediaSmoke && (
+                    <div className="mt-4 border border-[#242424] bg-[#101010] p-4 font-mono text-[10px] uppercase text-[#777]">
+                        <p className="m-0"><span className="text-[#e60000]">Provider:</span> {mediaSmoke.provider}</p>
+                        <p className="m-0 mt-1"><span className="text-[#e60000]">Public:</span> {mediaSmoke.publicReadable ? 'Readable' : 'Not readable'}</p>
+                        <p className="m-0 mt-1 break-all"><span className="text-[#e60000]">Key:</span> {mediaSmoke.storageKey}</p>
+                        <a className="mt-2 inline-block break-all text-[#aaa] hover:text-white" href={mediaSmoke.url} target="_blank" rel="noreferrer">
+                            {mediaSmoke.url}
+                        </a>
+                    </div>
+                )}
+            </section>
 
             <section className="mb-8 border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-5 flex flex-col gap-4 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-center md:justify-between">
@@ -342,4 +405,21 @@ function invalidateContentCaches(content: ContentItem) {
     if (content.user?.userID) {
         invalidateApiCache(`/content/by-user/${content.user.userID}`);
     }
+}
+
+function getAdminError(error: unknown) {
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+        const response = (error as { response?: { data?: unknown } }).response;
+        const data = response?.data;
+        if (typeof data === 'string' && data.trim()) {
+            return data;
+        }
+        if (typeof data === 'object' && data !== null && 'message' in data) {
+            const message = (data as { message?: unknown }).message;
+            if (typeof message === 'string' && message.trim()) {
+                return message;
+            }
+        }
+    }
+    return 'Admin request gagal diproses.';
 }

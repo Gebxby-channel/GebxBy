@@ -11,7 +11,10 @@ import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Component
 public class ForumMapper {
@@ -48,8 +51,14 @@ public class ForumMapper {
                 user.getRole(),
                 user.isSuspensionMarked(),
                 user.getSuspendedUntil(),
-                badgeService.effectiveBadges(user)
+                badgeService.effectiveBadges(user),
+                copyUuidSet(user.getBookmarkedContentIds()),
+                copyUuidSet(user.getFollowingUserIds())
         );
+    }
+
+    private Set<UUID> copyUuidSet(Set<UUID> values) {
+        return values == null ? Set.of() : new LinkedHashSet<>(values);
     }
 
     public ContentResponse toContentResponse(Content content, VoteDirection userVote) {
@@ -91,6 +100,7 @@ public class ForumMapper {
                 image.getMimeType(),
                 image.getStorageProvider(),
                 image.getStorageKey(),
+                image.getThumbnailStorageKey(),
                 image.getWidth(),
                 image.getHeight()
         );
@@ -110,6 +120,7 @@ public class ForumMapper {
                         image.getMimeType(),
                         image.getStorageProvider(),
                         image.getStorageKey(),
+                        image.getThumbnailStorageKey(),
                         image.getWidth(),
                         image.getHeight()
                 ))

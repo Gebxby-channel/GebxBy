@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BadgeCheck, Ban, Eye, Flag, ShieldAlert, Trash2, X } from 'lucide-react';
+import { BadgeCheck, Ban, Eye, Flag, ShieldAlert, Trash2, UserMinus, UserPlus, X } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
 import type { BadgeCode, ContentItem, CurrentUser, PublicUser } from '../types/forum';
 import BadgeStrip from '../components/BadgeStrip';
+import { useFeedback } from '../components/feedback';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
 type ProfileActionDialog = 'report' | 'suspend' | 'delete' | 'badge';
 
 export default function OtherProfilePage({ user }: { user: CurrentUser | null }) {
+    const feedback = useFeedback();
     const { userId } = useParams();
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [viewedUser, setViewedUser] = useState<PublicUser | null>(null);
@@ -23,6 +25,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const [badgeMode, setBadgeMode] = useState<'grant' | 'revoke'>('grant');
     const [actionBusy, setActionBusy] = useState(false);
     const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [isFollowing, setIsFollowing] = useState(false);
     const navigate = useNavigate();
     const isMyOwnProfile = String(user?.userID) === String(userId);
 
@@ -79,6 +82,10 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
             window.removeEventListener('keydown', closeByEscape);
         };
     }, []);
+
+    useEffect(() => {
+        setIsFollowing(Boolean(displayUser?.userID && user?.followingUserIds?.includes(displayUser.userID)));
+    }, [displayUser?.userID, user?.followingUserIds]);
 
     const openActionDialog = (nextDialog: ProfileActionDialog) => {
         setContextMenu(null);
@@ -178,6 +185,28 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
         }
     };
 
+    const toggleFollow = async () => {
+        if (!displayUser || !user || isSelfTarget) return;
+        setActionBusy(true);
+        try {
+            if (isFollowing) {
+                await api.delete(`/api/user/following/${displayUser.userID}`);
+                setIsFollowing(false);
+                feedback.toast(`Berhenti mengikuti ${displayUser.name}.`, 'success');
+            } else {
+                await api.post(`/api/user/following/${displayUser.userID}`);
+                setIsFollowing(true);
+                feedback.toast(`Mengikuti ${displayUser.name}.`, 'success');
+            }
+            invalidateApiCache('/api/user/following');
+            invalidateApiCache('/api/user/me');
+        } catch (error) {
+            feedback.toast(getActionError(error), 'error');
+        } finally {
+            setActionBusy(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
             <div className="mx-auto max-w-[1600px]">
@@ -245,6 +274,22 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                         <div className="mt-3">
                             <BadgeStrip badges={displayUser?.badges} />
                         </div>
+
+                        {user && displayUser && !isSelfTarget && (
+                            <button
+                                type="button"
+                                onClick={() => void toggleFollow()}
+                                disabled={actionBusy}
+                                className={`mt-4 flex h-10 items-center gap-2 border px-4 font-mono text-[10px] font-black uppercase tracking-widest transition-all disabled:cursor-wait disabled:opacity-50 ${
+                                    isFollowing
+                                        ? 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-[#e60000]'
+                                        : 'border-[#e60000] text-[#e60000] hover:bg-[#e60000] hover:text-white'
+                                }`}
+                            >
+                                {isFollowing ? <UserMinus size={14} /> : <UserPlus size={14} />}
+                                {isFollowing ? 'Unfollow' : 'Follow'}
+                            </button>
+                        )}
 
                         {actionNotice && (
                             <div className={`mt-4 border p-3 font-mono text-[10px] font-black uppercase tracking-widest ${

@@ -71,7 +71,7 @@ class ContentServiceImplTest {
                 commentRepository,
                 userRepository,
                 userService,
-                new MediaPipelineServiceImpl(),
+                inlineMediaPipeline(),
                 new ForumMapper(badgeService),
                 activityLogService,
                 5_242_880
@@ -87,6 +87,10 @@ class ContentServiceImplTest {
         content.setKategori("General");
         content.setUser(author);
         content.setCreatedAt(LocalDateTime.now());
+    }
+
+    private MediaPipelineServiceImpl inlineMediaPipeline() {
+        return new MediaPipelineServiceImpl("inline", "", "", "", "", "", "", "auto");
     }
 
     @Test

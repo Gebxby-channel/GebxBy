@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
+import gebxby.gebxbyblog.dto.FeedResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,6 +22,7 @@ public interface ContentService {
     ContentResponse addContentFromDocx(MultipartFile file, String kategori, String title, List<ContentImageRequest> images, User author) throws IOException;
     List<ContentResponse> findAll(User viewer);
     List<ContentResponse> feed(String mode, String category, int limit, User viewer);
+    FeedResponse feedPage(String mode, String category, int page, int limit, User viewer);
     List<ContentResponse> findByCategory(String category, User viewer);
     List<ContentResponse> findByAuthor(UUID userId, User viewer);
     ContentResponse findContentById(UUID id, User viewer, boolean incrementView);

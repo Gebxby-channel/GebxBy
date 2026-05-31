@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -52,7 +53,7 @@ class ModerationControllerTest {
         when(userService.getCurrentUser(any())).thenReturn(moderator);
         when(userService.moderatorSuspendUser(target.getUserID(), moderator)).thenReturn(target);
         when(mapper.toCurrentUser(target)).thenReturn(new CurrentUserResponse(
-                target.getUserID(), "Target", "target@example.com", null, null, null, "USER", true, LocalDateTime.now().plusHours(1), List.of()
+                target.getUserID(), "Target", "target@example.com", null, null, null, "USER", true, LocalDateTime.now().plusHours(1), List.of(), Set.of(), Set.of()
         ));
 
         mockMvc.perform(post("/api/moderation/users/{userId}/suspend", target.getUserID()).with(oauth2Login()))

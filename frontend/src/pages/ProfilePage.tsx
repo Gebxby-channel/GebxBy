@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert } from 'lucide-react';
+import { Bookmark, ShieldAlert, Users } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
-import type { ContentItem, CurrentUser } from '../types/forum';
+import type { ContentItem, CurrentUser, PublicUser } from '../types/forum';
 import BadgeStrip from '../components/BadgeStrip';
+import { useFeedback } from '../components/feedback';
 
 interface EditForm {
     head: string;
@@ -16,7 +17,11 @@ interface EditForm {
 }
 
 export default function ProfilePage({ user, setUser }: { user: CurrentUser; setUser: (user: CurrentUser) => void }) {
+    const feedback = useFeedback();
     const [contents, setContents] = useState<ContentItem[]>([]);
+    const [bookmarks, setBookmarks] = useState<ContentItem[]>([]);
+    const [following, setFollowing] = useState<PublicUser[]>([]);
+    const [profileTab, setProfileTab] = useState<'archives' | 'bookmarks' | 'following'>('archives');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -50,9 +55,29 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setContents(myData);
     }, [sortOrder, user.userID]);
 
+    const fetchBookmarks = useCallback(async (force = false) => {
+        const data = await cachedGet<ContentItem[]>('/api/user/bookmarks', undefined, {
+            ttlMs: 30_000,
+            scope: user.userID,
+            force,
+        });
+        setBookmarks(Array.isArray(data) ? data : []);
+    }, [user.userID]);
+
+    const fetchFollowing = useCallback(async (force = false) => {
+        const data = await cachedGet<PublicUser[]>('/api/user/following', undefined, {
+            ttlMs: 30_000,
+            scope: user.userID,
+            force,
+        });
+        setFollowing(Array.isArray(data) ? data : []);
+    }, [user.userID]);
+
     useEffect(() => {
         void fetchMyContents();
-    }, [fetchMyContents]);
+        void fetchBookmarks();
+        void fetchFollowing();
+    }, [fetchBookmarks, fetchFollowing, fetchMyContents]);
 
     useEffect(() => {
         setName(user.name || '');
@@ -121,7 +146,13 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     };
 
     const handleDelete = async (idContent: string) => {
-        if (!window.confirm('WARNING: Data removal is permanent. Proceed?')) return;
+        const accepted = await feedback.confirm({
+            title: 'Hapus Tulisan',
+            message: 'Data tulisan akan dihapus permanen dari arsip personal.',
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
         await api.delete(`/content/${idContent}`);
         invalidateContentCaches(user.userID, idContent);
         await fetchMyContents(true);
@@ -253,14 +284,25 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                     <div className="w-full flex-1">
                         <div className="mb-10 flex flex-col items-start justify-between gap-4 border-b border-[#2a2a2a] pb-6 md:flex-row md:items-center">
                             <div>
-                                <h2 className="text-2xl font-black uppercase tracking-widest text-white">Personal Archives</h2>
-                                <p className="font-mono text-xs text-[#888]">Managing {contents.length} secure data entries within this sector.</p>
+                                <h2 className="text-2xl font-black uppercase tracking-widest text-white">
+                                    {profileTab === 'archives' ? 'Personal Archives' : profileTab === 'bookmarks' ? 'Bookmarks' : 'Following'}
+                                </h2>
+                                <p className="font-mono text-xs text-[#888]">
+                                    {profileTab === 'archives'
+                                        ? `Managing ${contents.length} secure data entries within this sector.`
+                                        : profileTab === 'bookmarks'
+                                            ? `${bookmarks.length} saved entries for later reading.`
+                                            : `${following.length} followed archive officers.`}
+                                </p>
                             </div>
-                            <div className="flex w-full items-center gap-4 md:w-auto">
+                            <div className="flex w-full flex-wrap items-center gap-3 md:w-auto">
+                                <ProfileTabButton active={profileTab === 'archives'} label="Archives" onClick={() => setProfileTab('archives')} />
+                                <ProfileTabButton active={profileTab === 'bookmarks'} label="Bookmarks" icon={<Bookmark size={13} />} onClick={() => setProfileTab('bookmarks')} />
+                                <ProfileTabButton active={profileTab === 'following'} label="Following" icon={<Users size={13} />} onClick={() => setProfileTab('following')} />
                                 <select
                                     value={sortOrder}
                                     onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}
-                                    className="cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]"
+                                    className={`${profileTab === 'archives' ? 'block' : 'hidden'} cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]`}
                                 >
                                     <option value="newest">Newest Entry</option>
                                     <option value="oldest">Oldest Entry</option>
@@ -276,9 +318,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                         </div>
 
                         <div className="grid gap-6">
-                            {contents.length === 0 ? (
+                            {profileTab === 'archives' && contents.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO DATA RECORDED ]</div>
-                            ) : (
+                            ) : profileTab === 'archives' ? (
                                 contents.map(item => (
                                     <ArchiveItem
                                         key={item.idContent}
@@ -291,6 +333,18 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         onSave={() => void handleUpdate(item.idContent)}
                                         onDelete={() => void handleDelete(item.idContent)}
                                     />
+                                ))
+                            ) : profileTab === 'bookmarks' && bookmarks.length === 0 ? (
+                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BOOKMARKS SAVED ]</div>
+                            ) : profileTab === 'bookmarks' ? (
+                                bookmarks.map(item => (
+                                    <BookmarkItem key={item.idContent} item={item} onOpen={() => navigate(`/read/${item.idContent}`)} />
+                                ))
+                            ) : following.length === 0 ? (
+                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWING DATA ]</div>
+                            ) : (
+                                following.map(target => (
+                                    <FollowingItem key={target.userID} target={target} onOpen={() => navigate(`/profile/${target.userID}`)} />
                                 ))
                             )}
                         </div>
@@ -353,6 +407,69 @@ function ArchiveItem({
                 </div>
             )}
         </div>
+    );
+}
+
+function ProfileTabButton({ active, label, icon, onClick }: { active: boolean; label: string; icon?: ReactNode; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex h-10 items-center gap-2 border px-3 font-mono text-[9px] font-black uppercase tracking-widest transition-all ${
+                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-[#e60000]'
+            }`}
+        >
+            {icon}
+            {label}
+        </button>
+    );
+}
+
+function BookmarkItem({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
+    const themeColor = getCategoryColor(item.kategori);
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            className="group border border-[#2a2a2a] bg-[#181818] p-6 text-left transition-all hover:border-[#e60000]"
+            style={{ borderLeft: `3px solid ${themeColor}` }}
+        >
+            <div className="mb-2 flex flex-wrap items-center gap-3">
+                <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>SAVED ENTRY</span>
+                <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                <span className="font-mono text-[9px] uppercase text-[#555]">{item.user?.name || 'Unknown'}</span>
+            </div>
+            <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
+            <p className="line-clamp-2 font-sans text-sm leading-6 text-[#aaa]">{stripHtml(item.paragrafs).substring(0, 200)}...</p>
+        </button>
+    );
+}
+
+function FollowingItem({ target, onOpen }: { target: PublicUser; onOpen: () => void }) {
+    const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(target.name || 'User')}`;
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            className="flex items-center gap-4 border border-[#2a2a2a] bg-[#181818] p-4 text-left transition-all hover:border-[#e60000]"
+        >
+            <div className="h-14 w-14 overflow-hidden border border-[#333] bg-[#111]">
+                <img
+                    src={target.picture || defaultAvatar}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                />
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{target.name || 'Unknown'}</p>
+                <p className="m-0 mt-1 truncate font-mono text-[10px] uppercase text-[#666]">{target.designation || 'Archive Officer'}</p>
+                <div className="mt-2">
+                    <BadgeStrip badges={target.badges} compact />
+                </div>
+            </div>
+        </button>
     );
 }
 

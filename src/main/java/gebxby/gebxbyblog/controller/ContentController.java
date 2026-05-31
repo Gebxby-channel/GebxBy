@@ -7,6 +7,7 @@ import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
+import gebxby.gebxbyblog.dto.FeedResponse;
 import gebxby.gebxbyblog.dto.VoteRequest;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
@@ -85,6 +86,16 @@ public class ContentController {
             @RequestParam(value = "limit", defaultValue = "20") int limit,
             @AuthenticationPrincipal OAuth2User principal) {
         return ResponseEntity.ok(contentService.feed(mode, category, limit, optionalUser(principal)));
+    }
+
+    @GetMapping("/feed-page")
+    public ResponseEntity<FeedResponse> feedPage(
+            @RequestParam(value = "mode", defaultValue = "all") String mode,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.feedPage(mode, category, page, limit, optionalUser(principal)));
     }
 
     @GetMapping("/categories")

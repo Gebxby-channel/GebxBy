@@ -19,6 +19,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -236,6 +239,77 @@ public class UserServiceImpl implements UserService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan");
         }
         userRepository.deleteById(userId);
+    }
+
+    @Override
+    public User bookmarkContent(UUID contentId, User user) {
+        ensureActive(user);
+        if (!contentRepository.existsById(contentId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan");
+        }
+        Set<UUID> bookmarks = new LinkedHashSet<>(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
+        bookmarks.add(contentId);
+        user.setBookmarkedContentIds(bookmarks);
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User removeBookmark(UUID contentId, User user) {
+        ensureActive(user);
+        Set<UUID> bookmarks = new LinkedHashSet<>(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
+        bookmarks.remove(contentId);
+        user.setBookmarkedContentIds(bookmarks);
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    @Override
+    public List<Content> getBookmarkedContents(User user) {
+        ensureActive(user);
+        List<UUID> ids = new ArrayList<>(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<Content> contents = contentRepository.findAllById(ids);
+        contents.sort(Comparator.comparingInt(content -> ids.indexOf(content.getIdContent())));
+        return contents.reversed();
+    }
+
+    @Override
+    public User followUser(UUID targetUserId, User user) {
+        ensureActive(user);
+        if (user.getUserID().equals(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tidak bisa follow akun sendiri");
+        }
+        if (!userRepository.existsById(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan");
+        }
+        Set<UUID> following = new LinkedHashSet<>(user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds());
+        following.add(targetUserId);
+        user.setFollowingUserIds(following);
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User unfollowUser(UUID targetUserId, User user) {
+        ensureActive(user);
+        Set<UUID> following = new LinkedHashSet<>(user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds());
+        following.remove(targetUserId);
+        user.setFollowingUserIds(following);
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
+    @Override
+    public List<User> getFollowingUsers(User user) {
+        ensureActive(user);
+        Set<UUID> following = user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds();
+        if (following.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findByUserIDIn(following);
     }
 
     @Override

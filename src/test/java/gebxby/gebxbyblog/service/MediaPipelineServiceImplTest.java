@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MediaPipelineServiceImplTest {
-    private final MediaPipelineServiceImpl mediaPipeline = new MediaPipelineServiceImpl();
+    private final MediaPipelineServiceImpl mediaPipeline = new MediaPipelineServiceImpl("inline", "", "", "", "", "", "", "auto");
 
     @Test
     void preparesInlineMediaWithMetadata() {
@@ -31,6 +31,17 @@ class MediaPipelineServiceImplTest {
         assertEquals("INLINE_MONGO_V1", images.getFirst().getStorageProvider());
         assertEquals(640, images.getFirst().getWidth());
         assertNotNull(images.getFirst().getStorageKey());
+    }
+
+    @Test
+    void r2ProviderRequiresStorageConfiguration() {
+        MediaPipelineServiceImpl r2Pipeline = new MediaPipelineServiceImpl("r2", "", "", "", "", "", "", "auto");
+        String dataUrl = "data:image/webp;base64,"
+                + Base64.getEncoder().encodeToString("tiny-image".getBytes(StandardCharsets.UTF_8));
+
+        assertThrows(ResponseStatusException.class, () ->
+                r2Pipeline.prepareContentImages(List.of(new ContentImageRequest(dataUrl, "Evidence")))
+        );
     }
 
     @Test
