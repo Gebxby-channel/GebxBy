@@ -2,6 +2,7 @@ package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
 import gebxby.gebxbyblog.dto.CommentRequest;
+import gebxby.gebxbyblog.dto.CommentPageResponse;
 import gebxby.gebxbyblog.dto.CommentResponse;
 import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
@@ -9,6 +10,8 @@ import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.FeedResponse;
 import gebxby.gebxbyblog.dto.VoteRequest;
+import gebxby.gebxbyblog.dto.VoteBatchRequest;
+import gebxby.gebxbyblog.dto.VoteBatchResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
 import gebxby.gebxbyblog.service.CommentService;
@@ -33,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 import java.util.List;
@@ -125,8 +129,9 @@ public class ContentController {
     @PostMapping("/{id}/view")
     public ResponseEntity<ContentStatsResponse> recordView(
             @PathVariable UUID id,
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(contentService.recordView(id, optionalUser(principal)));
+            @AuthenticationPrincipal OAuth2User principal,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(contentService.recordView(id, optionalUser(principal), readerKey(request)));
     }
 
     @GetMapping("/{id}/stats")
@@ -200,9 +205,27 @@ public class ContentController {
         return ResponseEntity.ok(contentService.vote(id, vote, voter));
     }
 
+    @PostMapping("/votes/batch")
+    public ResponseEntity<VoteBatchResponse> batchVotes(
+            @RequestBody VoteBatchRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.batchVotes(
+                request == null ? List.of() : request.contentIds(),
+                optionalUser(principal)
+        ));
+    }
+
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable UUID id) {
         return ResponseEntity.ok(commentService.findThread(id));
+    }
+
+    @GetMapping("/{id}/comments/page")
+    public ResponseEntity<CommentPageResponse> getCommentsPage(
+            @PathVariable UUID id,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "limit", defaultValue = "20") int limit) {
+        return ResponseEntity.ok(commentService.findThreadPage(id, page, limit));
     }
 
     @PostMapping("/{id}/comments")
@@ -238,5 +261,12 @@ public class ContentController {
         } catch (JsonProcessingException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload gambar tidak valid");
         }
+    }
+
+    private String readerKey(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        String ip = StringUtils.hasText(forwarded) ? forwarded.split(",")[0].trim() : request.getRemoteAddr();
+        String sessionId = request.getSession(true).getId();
+        return sessionId + ":" + ip + ":" + request.getHeader("User-Agent");
     }
 }

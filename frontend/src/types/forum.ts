@@ -163,6 +163,13 @@ export interface CommentItem {
   replies: CommentItem[];
 }
 
+export interface CommentPagePayload {
+  items: CommentItem[];
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface LeaderboardEntry {
   user: PublicUser;
   upCount: number;

@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ContentResponse;
+import gebxby.gebxbyblog.dto.ContentSummaryResponse;
 import gebxby.gebxbyblog.dto.FeedResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
@@ -10,6 +11,8 @@ import gebxby.gebxbyblog.model.VoteDirection;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ContentVoteRepository;
+import gebxby.gebxbyblog.repository.FollowRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -40,19 +43,43 @@ public class ContentFeedService {
     private final ContentVoteRepository voteRepository;
     private final CommentRepository commentRepository;
     private final ForumMapper mapper;
+    private final FollowRepository followRepository;
 
+    @Autowired
     public ContentFeedService(ContentRepository contentRepository,
                               ContentVoteRepository voteRepository,
                               CommentRepository commentRepository,
+                              FollowRepository followRepository,
                               ForumMapper mapper) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
         this.mapper = mapper;
+        this.followRepository = followRepository;
+    }
+
+    public ContentFeedService(ContentRepository contentRepository,
+                              ContentVoteRepository voteRepository,
+                              CommentRepository commentRepository,
+                              ForumMapper mapper) {
+        this(contentRepository, voteRepository, commentRepository, null, mapper);
     }
 
     public List<ContentResponse> feed(String mode, String category, int limit, User viewer) {
-        return feedPage(mode, category, 0, limit, viewer).items();
+        String feedMode = normalizeFeedMode(mode);
+        int pageSize = clampFeedLimit(limit);
+        List<Content> contents = switch (feedMode) {
+            case "category" -> feedByCategory(category, 0, pageSize);
+            case "trending" -> trendingFeed(0, pageSize);
+            case "recommended" -> recommendedFeed(viewer, 0, pageSize);
+            case "following" -> followingFeed(viewer, 0, pageSize);
+            default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, pageSize));
+        };
+        return contents.stream()
+                .filter(this::isPublished)
+                .limit(pageSize)
+                .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
+                .toList();
     }
 
     public FeedResponse feedPage(String mode, String category, int page, int limit, User viewer) {
@@ -67,10 +94,10 @@ public class ContentFeedService {
             default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(pageNumber, pageSize + 1));
         };
         boolean hasMore = contents.size() > pageSize;
-        List<ContentResponse> items = contents.stream()
+        List<ContentSummaryResponse> items = contents.stream()
                 .filter(this::isPublished)
                 .limit(pageSize)
-                .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
+                .map(content -> mapper.toContentSummaryResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
         return new FeedResponse(items, pageNumber, pageSize, hasMore);
     }
@@ -121,10 +148,20 @@ public class ContentFeedService {
     }
 
     private List<Content> followingFeed(User viewer, int page, int limit) {
-        if (viewer == null || viewer.getUserID() == null || viewer.getFollowingUserIds() == null || viewer.getFollowingUserIds().isEmpty()) {
+        if (viewer == null || viewer.getUserID() == null) {
             return List.of();
         }
-        return contentRepository.findFollowingFeed(viewer.getFollowingUserIds(), List.of(), PageRequest.of(page, limit)).stream()
+        Set<UUID> followedIds = new HashSet<>(viewer.getFollowingUserIds() == null ? Set.of() : viewer.getFollowingUserIds());
+        if (followRepository != null) {
+            followRepository.findByFollowerUserId(viewer.getUserID()).stream()
+                    .map(follow -> follow.getTargetUserId())
+                    .filter(Objects::nonNull)
+                    .forEach(followedIds::add);
+        }
+        if (followedIds.isEmpty()) {
+            return List.of();
+        }
+        return contentRepository.findFollowingFeed(followedIds, List.of(), PageRequest.of(page, limit)).stream()
                 .filter(this::isPublished)
                 .toList();
     }

@@ -7,6 +7,7 @@ import gebxby.gebxbyblog.dto.UsernameCheckResponse;
 import gebxby.gebxbyblog.dto.UsernameSuggestResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.LoginRateLimiter;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,11 +34,13 @@ import java.util.Map;
 public class AuthController {
     private final UserService userService;
     private final ForumMapper mapper;
+    private final LoginRateLimiter loginRateLimiter;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
-    public AuthController(UserService userService, ForumMapper mapper) {
+    public AuthController(UserService userService, ForumMapper mapper, LoginRateLimiter loginRateLimiter) {
         this.userService = userService;
         this.mapper = mapper;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @PostMapping("/api/auth/email-login")
@@ -45,10 +48,14 @@ public class AuthController {
             @RequestBody EmailLoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
+        String email = request == null ? null : request.email();
+        String remoteAddress = clientAddress(servletRequest);
+        loginRateLimiter.check(email, remoteAddress);
         User user = userService.loginWithEmailPassword(
-                request == null ? null : request.email(),
+                email,
                 request == null ? null : request.password()
         );
+        loginRateLimiter.reset(email, remoteAddress);
         saveSession(user, servletRequest, servletResponse);
         return ResponseEntity.ok(mapper.toCurrentUser(user));
     }
@@ -98,5 +105,13 @@ public class AuthController {
         attributes.put("picture", user.getPhoto());
         String authority = user.isAdmin() ? "ROLE_ADMIN" : "ROLE_USER";
         return new DefaultOAuth2User(List.of(new SimpleGrantedAuthority(authority)), attributes, "sub");
+    }
+
+    private String clientAddress(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

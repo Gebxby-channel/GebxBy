@@ -3,10 +3,10 @@ import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, CalendarDays, Eye, Flag, MessageSquare, Trash2, UserRound } from 'lucide-react';
 import axios from 'axios';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { invalidateApiCache } from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
-import type { CommentItem, ContentImage, ContentItem, ContentStats, CurrentUser, PublicUser, VoteDirection } from '../types/forum';
+import type { CommentItem, CommentPagePayload, ContentImage, ContentItem, ContentStats, CurrentUser, PublicUser, VoteDirection } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useFeedback } from '../components/feedback';
 import { useRealtimeContentSubscription } from '../hooks/useRealtimeContentSubscription';
@@ -43,13 +43,18 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         },
         staleTime: 5 * 60_000,
     });
-    const commentsQuery = useQuery({
-        queryKey: ['content-comments', id],
+    const commentsQuery = useInfiniteQuery({
+        queryKey: ['content-comments-page', id],
         enabled: Boolean(id),
-        queryFn: async ({ signal }) => {
-            const response = await api.get<CommentItem[]>(`/content/${id}/comments`, { signal });
-            return Array.isArray(response.data) ? response.data : [];
+        initialPageParam: 0,
+        queryFn: async ({ pageParam, signal }) => {
+            const response = await api.get<CommentPagePayload>(`/content/${id}/comments/page`, {
+                signal,
+                params: { page: pageParam, limit: 20 },
+            });
+            return response.data;
         },
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
         staleTime: 10_000,
         refetchInterval: 60_000,
     });
@@ -66,15 +71,15 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
     const fetchComments = useCallback(async () => {
         if (!id) return;
-        const data = await queryClient.fetchQuery({
-            queryKey: ['content-comments', id],
-            queryFn: async ({ signal }) => {
-                const response = await api.get<CommentItem[]>(`/content/${id}/comments`, { signal });
-                return Array.isArray(response.data) ? response.data : [];
-            },
-            staleTime: 0,
+        const response = await api.get<CommentPagePayload>(`/content/${id}/comments/page`, {
+            params: { page: 0, limit: 20 },
         });
-        setComments(data);
+        const firstPage = response.data;
+        setComments(firstPage.items ?? []);
+        queryClient.setQueryData(['content-comments-page', id], {
+            pages: [firstPage],
+            pageParams: [0],
+        });
     }, [id, queryClient]);
 
     const fetchStats = useCallback(async () => {
@@ -118,7 +123,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
     useEffect(() => {
         if (commentsQuery.data) {
-            setComments(commentsQuery.data);
+            setComments(mergeCommentPages(commentsQuery.data.pages));
         }
     }, [commentsQuery.data]);
 
@@ -204,7 +209,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             const alreadyRendered = threadContainsComment(comments, response.data.id);
 
             setComments((current) => mergeCommentIntoThread(current, response.data));
-            queryClient.setQueryData<CommentItem[]>(['content-comments', id], (current) => mergeCommentIntoThread(current ?? [], response.data));
+            void queryClient.invalidateQueries({ queryKey: ['content-comments-page', id] });
             invalidateApiCache(`/content/${id}/comments`);
             invalidateContentCacheForMutation(id);
             if (!parentId) {
@@ -447,6 +452,16 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                                 />
                             ))
                         )}
+                        {commentsQuery.hasNextPage && (
+                            <button
+                                type="button"
+                                onClick={() => void commentsQuery.fetchNextPage()}
+                                disabled={commentsQuery.isFetchingNextPage}
+                                className="mx-auto mt-4 block border border-[#333] px-5 py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
+                            >
+                                {commentsQuery.isFetchingNextPage ? 'Loading...' : 'Load More Comments'}
+                            </button>
+                        )}
                     </div>
                 </section>
                 {reportTarget && (
@@ -466,6 +481,19 @@ function invalidateContentCacheForMutation(contentId: string) {
     invalidateApiCache('/content/all-content');
     invalidateApiCache('/content/feed');
     invalidateApiCache('/content/analytics');
+}
+
+function mergeCommentPages(pages: CommentPagePayload[]) {
+    const known = new Set<string>();
+    return pages
+        .flatMap((page) => page.items ?? [])
+        .filter((comment) => {
+            if (known.has(comment.id)) {
+                return false;
+            }
+            known.add(comment.id);
+            return true;
+        });
 }
 
 function getMutationErrorMessage(error: unknown) {

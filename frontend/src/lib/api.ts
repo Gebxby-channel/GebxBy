@@ -9,6 +9,20 @@ const api = axios.create({
   withCredentials: true,
 });
 
+let csrfToken: string | null = null;
+let csrfHeaderName = 'X-CSRF-TOKEN';
+let csrfPromise: Promise<string> | null = null;
+
+api.interceptors.request.use(async (config) => {
+  if (!isUnsafeMethod(config.method) || config.url?.includes('/api/csrf')) {
+    return config;
+  }
+  const token = await ensureCsrfToken();
+  config.headers = config.headers ?? {};
+  config.headers[csrfHeaderName] = token;
+  return config;
+});
+
 type CacheOptions = {
   ttlMs?: number;
   scope?: string;
@@ -86,6 +100,29 @@ export function oauthLoginUrl() {
 }
 
 export default api;
+
+async function ensureCsrfToken() {
+  if (csrfToken) {
+    return csrfToken;
+  }
+  if (!csrfPromise) {
+    csrfPromise = axios.get<{ token: string; headerName?: string }>(`${API_BASE_URL}/api/csrf`, { withCredentials: true })
+      .then((response) => {
+        csrfHeaderName = response.data.headerName || csrfHeaderName;
+        csrfToken = response.data.token;
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfPromise = null;
+      });
+  }
+  return csrfPromise;
+}
+
+function isUnsafeMethod(method?: string) {
+  const clean = (method ?? 'get').toLowerCase();
+  return clean === 'post' || clean === 'put' || clean === 'patch' || clean === 'delete';
+}
 
 function buildCacheKey(url: string, config?: AxiosRequestConfig, scope = 'global') {
   return `${scope}|${url}|${stableStringify(config?.params ?? {})}`;

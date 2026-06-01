@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.CommentRequest;
+import gebxby.gebxbyblog.dto.CommentPageResponse;
 import gebxby.gebxbyblog.dto.CommentResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
@@ -10,6 +11,8 @@ import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -29,6 +32,7 @@ public class CommentServiceImpl implements CommentService {
     private static final long MAX_COMMENTS_PER_WINDOW = 5;
     private static final Duration RATE_LIMIT_WINDOW = Duration.ofSeconds(30);
     private static final Duration DUPLICATE_WINDOW = Duration.ofSeconds(10);
+    private static final int MAX_PAGE_LIMIT = 50;
 
     private final CommentRepository commentRepository;
     private final ContentRepository contentRepository;
@@ -37,6 +41,26 @@ public class CommentServiceImpl implements CommentService {
     private final NotificationService notificationService;
     private final ActivityLogService activityLogService;
     private final RealtimeGateway realtimeGateway;
+    private final ContentCounterService counterService;
+
+    @Autowired
+    public CommentServiceImpl(CommentRepository commentRepository,
+                              ContentRepository contentRepository,
+                              UserService userService,
+                              ForumMapper mapper,
+                              NotificationService notificationService,
+                              ActivityLogService activityLogService,
+                              RealtimeGateway realtimeGateway,
+                              ContentCounterService counterService) {
+        this.commentRepository = commentRepository;
+        this.contentRepository = contentRepository;
+        this.userService = userService;
+        this.mapper = mapper;
+        this.notificationService = notificationService;
+        this.activityLogService = activityLogService;
+        this.realtimeGateway = realtimeGateway;
+        this.counterService = counterService;
+    }
 
     public CommentServiceImpl(CommentRepository commentRepository,
                               ContentRepository contentRepository,
@@ -45,19 +69,37 @@ public class CommentServiceImpl implements CommentService {
                               NotificationService notificationService,
                               ActivityLogService activityLogService,
                               RealtimeGateway realtimeGateway) {
-        this.commentRepository = commentRepository;
-        this.contentRepository = contentRepository;
-        this.userService = userService;
-        this.mapper = mapper;
-        this.notificationService = notificationService;
-        this.activityLogService = activityLogService;
-        this.realtimeGateway = realtimeGateway;
+        this(commentRepository, contentRepository, userService, mapper, notificationService, activityLogService,
+                realtimeGateway, new ContentCounterService(contentRepository, null));
     }
 
     @Override
     public List<CommentResponse> findThread(UUID contentId) {
         List<Comment> comments = commentRepository.findByContentIdOrderByCreatedAtAsc(contentId);
         return buildReplies(comments, null);
+    }
+
+    @Override
+    public CommentPageResponse findThreadPage(UUID contentId, int page, int limit) {
+        int pageNumber = Math.max(0, page);
+        int pageSize = Math.max(1, Math.min(limit <= 0 ? 20 : limit, MAX_PAGE_LIMIT));
+        List<Comment> roots = commentRepository.findByContentIdAndParentIdIsNullOrderByCreatedAtAsc(
+                contentId,
+                PageRequest.of(pageNumber, pageSize + 1)
+        );
+        boolean hasMore = roots.size() > pageSize;
+        List<Comment> limitedRoots = roots.stream().limit(pageSize).toList();
+        List<Comment> threadSlice = new ArrayList<>(limitedRoots);
+        List<UUID> frontier = limitedRoots.stream().map(Comment::getId).toList();
+        while (!frontier.isEmpty()) {
+            List<Comment> children = commentRepository.findByContentIdAndParentIdInOrderByCreatedAtAsc(contentId, frontier);
+            if (children.isEmpty()) {
+                break;
+            }
+            threadSlice.addAll(children);
+            frontier = children.stream().map(Comment::getId).toList();
+        }
+        return new CommentPageResponse(buildReplies(threadSlice, null), pageNumber, pageSize, hasMore);
     }
 
     @Override
@@ -102,11 +144,11 @@ public class CommentServiceImpl implements CommentService {
         comment.setCreatedAt(now);
         comment.setUpdatedAt(now);
 
-        content.setCommentCount(content.getCommentCount() + 1);
-        content.setUpdatedAt(now);
-        contentRepository.save(content);
-
         Comment savedComment = commentRepository.save(comment);
+        Content updatedContent = counterService.incrementComments(contentId, 1);
+        if (updatedContent != null) {
+            content = updatedContent;
+        }
         notificationService.notifyCommentOnContent(content, savedComment);
 
         CommentResponse response = toResponse(savedComment, List.of());
@@ -132,12 +174,10 @@ public class CommentServiceImpl implements CommentService {
             comment.setUpdatedAt(LocalDateTime.now());
             commentRepository.save(comment);
 
-            contentRepository.findById(contentId).ifPresent(content -> {
-                content.setCommentCount(Math.max(0, content.getCommentCount() - 1));
-                content.setUpdatedAt(LocalDateTime.now());
-                contentRepository.save(content);
+            Content content = counterService.incrementComments(contentId, -1);
+            if (content != null) {
                 realtimeGateway.commentDeleted(contentId, commentId, content.getCommentCount());
-            });
+            }
         }
     }
 

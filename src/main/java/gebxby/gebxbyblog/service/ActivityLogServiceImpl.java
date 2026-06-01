@@ -9,14 +9,18 @@ import gebxby.gebxbyblog.model.ActivityTargetType;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.Report;
+import gebxby.gebxbyblog.model.ReportStatus;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.ActivityLogRepository;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
+import gebxby.gebxbyblog.repository.ReportRepository;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,13 +38,23 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     private final ActivityLogRepository logRepository;
     private final ContentRepository contentRepository;
     private final CommentRepository commentRepository;
+    private final ReportRepository reportRepository;
+
+    @Autowired
+    public ActivityLogServiceImpl(ActivityLogRepository logRepository,
+                                  ContentRepository contentRepository,
+                                  CommentRepository commentRepository,
+                                  ReportRepository reportRepository) {
+        this.logRepository = logRepository;
+        this.contentRepository = contentRepository;
+        this.commentRepository = commentRepository;
+        this.reportRepository = reportRepository;
+    }
 
     public ActivityLogServiceImpl(ActivityLogRepository logRepository,
                                   ContentRepository contentRepository,
                                   CommentRepository commentRepository) {
-        this.logRepository = logRepository;
-        this.contentRepository = contentRepository;
-        this.commentRepository = commentRepository;
+        this(logRepository, contentRepository, commentRepository, null);
     }
 
     @Override
@@ -86,6 +100,7 @@ public class ActivityLogServiceImpl implements ActivityLogService {
             log.setResolved(true);
             log.setResolvedAt(LocalDateTime.now());
             log = logRepository.save(log);
+            resolveReportEntity(log, actor);
         }
         return toResponse(log);
     }
@@ -99,6 +114,9 @@ public class ActivityLogServiceImpl implements ActivityLogService {
         ActivityLog log = logRepository.findById(id)
                 .filter(ActivityLog::isReportQueue)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report tidak ditemukan"));
+        if (reportRepository != null) {
+            reportRepository.deleteByActivityLogId(log.getId());
+        }
         logRepository.delete(log);
     }
 
@@ -164,7 +182,9 @@ public class ActivityLogServiceImpl implements ActivityLogService {
         } else {
             setTargetUser(log, content.getUser());
         }
-        return logRepository.save(log);
+        ActivityLog saved = logRepository.save(log);
+        saveReportEntity(saved, reporter, content, comment);
+        return saved;
     }
 
     @Override
@@ -312,6 +332,39 @@ public class ActivityLogServiceImpl implements ActivityLogService {
 
     private String sanitize(String value) {
         return trim(Jsoup.clean(value == null ? "" : value, Safelist.none()).trim(), MAX_MESSAGE_LENGTH);
+    }
+
+    private void saveReportEntity(ActivityLog log, User reporter, Content content, Comment comment) {
+        if (reportRepository == null || log == null) {
+            return;
+        }
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+        report.setActivityLogId(log.getId());
+        report.setReporterUserId(reporter.getUserID());
+        report.setReporterName(reporter.getName());
+        report.setTargetUserId(log.getTargetUserId());
+        report.setTargetUserName(log.getTargetUserName());
+        report.setContentId(content.getIdContent());
+        report.setContentTitle(content.getHead());
+        report.setCommentId(comment == null ? null : comment.getId());
+        report.setCategory(log.getReportCategory());
+        report.setReason(log.getReason());
+        report.setStatus(ReportStatus.OPEN);
+        report.setCreatedAt(log.getCreatedAt());
+        reportRepository.save(report);
+    }
+
+    private void resolveReportEntity(ActivityLog log, User actor) {
+        if (reportRepository == null || log == null) {
+            return;
+        }
+        reportRepository.findByActivityLogId(log.getId()).ifPresent(report -> {
+            report.setStatus(ReportStatus.RESOLVED);
+            report.setResolvedAt(log.getResolvedAt());
+            report.setResolvedByUserId(actor == null ? null : actor.getUserID());
+            reportRepository.save(report);
+        });
     }
 
     private String normalizeReportCategory(String category) {

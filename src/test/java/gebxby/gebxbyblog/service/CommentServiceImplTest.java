@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -78,6 +79,7 @@ class CommentServiceImplTest {
     void addCommentSanitizesBodyAndIncrementsCount() {
         when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CommentResponse response = commentService.addComment(
                 content.getIdContent(),
@@ -137,6 +139,7 @@ class CommentServiceImplTest {
         when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(commentRepository.findByIdAndContentId(parent.getId(), content.getIdContent())).thenReturn(Optional.of(parent));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CommentResponse response = commentService.addComment(
                 content.getIdContent(),
@@ -155,6 +158,7 @@ class CommentServiceImplTest {
         when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(userService.isAdmin(admin)).thenReturn(true);
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CommentResponse response = commentService.addComment(
                 content.getIdContent(),
@@ -170,6 +174,7 @@ class CommentServiceImplTest {
     void deleteCommentAllowsOwnerAndSoftDeletes() {
         when(commentRepository.findByIdAndContentId(parent.getId(), content.getIdContent())).thenReturn(Optional.of(parent));
         when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         commentService.deleteComment(content.getIdContent(), parent.getId(), author);
 
@@ -207,5 +212,26 @@ class CommentServiceImplTest {
 
         assertEquals(1, thread.size());
         assertEquals(1, thread.getFirst().replies().size());
+    }
+
+    @Test
+    void findThreadPagePaginatesRootCommentsAndKeepsReplies() {
+        Comment reply = new Comment();
+        reply.setId(UUID.randomUUID());
+        reply.setContentId(content.getIdContent());
+        reply.setParentId(parent.getId());
+        reply.setUser(author);
+        reply.setBody("Reply");
+        reply.setCreatedAt(LocalDateTime.now().plusMinutes(1));
+
+        when(commentRepository.findByContentIdAndParentIdIsNullOrderByCreatedAtAsc(eq(content.getIdContent()), any(Pageable.class)))
+                .thenReturn(List.of(parent));
+        when(commentRepository.findByContentIdAndParentIdInOrderByCreatedAtAsc(eq(content.getIdContent()), any()))
+                .thenReturn(List.of(reply), List.of());
+
+        var page = commentService.findThreadPage(content.getIdContent(), 0, 10);
+
+        assertEquals(1, page.items().size());
+        assertEquals(1, page.items().getFirst().replies().size());
     }
 }

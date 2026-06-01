@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ContentResponse;
+import gebxby.gebxbyblog.dto.ContentSummaryResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.PublicUserResponse;
@@ -19,6 +20,8 @@ import java.util.UUID;
 
 @Component
 public class ForumMapper {
+    private static final int SUMMARY_BODY_LIMIT = 360;
+
     private final BadgeService badgeService;
     private final ProfileCardService profileCardService;
 
@@ -99,6 +102,26 @@ public class ForumMapper {
         );
     }
 
+    public ContentSummaryResponse toContentSummaryResponse(Content content, VoteDirection userVote) {
+        return new ContentSummaryResponse(
+                content.getIdContent(),
+                content.getHead(),
+                content.getSubtitle(),
+                summarizeBody(content.getParagrafs()),
+                toCoverImageResponse(content.getImages()),
+                toPublicUser(content.getUser()),
+                content.getKategori(),
+                content.getCreatedAt(),
+                content.getUpdatedAt(),
+                content.getViewCount(),
+                content.getUpCount(),
+                content.getDownCount(),
+                content.getCommentCount(),
+                userVote == null ? VoteDirection.NONE : userVote,
+                content.getStatus() == null ? "PUBLISHED" : content.getStatus()
+        );
+    }
+
     private ContentImageResponse toCoverImageResponse(List<ContentImage> images) {
         if (images == null || images.isEmpty()) {
             return null;
@@ -150,5 +173,16 @@ public class ForumMapper {
                 commentCount,
                 userVote == null ? VoteDirection.NONE : userVote
         );
+    }
+
+    private String summarizeBody(String value) {
+        if (value == null || value.length() <= SUMMARY_BODY_LIMIT) {
+            return value;
+        }
+        int end = Math.max(0, value.lastIndexOf(' ', SUMMARY_BODY_LIMIT));
+        if (end < 80) {
+            end = SUMMARY_BODY_LIMIT;
+        }
+        return value.substring(0, end).trim() + "...";
     }
 }

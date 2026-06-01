@@ -84,6 +84,7 @@ export function RealtimeProvider({ user, children }: { user: CurrentUser | null;
                 return;
             }
             void queryClient.invalidateQueries({ queryKey: ['content-comments', payload.contentId] });
+            void queryClient.invalidateQueries({ queryKey: ['content-comments-page', payload.contentId] });
             void queryClient.invalidateQueries({ queryKey: ['content-stats', payload.contentId] });
             void queryClient.invalidateQueries({ queryKey: ['feed-page'] });
         }

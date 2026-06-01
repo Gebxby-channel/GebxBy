@@ -3,6 +3,7 @@ package gebxby.gebxbyblog.controller;
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
+import gebxby.gebxbyblog.service.LoginRateLimiter;
 import gebxby.gebxbyblog.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,8 @@ class AuthControllerTest {
     private UserService userService;
     @MockitoBean
     private ForumMapper mapper;
+    @MockitoBean
+    private LoginRateLimiter loginRateLimiter;
 
     @Test
     void emailLoginStoresManualAuthenticationAndReturnsUser() throws Exception {

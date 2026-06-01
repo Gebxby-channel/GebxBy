@@ -4,10 +4,14 @@ import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
 import gebxby.gebxbyblog.dto.SignupRequest;
 import gebxby.gebxbyblog.dto.UsernameCheckResponse;
 import gebxby.gebxbyblog.model.BadgeCode;
+import gebxby.gebxbyblog.model.Bookmark;
 import gebxby.gebxbyblog.model.Content;
+import gebxby.gebxbyblog.model.Follow;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.repository.BookmarkRepository;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
+import gebxby.gebxbyblog.repository.FollowRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +52,8 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UsernameService usernameService;
     private final UserProfileProjectionService profileProjectionService;
+    private final BookmarkRepository bookmarkRepository;
+    private final FollowRepository followRepository;
 
     @Autowired
     public UserServiceImpl(UserRepository userRepository,
@@ -58,7 +64,9 @@ public class UserServiceImpl implements UserService {
                            @Value("${app.admin-login-password-hash:}") String adminLoginPasswordHash,
                            PasswordEncoder passwordEncoder,
                            UsernameService usernameService,
-                           UserProfileProjectionService profileProjectionService) {
+                           UserProfileProjectionService profileProjectionService,
+                           BookmarkRepository bookmarkRepository,
+                           FollowRepository followRepository) {
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
         this.commentRepository = commentRepository;
@@ -72,6 +80,8 @@ public class UserServiceImpl implements UserService {
         this.passwordEncoder = passwordEncoder;
         this.usernameService = usernameService;
         this.profileProjectionService = profileProjectionService;
+        this.bookmarkRepository = bookmarkRepository;
+        this.followRepository = followRepository;
     }
 
     public UserServiceImpl(UserRepository userRepository,
@@ -83,7 +93,7 @@ public class UserServiceImpl implements UserService {
                            PasswordEncoder passwordEncoder) {
         this(userRepository, contentRepository, commentRepository, adminEmails, adminLoginEmail,
                 adminLoginPasswordHash, passwordEncoder, new UsernameService(userRepository),
-                new UserProfileProjectionService(contentRepository, commentRepository));
+                new UserProfileProjectionService(contentRepository, commentRepository), null, null);
     }
 
     @Override
@@ -329,6 +339,13 @@ public class UserServiceImpl implements UserService {
         if (!userRepository.existsById(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan");
         }
+        if (bookmarkRepository != null) {
+            bookmarkRepository.deleteByUserId(userId);
+        }
+        if (followRepository != null) {
+            followRepository.deleteByFollowerUserId(userId);
+            followRepository.deleteByTargetUserId(userId);
+        }
         userRepository.deleteById(userId);
     }
 
@@ -337,6 +354,14 @@ public class UserServiceImpl implements UserService {
         ensureActive(user);
         if (!contentRepository.existsById(contentId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan");
+        }
+        if (bookmarkRepository != null && bookmarkRepository.findByUserIdAndContentId(user.getUserID(), contentId).isEmpty()) {
+            Bookmark bookmark = new Bookmark();
+            bookmark.setId(Bookmark.buildId(user.getUserID(), contentId));
+            bookmark.setUserId(user.getUserID());
+            bookmark.setContentId(contentId);
+            bookmark.setCreatedAt(LocalDateTime.now());
+            bookmarkRepository.save(bookmark);
         }
         Set<UUID> bookmarks = new LinkedHashSet<>(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
         bookmarks.add(contentId);
@@ -348,6 +373,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public User removeBookmark(UUID contentId, User user) {
         ensureActive(user);
+        if (bookmarkRepository != null) {
+            bookmarkRepository.deleteByUserIdAndContentId(user.getUserID(), contentId);
+        }
         Set<UUID> bookmarks = new LinkedHashSet<>(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
         bookmarks.remove(contentId);
         user.setBookmarkedContentIds(bookmarks);
@@ -358,13 +386,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<Content> getBookmarkedContents(User user) {
         ensureActive(user);
-        List<UUID> ids = new ArrayList<>(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
+        LinkedHashSet<UUID> orderedIds = new LinkedHashSet<>();
+        if (bookmarkRepository != null) {
+            bookmarkRepository.findByUserIdOrderByCreatedAtDesc(user.getUserID()).stream()
+                    .map(Bookmark::getContentId)
+                    .filter(java.util.Objects::nonNull)
+                    .forEach(orderedIds::add);
+        }
+        orderedIds.addAll(user.getBookmarkedContentIds() == null ? Set.of() : user.getBookmarkedContentIds());
+        List<UUID> ids = new ArrayList<>(orderedIds);
         if (ids.isEmpty()) {
             return List.of();
         }
         List<Content> contents = contentRepository.findAllById(ids);
         contents.sort(Comparator.comparingInt(content -> ids.indexOf(content.getIdContent())));
-        return contents.reversed();
+        return contents;
     }
 
     @Override
@@ -376,6 +412,14 @@ public class UserServiceImpl implements UserService {
         if (!userRepository.existsById(targetUserId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan");
         }
+        if (followRepository != null && followRepository.findByFollowerUserIdAndTargetUserId(user.getUserID(), targetUserId).isEmpty()) {
+            Follow follow = new Follow();
+            follow.setId(Follow.buildId(user.getUserID(), targetUserId));
+            follow.setFollowerUserId(user.getUserID());
+            follow.setTargetUserId(targetUserId);
+            follow.setCreatedAt(LocalDateTime.now());
+            followRepository.save(follow);
+        }
         Set<UUID> following = new LinkedHashSet<>(user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds());
         following.add(targetUserId);
         user.setFollowingUserIds(following);
@@ -386,6 +430,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public User unfollowUser(UUID targetUserId, User user) {
         ensureActive(user);
+        if (followRepository != null) {
+            followRepository.deleteByFollowerUserIdAndTargetUserId(user.getUserID(), targetUserId);
+        }
         Set<UUID> following = new LinkedHashSet<>(user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds());
         following.remove(targetUserId);
         user.setFollowingUserIds(following);
@@ -396,7 +443,14 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<User> getFollowingUsers(User user) {
         ensureActive(user);
-        Set<UUID> following = user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds();
+        LinkedHashSet<UUID> following = new LinkedHashSet<>();
+        if (followRepository != null) {
+            followRepository.findByFollowerUserIdOrderByCreatedAtDesc(user.getUserID()).stream()
+                    .map(Follow::getTargetUserId)
+                    .filter(java.util.Objects::nonNull)
+                    .forEach(following::add);
+        }
+        following.addAll(user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds());
         if (following.isEmpty()) {
             return List.of();
         }

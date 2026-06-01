@@ -8,9 +8,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collection;
 
 public interface ContentVoteRepository extends MongoRepository<ContentVote, String> {
     Optional<ContentVote> findByContentIdAndUserId(UUID contentId, UUID userId);
+
+    List<ContentVote> findByContentIdInAndUserId(Collection<UUID> contentIds, UUID userId);
 
     List<ContentVote> findByUserId(UUID userId);
 

@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
+import gebxby.gebxbyblog.dto.VoteBatchResponse;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.ContentImage;
 import gebxby.gebxbyblog.model.ContentVote;
@@ -307,6 +308,24 @@ class ContentServiceImplTest {
         assertEquals(0, response.upCount());
         assertEquals(VoteDirection.NONE, response.userVote());
         verify(voteRepository).delete(vote);
+    }
+
+    @Test
+    void batchVotesReturnsStatsAndViewerVotesInOneCall() {
+        ContentVote vote = new ContentVote();
+        vote.setContentId(content.getIdContent());
+        vote.setUserId(author.getUserID());
+        vote.setVote(VoteDirection.UP);
+
+        when(voteRepository.findByContentIdInAndUserId(anyCollection(), eq(author.getUserID()))).thenReturn(List.of(vote));
+        when(contentRepository.findAllById(anyCollection())).thenReturn(List.of(content));
+        when(commentRepository.countByContentIdAndDeletedFalse(content.getIdContent())).thenReturn(2L);
+
+        VoteBatchResponse response = contentService.batchVotes(List.of(content.getIdContent()), author);
+
+        assertEquals(1, response.items().size());
+        assertEquals(VoteDirection.UP, response.items().getFirst().userVote());
+        assertEquals(2, response.items().getFirst().commentCount());
     }
 
     @Test

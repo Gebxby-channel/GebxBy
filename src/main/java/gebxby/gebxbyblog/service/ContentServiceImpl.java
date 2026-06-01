@@ -6,6 +6,7 @@ import gebxby.gebxbyblog.dto.ContentRequest;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.FeedResponse;
+import gebxby.gebxbyblog.dto.VoteBatchResponse;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.ContentVote;
 import gebxby.gebxbyblog.model.User;
@@ -27,8 +28,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -57,6 +61,8 @@ public class ContentServiceImpl implements ContentService {
     private final ContentFeedService feedService;
     private final ContentAnalyticsService analyticsService;
     private final ArticleContentPolicy articlePolicy;
+    private final ContentCounterService counterService;
+    private final ValidReadTrackingService readTrackingService;
     private volatile CacheEntry<List<String>> categoriesCache;
 
     @Autowired
@@ -72,7 +78,9 @@ public class ContentServiceImpl implements ContentService {
                               @Value("${app.max-upload-bytes:5242880}") long maxUploadBytes,
                               ContentFeedService feedService,
                               ContentAnalyticsService analyticsService,
-                              ArticleContentPolicy articlePolicy) {
+                              ArticleContentPolicy articlePolicy,
+                              ContentCounterService counterService,
+                              ValidReadTrackingService readTrackingService) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
@@ -83,6 +91,8 @@ public class ContentServiceImpl implements ContentService {
         this.feedService = feedService;
         this.analyticsService = analyticsService;
         this.articlePolicy = articlePolicy;
+        this.counterService = counterService;
+        this.readTrackingService = readTrackingService;
     }
 
     public ContentServiceImpl(ContentRepository contentRepository,
@@ -98,7 +108,9 @@ public class ContentServiceImpl implements ContentService {
                 mediaPipelineService, null, mapper, activityLogService, maxUploadBytes,
                 new ContentFeedService(contentRepository, voteRepository, commentRepository, mapper),
                 new ContentAnalyticsService(contentRepository, voteRepository, userRepository, mapper),
-                new ArticleContentPolicy(mediaPipelineService, maxUploadBytes));
+                new ArticleContentPolicy(mediaPipelineService, maxUploadBytes),
+                new ContentCounterService(contentRepository, null),
+                new ValidReadTrackingService(null));
     }
 
     @Override
@@ -208,23 +220,32 @@ public class ContentServiceImpl implements ContentService {
         Content content = getContentOrThrow(id);
         requirePublishedOrDraftAccess(content, viewer);
         if (incrementView) {
-            content.setViewCount(content.getViewCount() + 1);
-            content.setUpdatedAt(LocalDateTime.now());
-            content = contentRepository.save(content);
+            content = counterService.incrementView(id);
+            if (content == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan");
+            }
         }
         return mapper.toContentResponse(content, resolveUserVote(id, viewer), true);
     }
 
     @Override
     public ContentStatsResponse recordView(UUID id, User viewer) {
+        return recordView(id, viewer, null);
+    }
+
+    @Override
+    public ContentStatsResponse recordView(UUID id, User viewer, String readerKey) {
         Content content = getContentOrThrow(id);
         requirePublishedOrDraftAccess(content, viewer);
         if (isDraft(content)) {
             return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), resolveUserVote(id, viewer));
         }
-        content.setViewCount(content.getViewCount() + 1);
-        content.setUpdatedAt(LocalDateTime.now());
-        content = contentRepository.save(content);
+        if (readTrackingService.claimRead(id, viewer, readerKey)) {
+            Content updated = counterService.incrementView(id);
+            if (updated != null) {
+                content = updated;
+            }
+        }
         return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), resolveUserVote(id, viewer));
     }
 
@@ -270,16 +291,30 @@ public class ContentServiceImpl implements ContentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Draft belum bisa divote");
         }
         Optional<ContentVote> existing = voteRepository.findByContentIdAndUserId(id, voter.getUserID());
+        int upDelta = 0;
+        int downDelta = 0;
 
         if (existing.isPresent()) {
             ContentVote current = existing.get();
             if (requestedVote == VoteDirection.NONE || current.getVote() == requestedVote) {
-                applyVoteDelta(content, current.getVote(), -1);
+                if (current.getVote() == VoteDirection.UP) {
+                    upDelta--;
+                } else if (current.getVote() == VoteDirection.DOWN) {
+                    downDelta--;
+                }
                 voteRepository.delete(current);
                 requestedVote = VoteDirection.NONE;
             } else {
-                applyVoteDelta(content, current.getVote(), -1);
-                applyVoteDelta(content, requestedVote, 1);
+                if (current.getVote() == VoteDirection.UP) {
+                    upDelta--;
+                } else if (current.getVote() == VoteDirection.DOWN) {
+                    downDelta--;
+                }
+                if (requestedVote == VoteDirection.UP) {
+                    upDelta++;
+                } else if (requestedVote == VoteDirection.DOWN) {
+                    downDelta++;
+                }
                 current.setVote(requestedVote);
                 current.setCreatedAt(LocalDateTime.now());
                 current.setUpdatedAt(LocalDateTime.now());
@@ -294,13 +329,52 @@ public class ContentServiceImpl implements ContentService {
             newVote.setCreatedAt(LocalDateTime.now());
             newVote.setUpdatedAt(LocalDateTime.now());
             voteRepository.save(newVote);
-            applyVoteDelta(content, requestedVote, 1);
+            if (requestedVote == VoteDirection.UP) {
+                upDelta++;
+            } else if (requestedVote == VoteDirection.DOWN) {
+                downDelta++;
+            }
         }
 
-        content.setUpdatedAt(LocalDateTime.now());
-        content = contentRepository.save(content);
+        if (upDelta != 0 || downDelta != 0) {
+            Content updated = counterService.incrementVotes(id, upDelta, downDelta);
+            if (updated != null) {
+                content = updated;
+            }
+        }
         analyticsService.invalidate();
         return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), requestedVote);
+    }
+
+    @Override
+    public VoteBatchResponse batchVotes(Collection<UUID> contentIds, User viewer) {
+        if (contentIds == null || contentIds.isEmpty()) {
+            return new VoteBatchResponse(List.of());
+        }
+        List<UUID> ids = contentIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .limit(100)
+                .toList();
+        Map<UUID, VoteDirection> votesByContent = new HashMap<>();
+        if (viewer != null && viewer.getUserID() != null) {
+            voteRepository.findByContentIdInAndUserId(ids, viewer.getUserID())
+                    .forEach(vote -> votesByContent.put(vote.getContentId(), vote.getVote()));
+        }
+        Map<UUID, Content> contentsById = new HashMap<>();
+        contentRepository.findAllById(ids)
+                .forEach(content -> contentsById.put(content.getIdContent(), content));
+        List<ContentStatsResponse> stats = ids.stream()
+                .map(contentsById::get)
+                .filter(java.util.Objects::nonNull)
+                .filter(content -> isPublished(content) || canViewDraft(content, viewer))
+                .map(content -> mapper.toStatsResponse(
+                        content,
+                        commentRepository.countByContentIdAndDeletedFalse(content.getIdContent()),
+                        votesByContent.getOrDefault(content.getIdContent(), VoteDirection.NONE)
+                ))
+                .toList();
+        return new VoteBatchResponse(stats);
     }
 
     @Override
@@ -380,14 +454,6 @@ public class ContentServiceImpl implements ContentService {
         return voteRepository.findByContentIdAndUserId(contentId, viewer.getUserID())
                 .map(ContentVote::getVote)
                 .orElse(VoteDirection.NONE);
-    }
-
-    private void applyVoteDelta(Content content, VoteDirection vote, int delta) {
-        if (vote == VoteDirection.UP) {
-            content.setUpCount(Math.max(0, content.getUpCount() + delta));
-        } else if (vote == VoteDirection.DOWN) {
-            content.setDownCount(Math.max(0, content.getDownCount() + delta));
-        }
     }
 
     private void invalidateContentCaches() {

@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,13 +57,14 @@ class ContentControllerSecurityTest {
     }
 
     @Test
-    void voteDoesNotRequireCsrfTokenForAllowedSpaOrigin() throws Exception {
+    void voteAllowsAllowedSpaOriginWithCsrfToken() throws Exception {
         when(userService.getCurrentUser(any())).thenReturn(user);
         when(contentService.vote(eq(contentId), eq(VoteDirection.UP), eq(user)))
                 .thenReturn(new ContentStatsResponse(contentId, 0, 1, 0, 0, VoteDirection.UP));
 
         mockMvc.perform(post("/content/{id}/vote", contentId)
                         .with(oauth2Login())
+                        .with(csrf())
                         .header("Origin", "http://localhost:5173")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"vote\":\"UP\"}"))
@@ -70,7 +72,7 @@ class ContentControllerSecurityTest {
     }
 
     @Test
-    void commentDoesNotRequireCsrfTokenForAllowedSpaOrigin() throws Exception {
+    void commentAllowsAllowedSpaOriginWithCsrfToken() throws Exception {
         when(userService.getCurrentUser(any())).thenReturn(user);
         when(commentService.addComment(eq(contentId), any(), eq(user))).thenReturn(new CommentResponse(
                 UUID.randomUUID(),
@@ -87,6 +89,7 @@ class ContentControllerSecurityTest {
 
         mockMvc.perform(post("/content/{id}/comments", contentId)
                         .with(oauth2Login())
+                        .with(csrf())
                         .header("Origin", "http://localhost:5173")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"body\":\"hello\"}"))

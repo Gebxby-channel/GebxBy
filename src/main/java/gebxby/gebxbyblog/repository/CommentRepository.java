@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.repository;
 
 import gebxby.gebxbyblog.model.Comment;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
@@ -11,6 +12,14 @@ import java.util.UUID;
 
 public interface CommentRepository extends MongoRepository<Comment, UUID> {
     List<Comment> findByContentIdOrderByCreatedAtAsc(UUID contentId);
+
+    List<Comment> findByContentIdAndParentIdOrderByCreatedAtAsc(UUID contentId, UUID parentId, Pageable pageable);
+
+    List<Comment> findByContentIdAndParentIdIsNullOrderByCreatedAtAsc(UUID contentId, Pageable pageable);
+
+    long countByContentIdAndParentIdIsNull(UUID contentId);
+
+    List<Comment> findByContentIdAndParentIdInOrderByCreatedAtAsc(UUID contentId, List<UUID> parentIds);
 
     Optional<Comment> findByIdAndContentId(UUID id, UUID contentId);
 
