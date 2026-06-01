@@ -21,10 +21,12 @@ function CustomProfileCard({ user, card }: { user: CurrentUser | PublicUser; car
 
     return (
         <div className={`profile-card-stage relative w-full max-w-[620px] overflow-hidden border border-[#2a2a2a] bg-[#111] shadow-2xl [container-type:inline-size] ${aspect}`}>
-            <img src={card.backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={card.backgroundImage} alt="" width={620} height={392} className="absolute inset-0 h-full w-full object-cover" />
             <img
                 src={avatar}
                 alt=""
+                width={180}
+                height={180}
                 className="absolute object-cover"
                 style={{
                     left: `${layout.photoX}%`,

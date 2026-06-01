@@ -77,6 +77,10 @@ export async function logout() {
   invalidateApiCache();
 }
 
+export function isRequestCanceled(error: unknown) {
+  return axios.isCancel(error) || (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ERR_CANCELED');
+}
+
 export function oauthLoginUrl() {
   return `${API_BASE_URL}/oauth2/authorization/google`;
 }

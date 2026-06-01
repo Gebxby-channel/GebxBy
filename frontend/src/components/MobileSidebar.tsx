@@ -58,6 +58,8 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                             <img
                                 src={user.picture || defaultAvatar}
                                 alt="Profile"
+                                width={44}
+                                height={44}
                                 className="h-full w-full object-cover"
                                 referrerPolicy="no-referrer"
                                 onError={(event) => { event.currentTarget.src = defaultAvatar; }}

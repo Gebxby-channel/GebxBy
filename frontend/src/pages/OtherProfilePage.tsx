@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BadgeCheck, Ban, Eye, Flag, ShieldAlert, Trash2, UserMinus, UserPlus, X } from 'lucide-react';
-import api, { cachedGet, invalidateApiCache } from '../lib/api';
+import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { getCategoryColor } from '../utils/categoryColors';
 import { stripHtml } from '../utils/sanitize';
@@ -30,13 +30,13 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const navigate = useNavigate();
     const isMyOwnProfile = String(user?.userID) === String(userId);
 
-    const fetchProfileData = useCallback(async (targetUserId: string, force = false) => {
+    const fetchProfileData = useCallback(async (targetUserId: string, force = false, signal?: AbortSignal) => {
         const [profileRes, contentRes] = await Promise.all([
-            cachedGet<PublicUser>(`/api/user/${targetUserId}`, undefined, {
+            cachedGet<PublicUser>(`/api/user/${targetUserId}`, { signal }, {
                 ttlMs: 2 * 60_000,
                 force,
             }),
-            cachedGet<ContentItem[]>(`/content/by-user/${targetUserId}`, undefined, {
+            cachedGet<ContentItem[]>(`/content/by-user/${targetUserId}`, { signal }, {
                 ttlMs: 60_000,
                 scope: user?.userID ?? 'guest',
                 force,
@@ -48,7 +48,14 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
 
     useEffect(() => {
         if (!userId) return;
-        void fetchProfileData(userId);
+        const controller = new AbortController();
+        void fetchProfileData(userId, false, controller.signal).catch((error) => {
+            if (!isRequestCanceled(error)) {
+                setViewedUser(null);
+                setContents([]);
+            }
+        });
+        return () => controller.abort();
     }, [fetchProfileData, userId]);
 
     const displayUser = isMyOwnProfile && user ? user : viewedUser;
@@ -383,7 +390,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                             <div>
                                 <p className="m-0 text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">{getDialogEyebrow(dialog)}</p>
                                 <h2 className="m-0 mt-2 text-xl font-black uppercase tracking-widest text-white">{getDialogTitle(dialog)}</h2>
-                                <p className="m-0 mt-1 text-[10px] uppercase text-[#777]">Target: {displayUser.name}</p>
+                        <p className="m-0 mt-1 text-[10px] uppercase text-[#777]">Target: {displayUser.name} {displayUser.username ? `// @${displayUser.username}` : ''}</p>
                             </div>
                             <button
                                 type="button"
@@ -402,6 +409,9 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                     Laporan moderator akan masuk ke log admin dan bisa dibaca sebagai pesan detail.
                                 </p>
                                 <textarea
+                                    id="moderator-report-message"
+                                    name="moderatorReportMessage"
+                                    aria-label="Moderator report message"
                                     value={reportMessage}
                                     onChange={(event) => setReportMessage(event.target.value)}
                                     rows={5}
@@ -457,6 +467,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                     </label>
                                     <select
                                         id="profile-badge-select"
+                                        name="profileBadgeSelect"
+                                        aria-label="Profile badge selection"
                                         value={selectedBadge}
                                         onChange={(event) => setSelectedBadge(event.target.value as BadgeCode)}
                                         className="h-11 w-full border border-[#333] bg-[#090909] px-3 text-sm font-black text-white outline-none focus:border-[#e60000]"
@@ -508,7 +520,7 @@ function DefaultPublicProfileCard({ displayUser, defaultAvatar }: { displayUser:
     return (
         <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
             <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4 text-center">
-                <img src={logo} alt="STARS" className="mb-2 w-[80%]" />
+                <img src={logo} alt="STARS" width={180} height={180} className="mb-2 w-[80%]" />
                 <h2 className="text-[10px] font-black uppercase leading-tight text-white">SPECIAL TACTICS AND RESCUE SERVICE</h2>
             </div>
 
@@ -523,7 +535,7 @@ function DefaultPublicProfileCard({ displayUser, defaultAvatar }: { displayUser:
 
                 <div className="space-y-4">
                     <ProfileField label="Officer Name" value={displayUser?.name || 'N/A'} />
-                    <ProfileField label="Designation" value={displayUser?.designation || 'ACCESS_RESTRICTED'} />
+                    <ProfileField label={displayUser?.username ? 'Username' : 'Designation'} value={displayUser?.username ? `@${displayUser.username}` : displayUser?.designation || 'ACCESS_RESTRICTED'} />
                 </div>
 
                 <div className="flex items-end justify-between gap-3">
@@ -531,6 +543,8 @@ function DefaultPublicProfileCard({ displayUser, defaultAvatar }: { displayUser:
                         <img
                             src={displayUser?.picture || defaultAvatar}
                             alt="Photo"
+                            width={80}
+                            height={96}
                             className="h-full w-full object-cover grayscale contrast-125"
                             onError={(event) => { event.currentTarget.src = defaultAvatar; }}
                             referrerPolicy="no-referrer"

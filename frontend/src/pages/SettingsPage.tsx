@@ -65,6 +65,9 @@ export default function SettingsPage({
                 <div className="flex flex-col gap-3 md:flex-row md:items-center">
                     <label className="flex h-11 cursor-pointer items-center gap-3 border border-[#333] px-4 font-mono text-[10px] font-black uppercase tracking-widest text-[#aaa]">
                         <input
+                            id="settings-music-enabled"
+                            name="musicEnabled"
+                            aria-label="Toggle background music"
                             type="checkbox"
                             checked={musicEnabled}
                             onChange={(event) => onMusicEnabledChange(event.target.checked)}
@@ -73,6 +76,9 @@ export default function SettingsPage({
                         Music {musicEnabled ? 'On' : 'Off'}
                     </label>
                     <select
+                        id="settings-music-track"
+                        name="musicTrack"
+                        aria-label="Music track"
                         value={musicTrackId}
                         onChange={(event) => onMusicTrackChange(event.target.value)}
                         disabled={MUSIC_TRACKS.length === 0}

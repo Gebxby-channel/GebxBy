@@ -75,6 +75,7 @@ export interface ProfileCardItem {
 export interface PublicUser {
   userID: string;
   name: string;
+  username?: string;
   picture?: string;
   designation?: string;
   moto?: string;

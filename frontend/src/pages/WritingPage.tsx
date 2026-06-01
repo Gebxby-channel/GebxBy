@@ -281,6 +281,9 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
                 <div className="space-y-6">
                     <input
+                        id="writing-title"
+                        name="writingTitle"
+                        aria-label="Writing title"
                         className="w-full border-b border-[#222] bg-transparent py-2 text-4xl font-black text-white outline-none transition-colors focus:border-[#e60000]"
                         placeholder="SUBJECT TITLE..."
                         value={title}
@@ -290,6 +293,9 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <select
+                            id="writing-category"
+                            name="writingCategory"
+                            aria-label="Writing category"
                             className="cursor-pointer border border-[#333] bg-[#1a1a1a] p-3 text-xs font-bold uppercase outline-none focus:border-[#e60000]"
                             value={selectedKategori}
                             onChange={(event) => setSelectedKategori(event.target.value)}
@@ -314,6 +320,8 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                     ) : (
                         <div className="border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#e60000]">
                             <input
+                                name="docxFile"
+                                aria-label="Upload DOCX file"
                                 type="file"
                                 accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 id="fileInput"
@@ -436,7 +444,7 @@ function ArticlePreview({
                 <div className="grid gap-3 border-t border-[#252525] p-5 md:grid-cols-2">
                     {images.map((image) => (
                         <figure key={image.id} className="m-0 border border-[#333] bg-black">
-                            <img src={image.data} alt={image.alt} className="max-h-80 w-full object-contain" />
+                            <img src={image.data} alt={image.alt} width={image.width} height={image.height} className="max-h-80 w-full object-contain" />
                             <figcaption className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#777]">
                                 {image.alt || 'Attached visual'}
                             </figcaption>
@@ -588,6 +596,8 @@ function ImageAttachmentPanel({
                 </div>
                 <input
                     id="imageAttachments"
+                    name="imageAttachments"
+                    aria-label="Attach writing images"
                     type="file"
                     className="hidden"
                     accept="image/png,image/jpeg,image/webp"
@@ -616,9 +626,12 @@ function ImageAttachmentPanel({
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                     {images.map(image => (
                         <figure key={image.id} className="relative m-0 border border-[#333] bg-black">
-                            <img src={image.data} alt={image.alt} className="h-32 w-full object-cover" />
+                            <img src={image.data} alt={image.alt} width={image.width} height={image.height} className="h-32 w-full object-cover" />
                             <figcaption className="border-t border-[#222] px-2 py-2 text-[9px] uppercase text-[#777]">
                                 <input
+                                    id={`image-caption-${image.id}`}
+                                    name={`imageCaption-${image.id}`}
+                                    aria-label="Image caption"
                                     value={image.alt}
                                     onChange={(event) => onAltChange(image.id, event.target.value)}
                                     className="mb-2 w-full border border-[#222] bg-[#0b0b0b] px-2 py-1 font-mono text-[9px] uppercase text-white outline-none focus:border-[#e60000]"

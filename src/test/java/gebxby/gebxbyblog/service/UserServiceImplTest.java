@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.dto.SignupRequest;
 import gebxby.gebxbyblog.model.BadgeCode;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
@@ -72,6 +73,21 @@ class UserServiceImplTest {
         assertNotNull(user.getUserID());
         assertEquals("ADMIN", user.getRole());
         assertEquals("RECONNAISSANCE OFFICER", user.getDesignation());
+        assertNotNull(user.getUsername());
+    }
+
+    @Test
+    void processUserLoginBackfillsGebxbyUsernameOnce() {
+        OAuth2User principal = principal("google-gebxby", "gebxby@example.com", "Gebxby", "photo.png");
+        when(userRepository.findByGoogleId("google-gebxby")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("gebxby@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameNormalized("gebxby")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User user = userService.processUserLogin(principal);
+
+        assertEquals("Gebxby", user.getUsername());
+        assertEquals("gebxby", user.getUsernameNormalized());
     }
 
     @Test
@@ -189,6 +205,33 @@ class UserServiceImplTest {
         assertEquals("admin@example.com", admin.getEmail());
         assertEquals("ADMIN", admin.getRole());
         assertEquals("manual:admin@example.com", admin.getGoogleId());
+    }
+
+    @Test
+    void registerWithEmailCreatesPasswordUserWithAvailableUsername() {
+        when(userRepository.findByEmail("jill@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameNormalized("jill_valentine")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User user = userService.registerWithEmail(new SignupRequest(
+                "Jill Valentine",
+                "jill@example.com",
+                "supersecret",
+                "jill_valentine"
+        ));
+
+        assertEquals("jill@example.com", user.getEmail());
+        assertEquals("jill_valentine", user.getUsernameNormalized());
+        assertTrue(passwordEncoder.matches("supersecret", user.getPasswordHash()));
+    }
+
+    @Test
+    void checkUsernameRejectsReservedAndTakenNames() {
+        when(userRepository.existsByUsernameNormalized("jill")).thenReturn(true);
+
+        assertFalse(userService.checkUsername("admin").available());
+        assertFalse(userService.checkUsername("jill").available());
+        assertTrue(userService.checkUsername("jill_valentine").available());
     }
 
     @Test

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bell, CheckCheck, MessageSquare, ShieldAlert } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import type { NotificationItem } from '../types/forum';
@@ -7,39 +8,32 @@ import LoadingSpinner from './LoadingSpinner';
 
 export default function NotificationBell() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const panelRef = useRef<HTMLDivElement | null>(null);
     const [open, setOpen] = useState(false);
-    const [items, setItems] = useState<NotificationItem[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [loading, setLoading] = useState(false);
-
-    const fetchUnread = async () => {
-        try {
-            const response = await api.get<{ count: number }>('/api/notifications/unread-count');
-            setUnreadCount(response.data.count ?? 0);
-        } catch {
-            setUnreadCount(0);
-        }
-    };
-
-    const fetchItems = async () => {
-        setLoading(true);
-        try {
-            const response = await api.get<NotificationItem[]>('/api/notifications', { params: { limit: 30 } });
-            setItems(Array.isArray(response.data) ? response.data : []);
-            await fetchUnread();
-        } catch {
-            setItems([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        void fetchUnread();
-        const timer = window.setInterval(() => void fetchUnread(), 30000);
-        return () => window.clearInterval(timer);
-    }, []);
+    const unreadQuery = useQuery({
+        queryKey: ['notifications', 'unread-count'],
+        queryFn: async ({ signal }) => {
+            const response = await api.get<{ count: number }>('/api/notifications/unread-count', { signal });
+            return response.data.count ?? 0;
+        },
+        refetchInterval: 60_000,
+        staleTime: 30_000,
+    });
+    const itemsQuery = useQuery({
+        queryKey: ['notifications', 'panel'],
+        queryFn: async ({ signal }) => {
+            const response = await api.get<NotificationItem[]>('/api/notifications', {
+                signal,
+                params: { limit: 30 },
+            });
+            return Array.isArray(response.data) ? response.data : [];
+        },
+        enabled: open,
+        staleTime: 15_000,
+    });
+    const unreadCount = unreadQuery.data ?? 0;
+    const items = itemsQuery.data ?? [];
 
     useEffect(() => {
         const closeWhenOutside = (event: MouseEvent) => {
@@ -52,26 +46,20 @@ export default function NotificationBell() {
     }, []);
 
     const toggleOpen = () => {
-        setOpen((current) => {
-            const next = !current;
-            if (next) {
-                void fetchItems();
-            }
-            return next;
-        });
+        setOpen((current) => !current);
     };
 
     const markAllRead = async () => {
         await api.put('/api/notifications/read-all');
-        setItems((current) => current.map((item) => ({ ...item, read: true })));
-        setUnreadCount(0);
+        queryClient.setQueryData<NotificationItem[]>(['notifications', 'panel'], (current) => current?.map((item) => ({ ...item, read: true })) ?? []);
+        queryClient.setQueryData(['notifications', 'unread-count'], 0);
     };
 
     const openNotification = async (notification: NotificationItem) => {
         if (!notification.read) {
             await api.put(`/api/notifications/${notification.id}/read`);
-            setUnreadCount((count) => Math.max(0, count - 1));
-            setItems((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item));
+            queryClient.setQueryData<number>(['notifications', 'unread-count'], (count) => Math.max(0, (count ?? 0) - 1));
+            queryClient.setQueryData<NotificationItem[]>(['notifications', 'panel'], (current) => current?.map((item) => item.id === notification.id ? { ...item, read: true } : item) ?? []);
         }
         if (notification.type === 'ADMIN_MESSAGE') {
             navigate(notification.logId ? `/logs?open=${notification.logId}` : '/logs');
@@ -91,6 +79,7 @@ export default function NotificationBell() {
                 onClick={toggleOpen}
                 className="relative flex h-9 w-9 items-center justify-center border border-[#2a2a2a] bg-[#181818] text-[#888] transition-all hover:border-[#e60000]/60 hover:text-white"
                 title="Notifications"
+                aria-label="Open notifications"
             >
                 <Bell size={16} />
                 {unreadCount > 0 && (
@@ -118,10 +107,12 @@ export default function NotificationBell() {
                     </div>
 
                     <div className="max-h-[420px] overflow-y-auto">
-                        {loading ? (
-                            <LoadingSpinner compact label="Syncing" />
+                        {itemsQuery.isLoading ? (
+                            <div className="min-h-[160px]">
+                                <LoadingSpinner compact label="Syncing" />
+                            </div>
                         ) : items.length === 0 ? (
-                            <div className="px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[#444]">[ No Signal ]</div>
+                            <div className="min-h-[160px] px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[#444]">[ No Signal ]</div>
                         ) : (
                             items.map((item) => (
                                 <article

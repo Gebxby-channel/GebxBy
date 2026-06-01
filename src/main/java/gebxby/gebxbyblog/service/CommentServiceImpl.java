@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.CommentResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.realtime.RealtimeGateway;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import org.jsoup.Jsoup;
@@ -35,19 +36,22 @@ public class CommentServiceImpl implements CommentService {
     private final ForumMapper mapper;
     private final NotificationService notificationService;
     private final ActivityLogService activityLogService;
+    private final RealtimeGateway realtimeGateway;
 
     public CommentServiceImpl(CommentRepository commentRepository,
                               ContentRepository contentRepository,
                               UserService userService,
                               ForumMapper mapper,
                               NotificationService notificationService,
-                              ActivityLogService activityLogService) {
+                              ActivityLogService activityLogService,
+                              RealtimeGateway realtimeGateway) {
         this.commentRepository = commentRepository;
         this.contentRepository = contentRepository;
         this.userService = userService;
         this.mapper = mapper;
         this.notificationService = notificationService;
         this.activityLogService = activityLogService;
+        this.realtimeGateway = realtimeGateway;
     }
 
     @Override
@@ -105,7 +109,9 @@ public class CommentServiceImpl implements CommentService {
         Comment savedComment = commentRepository.save(comment);
         notificationService.notifyCommentOnContent(content, savedComment);
 
-        return toResponse(savedComment, List.of());
+        CommentResponse response = toResponse(savedComment, List.of());
+        realtimeGateway.commentCreated(contentId, response);
+        return response;
     }
 
     @Override
@@ -130,6 +136,7 @@ public class CommentServiceImpl implements CommentService {
                 content.setCommentCount(Math.max(0, content.getCommentCount() - 1));
                 content.setUpdatedAt(LocalDateTime.now());
                 contentRepository.save(content);
+                realtimeGateway.commentDeleted(contentId, commentId, content.getCommentCount());
             });
         }
     }

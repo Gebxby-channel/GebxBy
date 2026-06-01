@@ -8,6 +8,7 @@ import gebxby.gebxbyblog.model.ActivityLog;
 import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.realtime.RealtimeGateway;
 import gebxby.gebxbyblog.repository.NotificationRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.jsoup.Jsoup;
@@ -33,15 +34,18 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserService userService;
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
+    private final RealtimeGateway realtimeGateway;
 
     public NotificationServiceImpl(NotificationRepository notificationRepository,
                                    UserService userService,
                                    UserRepository userRepository,
-                                   ActivityLogService activityLogService) {
+                                   ActivityLogService activityLogService,
+                                   RealtimeGateway realtimeGateway) {
         this.notificationRepository = notificationRepository;
         this.userService = userService;
         this.userRepository = userRepository;
         this.activityLogService = activityLogService;
+        this.realtimeGateway = realtimeGateway;
     }
 
     @Override
@@ -72,6 +76,7 @@ public class NotificationServiceImpl implements NotificationService {
             notification.setRead(true);
             notification.setReadAt(LocalDateTime.now());
             notification = notificationRepository.save(notification);
+            realtimeGateway.unreadCountChanged(user.getUserID(), unreadCount(user.getUserID()));
         }
         return toResponse(notification);
     }
@@ -92,6 +97,7 @@ public class NotificationServiceImpl implements NotificationService {
         if (!unreadNotifications.isEmpty()) {
             notificationRepository.saveAll(unreadNotifications);
         }
+        realtimeGateway.notificationsRead(user.getUserID(), unreadCount(user.getUserID()));
     }
 
     @Override
@@ -117,7 +123,8 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setContentId(content.getIdContent());
         notification.setContentTitle(content.getHead());
         notification.setCommentId(comment.getId());
-        notificationRepository.save(notification);
+        notification = notificationRepository.save(notification);
+        realtimeGateway.notificationCreated(recipientId, toResponse(notification), unreadCount(recipientId));
     }
 
     @Override
@@ -140,7 +147,10 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setActorName(admin.getName());
         notification.setActorPhoto(admin.getPhoto());
         notification.setLogId(log.getId());
-        return toResponse(notificationRepository.save(notification));
+        notification = notificationRepository.save(notification);
+        NotificationResponse response = toResponse(notification);
+        realtimeGateway.notificationCreated(recipient.getUserID(), response, unreadCount(recipient.getUserID()));
+        return response;
     }
 
     @Override
@@ -163,7 +173,10 @@ public class NotificationServiceImpl implements NotificationService {
                     notification.setActorName(admin.getName());
                     notification.setActorPhoto(admin.getPhoto());
                     notification.setLogId(log.getId());
-                    return toResponse(notificationRepository.save(notification));
+                    notification = notificationRepository.save(notification);
+                    NotificationResponse response = toResponse(notification);
+                    realtimeGateway.notificationCreated(recipient.getUserID(), response, unreadCount(recipient.getUserID()));
+                    return response;
                 })
                 .toList();
     }
@@ -190,7 +203,10 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setActorName(moderator.getName());
         notification.setActorPhoto(moderator.getPhoto());
         notification.setLogId(log.getId());
-        return toResponse(notificationRepository.save(notification));
+        notification = notificationRepository.save(notification);
+        NotificationResponse response = toResponse(notification);
+        realtimeGateway.notificationCreated(admin.getUserID(), response, unreadCount(admin.getUserID()));
+        return response;
     }
 
     @Override
@@ -208,6 +224,10 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setCreatedAt(now);
         notification.setExpiresAt(now.plusDays(7));
         return notification;
+    }
+
+    private long unreadCount(UUID recipientId) {
+        return notificationRepository.countByRecipientUserIdAndReadFalseAndExpiresAtAfter(recipientId, LocalDateTime.now());
     }
 
     private NotificationResponse toResponse(Notification notification) {

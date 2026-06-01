@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Award, Ban, CheckCircle2, HardDrive, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
-import api, { invalidateApiCache } from '../lib/api';
+import api, { invalidateApiCache, isRequestCanceled } from '../lib/api';
 import type { ActivityLogItem, Badge, BadgeCode, ContentItem, CurrentUser, MediaSmokeTestResult } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
 import BadgeStrip from '../components/BadgeStrip';
@@ -49,16 +49,16 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [mediaSmokeBusy, setMediaSmokeBusy] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const fetchUsers = useCallback(async () => {
+    const fetchUsers = useCallback(async (signal?: AbortSignal) => {
         setLoading(true);
         try {
             const [userResponse, contentResponse, reportResponse, customBadgeResponse, genreResponse, cardTemplateResponse] = await Promise.all([
-                api.get<CurrentUser[]>('/api/admin/users'),
-                api.get<ContentItem[]>('/content/all-content'),
-                api.get<ActivityLogItem[]>('/api/logs/reports', { params: { limit: 50 } }),
-                api.get<Badge[]>('/api/admin/custom-badges'),
-                api.get<GenreItem[]>('/api/admin/genres'),
-                api.get<ProfileCardItem[]>('/api/admin/profile-card-templates'),
+                api.get<CurrentUser[]>('/api/admin/users', { signal }),
+                api.get<ContentItem[]>('/content/all-content', { signal }),
+                api.get<ActivityLogItem[]>('/api/logs/reports', { signal, params: { limit: 50 } }),
+                api.get<Badge[]>('/api/admin/custom-badges', { signal }),
+                api.get<GenreItem[]>('/api/admin/genres', { signal }),
+                api.get<ProfileCardItem[]>('/api/admin/profile-card-templates', { signal }),
             ]);
             setUsers(Array.isArray(userResponse.data) ? userResponse.data : []);
             setContents(Array.isArray(contentResponse.data) ? contentResponse.data : []);
@@ -70,20 +70,26 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             const templates = Array.isArray(cardTemplateResponse.data) ? cardTemplateResponse.data : [];
             setProfileCardTemplates(templates);
             setSelectedProfileCardTemplate(current => current || templates[0]?.id || '');
-        } catch {
-            setUsers([]);
-            setContents([]);
-            setReports([]);
-            setCustomBadges([]);
-            setGenres([]);
-            setProfileCardTemplates([]);
+        } catch (error) {
+            if (!isRequestCanceled(error)) {
+                setUsers([]);
+                setContents([]);
+                setReports([]);
+                setCustomBadges([]);
+                setGenres([]);
+                setProfileCardTemplates([]);
+            }
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     }, []);
 
     useEffect(() => {
-        void fetchUsers();
+        const controller = new AbortController();
+        void fetchUsers(controller.signal);
+        return () => controller.abort();
     }, [fetchUsers]);
 
     const suspendUser = async (target: CurrentUser) => {
@@ -331,7 +337,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const filteredUsers = users.filter(target => {
         const query = userQuery.trim().toLowerCase();
         if (!query) return true;
-        return [target.name, target.email, target.designation, target.role]
+        return [target.name, target.username, target.email, target.designation, target.role]
             .some(value => (value || '').toLowerCase().includes(query));
     });
     const totalViews = contents.reduce((sum, item) => sum + (item.viewCount || 0), 0);
@@ -537,6 +543,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
                     <div className="space-y-3">
                         <Input
+                            id="admin-genre-name"
+                            name="genreName"
+                            aria-label="Genre name"
                             value={genreForm.name}
                             onChange={(event) => setGenreForm(current => ({ ...current, name: event.target.value }))}
                             placeholder="Genre name..."
@@ -544,6 +553,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                         />
                         <div className="flex gap-2">
                             <input
+                                id="admin-genre-color-picker"
+                                name="genreColorPicker"
+                                aria-label="Genre color picker"
                                 type="color"
                                 value={genreForm.color}
                                 onChange={(event) => setGenreForm(current => ({ ...current, color: event.target.value }))}
@@ -551,6 +563,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 title="Genre color"
                             />
                             <Input
+                                id="admin-genre-color"
+                                name="genreColor"
+                                aria-label="Genre color hex"
                                 value={genreForm.color}
                                 onChange={(event) => setGenreForm(current => ({ ...current, color: event.target.value }))}
                                 placeholder="#e60000"
@@ -599,14 +614,16 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             >
                 <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
                     <div className="space-y-3">
-                        <Input value={cardForm.name} onChange={(event) => setCardForm(current => ({ ...current, name: event.target.value }))} placeholder="Card template name..." />
-                        <Input value={cardForm.description} onChange={(event) => setCardForm(current => ({ ...current, description: event.target.value }))} placeholder="Description..." />
-                        <Select value={cardForm.orientation} onChange={(event) => setCardForm(current => ({ ...current, orientation: event.target.value as 'HORIZONTAL' | 'VERTICAL' }))}>
+                        <Input id="admin-card-template-name" name="cardTemplateName" aria-label="Card template name" value={cardForm.name} onChange={(event) => setCardForm(current => ({ ...current, name: event.target.value }))} placeholder="Card template name..." />
+                        <Input id="admin-card-template-description" name="cardTemplateDescription" aria-label="Card template description" value={cardForm.description} onChange={(event) => setCardForm(current => ({ ...current, description: event.target.value }))} placeholder="Description..." />
+                        <Select id="admin-card-orientation" name="cardOrientation" aria-label="Card orientation" value={cardForm.orientation} onChange={(event) => setCardForm(current => ({ ...current, orientation: event.target.value as 'HORIZONTAL' | 'VERTICAL' }))}>
                             <option value="HORIZONTAL">Horizontal</option>
                             <option value="VERTICAL">Vertical</option>
                         </Select>
                         <input
                             id="profileCardBackground"
+                            name="profileCardBackground"
+                            aria-label="Profile card background image"
                             type="file"
                             accept="image/png,image/jpeg,image/webp"
                             className="hidden"
@@ -624,7 +641,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                     </div>
                     <div className="space-y-4">
                         <div className={`relative overflow-hidden border border-[#333] bg-[#050505] ${cardForm.orientation === 'VERTICAL' ? 'aspect-[0.64/1] max-w-[320px]' : 'aspect-[1.58/1] max-w-[620px]'}`}>
-                            {cardForm.backgroundImage ? <img src={cardForm.backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#333]">[ Upload Background ]</div>}
+                            {cardForm.backgroundImage ? <img src={cardForm.backgroundImage} alt="" width={620} height={392} className="absolute inset-0 h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#333]">[ Upload Background ]</div>}
                             <TemplateOverlay layout={cardForm.layout} />
                         </div>
                         <div className="grid gap-2">
@@ -658,6 +675,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                         <div className="flex h-9 items-center gap-2 border border-[#333] bg-[#101010] px-3">
                             <Search size={13} className="text-[#777]" />
                             <input
+                                id="admin-user-search"
+                                name="adminUserSearch"
+                                aria-label="Search user"
                                 value={userQuery}
                                 onChange={(event) => setUserQuery(event.target.value)}
                                 placeholder="Search user..."
@@ -665,6 +685,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             />
                         </div>
                         <Select
+                            id="admin-badge-target"
+                            name="adminBadgeTarget"
+                            aria-label="Core badge target"
                             value={selectedBadge}
                             onChange={(event) => setSelectedBadge(event.target.value as BadgeCode)}
                             title="Badge target"
@@ -674,6 +697,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             ))}
                         </Select>
                         <Select
+                            id="admin-custom-badge-target"
+                            name="adminCustomBadgeTarget"
+                            aria-label="Custom badge target"
                             value={selectedCustomBadge}
                             onChange={(event) => setSelectedCustomBadge(event.target.value)}
                             title="Custom badge target"
@@ -684,6 +710,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             ))}
                         </Select>
                         <input
+                            id="admin-suspend-hours"
+                            name="suspendHours"
+                            aria-label="Suspend duration in hours"
                             type="number"
                             min={1}
                             max={720}
@@ -732,7 +761,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="m-0 truncate font-mono text-[10px] text-[#666]">{target.email}</p>
+                                        <p className="m-0 truncate font-mono text-[10px] text-[#666]">{target.username ? `@${target.username} // ` : ''}{target.email}</p>
                                         <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#444]">
                                             {target.suspendedUntil ? `Suspended until ${formatDate(target.suspendedUntil)}` : 'Active'}
                                         </p>
@@ -849,12 +878,14 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             <img
                                 src={drawerUser.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(drawerUser.name || 'User')}`}
                                 alt=""
+                                width={56}
+                                height={56}
                                 className="h-14 w-14 border border-[#333] object-cover"
                                 referrerPolicy="no-referrer"
                             />
                             <div className="min-w-0">
                                 <p className="m-0 truncate font-mono text-lg font-black uppercase text-white">{drawerUser.name}</p>
-                                <p className="m-0 mt-1 truncate font-mono text-[10px] uppercase text-[#666]">{drawerUser.email}</p>
+                                <p className="m-0 mt-1 truncate font-mono text-[10px] uppercase text-[#666]">{drawerUser.username ? `@${drawerUser.username} // ` : ''}{drawerUser.email}</p>
                                 <div className="mt-2"><BadgeStrip badges={drawerUser.badges} compact /></div>
                             </div>
                         </div>
@@ -1002,8 +1033,8 @@ function LayoutEditor({ layout, onChange }: { layout: ProfileCardLayout; onChang
                 <NumberField label="Role Font" value={layout.designationFontSize ?? 0.9} min={0.4} max={4} step={0.05} onChange={(value) => update('designationFontSize', value)} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-                <label className="font-mono text-[9px] uppercase text-[#666]">Text Color<input type="color" value={layout.textColor} onChange={(event) => update('textColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
-                <label className="font-mono text-[9px] uppercase text-[#666]">Accent Color<input type="color" value={layout.accentColor} onChange={(event) => update('accentColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
+                <label className="font-mono text-[9px] uppercase text-[#666]">Text Color<input id="card-layout-text-color" name="cardLayoutTextColor" aria-label="Card text color" type="color" value={layout.textColor} onChange={(event) => update('textColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
+                <label className="font-mono text-[9px] uppercase text-[#666]">Accent Color<input id="card-layout-accent-color" name="cardLayoutAccentColor" aria-label="Card accent color" type="color" value={layout.accentColor} onChange={(event) => update('accentColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
             </div>
         </div>
     );
@@ -1024,10 +1055,14 @@ function NumberField({
     step?: number;
     onChange: (value: number) => void;
 }) {
+    const fieldId = `card-layout-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     return (
         <label className="font-mono text-[9px] uppercase text-[#666]">
             {label}
             <input
+                id={fieldId}
+                name={fieldId}
+                aria-label={label}
                 type="number"
                 min={min}
                 max={max}

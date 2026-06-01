@@ -8,6 +8,7 @@ import gebxby.gebxbyblog.model.ActivityLog;
 import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.realtime.RealtimeGateway;
 import gebxby.gebxbyblog.repository.NotificationRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +46,8 @@ class NotificationServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private ActivityLogService activityLogService;
+    @Mock
+    private RealtimeGateway realtimeGateway;
 
     private NotificationServiceImpl notificationService;
     private User owner;
@@ -52,7 +55,7 @@ class NotificationServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationServiceImpl(notificationRepository, userService, userRepository, activityLogService);
+        notificationService = new NotificationServiceImpl(notificationRepository, userService, userRepository, activityLogService, realtimeGateway);
         owner = new User();
         owner.setUserID(UUID.randomUUID());
         owner.setName("Owner");
@@ -70,10 +73,12 @@ class NotificationServiceImplTest {
         Comment comment = new Comment();
         comment.setId(UUID.randomUUID());
         comment.setUser(commenter);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         notificationService.notifyCommentOnContent(content, comment);
 
         verify(notificationRepository).save(any(Notification.class));
+        verify(realtimeGateway).notificationCreated(eq(owner.getUserID()), any(NotificationResponse.class), eq(0L));
     }
 
     @Test
@@ -108,6 +113,7 @@ class NotificationServiceImplTest {
         assertEquals("Warning", response.title());
         assertEquals("Stay alert", response.message());
         assertNotNull(response.expiresAt());
+        verify(realtimeGateway).notificationCreated(eq(owner.getUserID()), any(NotificationResponse.class), eq(0L));
     }
 
     @Test
@@ -132,6 +138,7 @@ class NotificationServiceImplTest {
 
         assertEquals(2, response.size());
         verify(notificationRepository, times(2)).save(any(Notification.class));
+        verify(realtimeGateway, times(2)).notificationCreated(any(UUID.class), any(NotificationResponse.class), eq(0L));
     }
 
     @Test
@@ -153,6 +160,7 @@ class NotificationServiceImplTest {
 
         assertEquals("Laporan moderator", response.title());
         assertEquals(commenter.getUserID(), response.actorUserId());
+        verify(realtimeGateway).notificationCreated(eq(admin.getUserID()), any(NotificationResponse.class), eq(0L));
     }
 
     @Test
@@ -171,6 +179,7 @@ class NotificationServiceImplTest {
 
         assertTrue(response.read());
         verify(userService).ensureActive(owner);
+        verify(realtimeGateway).unreadCountChanged(eq(owner.getUserID()), eq(0L));
     }
 
     @Test
@@ -192,6 +201,7 @@ class NotificationServiceImplTest {
 
         assertTrue(unread.isRead());
         verify(notificationRepository).saveAll(List.of(unread));
+        verify(realtimeGateway).notificationsRead(eq(owner.getUserID()), eq(0L));
     }
 
     @Test

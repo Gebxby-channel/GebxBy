@@ -4,8 +4,6 @@ import gebxby.gebxbyblog.dto.ProfileCardLayoutResponse;
 import gebxby.gebxbyblog.dto.ProfileCardCustomizeRequest;
 import gebxby.gebxbyblog.dto.ProfileCardRequest;
 import gebxby.gebxbyblog.dto.ProfileCardResponse;
-import gebxby.gebxbyblog.model.Comment;
-import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.ProfileCardLayout;
 import gebxby.gebxbyblog.model.ProfileCardTemplate;
 import gebxby.gebxbyblog.model.User;
@@ -15,6 +13,7 @@ import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ProfileCardTemplateRepository;
 import gebxby.gebxbyblog.repository.UserProfileCardRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -24,7 +23,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -38,9 +36,21 @@ public class ProfileCardServiceImpl implements ProfileCardService {
     private final ProfileCardTemplateRepository templateRepository;
     private final UserProfileCardRepository userCardRepository;
     private final UserRepository userRepository;
-    private final ContentRepository contentRepository;
-    private final CommentRepository commentRepository;
     private final UserService userService;
+    private final UserProfileProjectionService profileProjectionService;
+
+    @Autowired
+    public ProfileCardServiceImpl(ProfileCardTemplateRepository templateRepository,
+                                  UserProfileCardRepository userCardRepository,
+                                  UserRepository userRepository,
+                                  UserService userService,
+                                  UserProfileProjectionService profileProjectionService) {
+        this.templateRepository = templateRepository;
+        this.userCardRepository = userCardRepository;
+        this.userRepository = userRepository;
+        this.userService = userService;
+        this.profileProjectionService = profileProjectionService;
+    }
 
     public ProfileCardServiceImpl(ProfileCardTemplateRepository templateRepository,
                                   UserProfileCardRepository userCardRepository,
@@ -48,12 +58,8 @@ public class ProfileCardServiceImpl implements ProfileCardService {
                                   ContentRepository contentRepository,
                                   CommentRepository commentRepository,
                                   UserService userService) {
-        this.templateRepository = templateRepository;
-        this.userCardRepository = userCardRepository;
-        this.userRepository = userRepository;
-        this.contentRepository = contentRepository;
-        this.commentRepository = commentRepository;
-        this.userService = userService;
+        this(templateRepository, userCardRepository, userRepository, userService,
+                new UserProfileProjectionService(contentRepository, commentRepository));
     }
 
     @Override
@@ -172,7 +178,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         user.setActiveProfileCardId(nextCardId);
         user.setUpdatedAt(LocalDateTime.now());
         User saved = userRepository.save(user);
-        refreshEmbeddedProfiles(saved);
+        profileProjectionService.refreshEmbeddedProfiles(saved);
         return saved;
     }
 
@@ -201,7 +207,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
             user.setActiveProfileCardId(DEFAULT_STARS);
             user.setUpdatedAt(LocalDateTime.now());
             User saved = userRepository.save(user);
-            refreshEmbeddedProfiles(saved);
+            profileProjectionService.refreshEmbeddedProfiles(saved);
             return saved;
         }
         return user;
@@ -346,19 +352,6 @@ public class ProfileCardServiceImpl implements ProfileCardService {
                 card.getGrantedAt(),
                 card.getSourceTemplateId()
         );
-    }
-
-    private void refreshEmbeddedProfiles(User saved) {
-        List<Content> contents = Optional.ofNullable(contentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
-        contents.forEach(content -> content.setUser(saved));
-        if (!contents.isEmpty()) {
-            contentRepository.saveAll(contents);
-        }
-        List<Comment> comments = Optional.ofNullable(commentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
-        comments.forEach(comment -> comment.setUser(saved));
-        if (!comments.isEmpty()) {
-            commentRepository.saveAll(comments);
-        }
     }
 
     private double clamp(double value) {

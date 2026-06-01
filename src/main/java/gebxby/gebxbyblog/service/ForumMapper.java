@@ -39,6 +39,7 @@ public class ForumMapper {
         return new PublicUserResponse(
                 user.getUserID(),
                 user.getName(),
+                user.getUsername(),
                 user.getPhoto(),
                 user.getDesignation(),
                 user.getMoto(),
@@ -53,6 +54,7 @@ public class ForumMapper {
         return new CurrentUserResponse(
                 user.getUserID(),
                 user.getName(),
+                user.getUsername(),
                 user.getEmail(),
                 user.getPhoto(),
                 user.getDesignation(),

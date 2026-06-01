@@ -2,6 +2,9 @@ package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.EmailLoginRequest;
+import gebxby.gebxbyblog.dto.SignupRequest;
+import gebxby.gebxbyblog.dto.UsernameCheckResponse;
+import gebxby.gebxbyblog.dto.UsernameSuggestResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.UserService;
@@ -16,8 +19,10 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -44,6 +49,34 @@ public class AuthController {
                 request == null ? null : request.email(),
                 request == null ? null : request.password()
         );
+        saveSession(user, servletRequest, servletResponse);
+        return ResponseEntity.ok(mapper.toCurrentUser(user));
+    }
+
+    @PostMapping("/api/auth/signup")
+    public ResponseEntity<CurrentUserResponse> signup(
+            @RequestBody SignupRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        User user = userService.registerWithEmail(request);
+        saveSession(user, servletRequest, servletResponse);
+        return ResponseEntity.ok(mapper.toCurrentUser(user));
+    }
+
+    @GetMapping("/api/usernames/check")
+    public ResponseEntity<UsernameCheckResponse> checkUsername(@RequestParam String username) {
+        return ResponseEntity.ok(userService.checkUsername(username));
+    }
+
+    @GetMapping("/api/usernames/suggest")
+    public ResponseEntity<UsernameSuggestResponse> suggestUsername(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email) {
+        String seed = (name == null ? "" : name) + " " + (email == null ? "" : email);
+        return ResponseEntity.ok(new UsernameSuggestResponse(userService.suggestUsernames(seed, 5)));
+    }
+
+    private void saveSession(User user, HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
         OAuth2User principal = toPrincipal(user);
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal,
@@ -54,7 +87,6 @@ public class AuthController {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, servletRequest, servletResponse);
-        return ResponseEntity.ok(mapper.toCurrentUser(user));
     }
 
     private OAuth2User toPrincipal(User user) {
@@ -62,6 +94,7 @@ public class AuthController {
         attributes.put("sub", user.getGoogleId());
         attributes.put("email", user.getEmail());
         attributes.put("name", user.getName());
+        attributes.put("username", user.getUsername());
         attributes.put("picture", user.getPhoto());
         String authority = user.isAdmin() ? "ROLE_ADMIN" : "ROLE_USER";
         return new DefaultOAuth2User(List.of(new SimpleGrantedAuthority(authority)), attributes, "sub");

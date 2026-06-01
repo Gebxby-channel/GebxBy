@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 import { UserRound } from 'lucide-react';
 import type { Badge, PublicUser } from '../types/forum';
@@ -81,18 +82,30 @@ export function Modal({
 }
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+  const autoId = useId();
+  const id = props.id ?? props.name ?? `input-${autoId}`;
+  const name = props.name ?? String(id);
   return (
     <input
       {...props}
+      id={id}
+      name={name}
+      aria-label={props['aria-label'] ?? props.placeholder?.toString() ?? name}
       className={`h-10 border border-[#333] bg-[#101010] px-3 font-mono text-xs text-white outline-none focus:border-[#e60000] ${props.className ?? ''}`}
     />
   );
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+  const autoId = useId();
+  const id = props.id ?? props.name ?? `select-${autoId}`;
+  const name = props.name ?? String(id);
   return (
     <select
       {...props}
+      id={id}
+      name={name}
+      aria-label={props['aria-label'] ?? props.title ?? name}
       className={`h-10 border border-[#333] bg-[#101010] px-3 font-mono text-xs uppercase text-white outline-none focus:border-[#e60000] ${props.className ?? ''}`}
     />
   );
@@ -104,14 +117,14 @@ export function UserChip({ user, onClick }: { user?: PublicUser; onClick?: () =>
     <>
       <span className="h-8 w-8 overflow-hidden border border-[#333] bg-[#111]">
         {user?.picture ? (
-          <img src={user.picture} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = defaultAvatar; }} />
+          <img src={user.picture} alt="" width={32} height={32} className="h-full w-full object-cover" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = defaultAvatar; }} />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-[#777]"><UserRound size={14} /></span>
         )}
       </span>
       <span className="min-w-0">
         <span className="block truncate font-mono text-[10px] font-black uppercase text-white">{user?.name || 'Unknown'}</span>
-        <span className="block truncate font-mono text-[8px] uppercase text-[#666]">{user?.designation || 'Archive Officer'}</span>
+        <span className="block truncate font-mono text-[8px] uppercase text-[#666]">{user?.username ? `@${user.username}` : user?.designation || 'Archive Officer'}</span>
       </span>
     </>
   );

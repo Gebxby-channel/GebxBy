@@ -31,11 +31,12 @@ export default function ContentCard({ art, user }: ContentCardProps) {
     };
 
     const preview = stripHtml(art.paragrafs) || 'No encrypted data preview available for this terminal entry...';
-    const coverImage = art.coverImage?.thumbnail || art.coverImage?.data || art.images?.[0]?.thumbnail || art.images?.[0]?.data;
+    const coverVisual = art.coverImage ?? art.images?.[0];
+    const coverImage = coverVisual?.thumbnail || coverVisual?.data;
 
     return (
         <article
-            className="archive-card group flex cursor-pointer flex-col gap-6 border-b border-[#222] px-4 py-8 transition-all duration-300 hover:bg-[#111]/70 md:flex-row"
+            className="archive-card group flex min-h-[260px] cursor-pointer flex-col gap-6 border-b border-[#222] px-4 py-8 transition-all duration-300 hover:bg-[#111]/70 md:flex-row"
             style={{ borderLeft: `3px solid ${themeColor}` }}
             onClick={() => navigate(`/read/${art.idContent}`)}
         >
@@ -49,7 +50,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                         title={`Open ${art.user?.name || 'author'} profile`}
                     >
                         {art.user?.picture ? (
-                            <img src={art.user.picture} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                            <img src={art.user.picture} alt="" width={24} height={24} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
                             <span className="font-mono text-[10px] font-black text-white">U</span>
                         )}
@@ -62,6 +63,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                             style={{ maxWidth: 180 }}
                         >
                             {art.user?.name || 'ANONYMOUS_OFFICER'}
+                            {art.user?.username && <span className="ml-2 text-[#666]">@{art.user.username}</span>}
                         </button>
                         <span className="text-[#444]">IN</span>
                         <span
@@ -111,6 +113,8 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                         <img
                             src={coverImage}
                             alt=""
+                            width={coverVisual?.width ?? 180}
+                            height={coverVisual?.height ?? 180}
                             loading="lazy"
                             decoding="async"
                             className="h-full w-full object-cover opacity-85 grayscale transition-all duration-300 group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"

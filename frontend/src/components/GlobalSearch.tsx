@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { BadgeCheck, FileText, Search, UserRound, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { cachedGet } from '../lib/api';
+import { cachedGet, isRequestCanceled } from '../lib/api';
 import type { SearchPayload } from '../types/forum';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -47,8 +47,10 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
         }
 
         setLoading(true);
+        const controller = new AbortController();
         const timer = window.setTimeout(() => {
             cachedGet<SearchPayload>('/api/search', {
+                signal: controller.signal,
                 params: {
                     q: trimmedQuery,
                     type: activeTab,
@@ -62,11 +64,22 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                     setResults(data);
                     setOpen(true);
                 })
-                .catch(() => setResults(null))
-                .finally(() => setLoading(false));
+                .catch((error) => {
+                    if (!isRequestCanceled(error)) {
+                        setResults(null);
+                    }
+                })
+                .finally(() => {
+                    if (!controller.signal.aborted) {
+                        setLoading(false);
+                    }
+                });
         }, 300);
 
-        return () => window.clearTimeout(timer);
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
     }, [activeTab, trimmedQuery]);
 
     const reset = () => {
@@ -85,6 +98,9 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
             <div className="flex h-9 items-center border border-[#2a2a2a] bg-[#0d0d0d] px-3 text-[#777] focus-within:border-[#e60000]/70">
                 <Search size={14} className="mr-2 flex-shrink-0 text-[#e60000]" />
                 <input
+                    id="global-search"
+                    name="globalSearch"
+                    aria-label="Search users, writings, and badges"
                     value={query}
                     onChange={(event) => {
                         setQuery(event.target.value);
@@ -144,6 +160,8 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                 <img
                                                     src={item.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(item.name)}`}
                                                     alt=""
+                                                    width={36}
+                                                    height={36}
                                                     className="h-9 w-9 border border-[#333] object-cover"
                                                     referrerPolicy="no-referrer"
                                                 />

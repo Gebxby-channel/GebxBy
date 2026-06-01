@@ -7,6 +7,7 @@ import java.util.UUID;
 public record PublicUserResponse(
         UUID userID,
         String name,
+        String username,
         String picture,
         String designation,
         String moto,
@@ -23,6 +24,18 @@ public record PublicUserResponse(
                               boolean suspensionMarked,
                               LocalDateTime suspendedUntil,
                               List<BadgeResponse> badges) {
-        this(userID, name, picture, designation, moto, suspensionMarked, suspendedUntil, badges, null);
+        this(userID, name, null, picture, designation, moto, suspensionMarked, suspendedUntil, badges, null);
+    }
+
+    public PublicUserResponse(UUID userID,
+                              String name,
+                              String picture,
+                              String designation,
+                              String moto,
+                              boolean suspensionMarked,
+                              LocalDateTime suspendedUntil,
+                              List<BadgeResponse> badges,
+                              ProfileCardResponse activeProfileCard) {
+        this(userID, name, null, picture, designation, moto, suspensionMarked, suspendedUntil, badges, activeProfileCard);
     }
 }

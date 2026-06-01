@@ -28,6 +28,7 @@ repositories {
 dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.30.38"))
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
@@ -49,6 +50,7 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    jvmArgs("-Djdk.attach.allowAttachSelf=true", "-XX:+EnableDynamicAgentLoading")
     finalizedBy(tasks.jacocoTestReport)
 }
 

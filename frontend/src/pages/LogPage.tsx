@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, FileText, Inbox, Radio, ShieldAlert, UserRound, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import api from '../lib/api';
+import api, { isRequestCanceled } from '../lib/api';
 import type { ActivityLogItem, CurrentUser } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { profilePathForUser } from '../utils/profilePath';
@@ -21,24 +21,33 @@ export default function LogPage({ user }: { user: CurrentUser }) {
     const [reportFilter, setReportFilter] = useState<'open' | 'resolved' | 'all'>('open');
     const [loading, setLoading] = useState(true);
 
-    const fetchLogs = useCallback(async () => {
+    const fetchLogs = useCallback(async (signal?: AbortSignal) => {
         setLoading(true);
         try {
             const [basisResponse, reportResponse] = await Promise.all([
-                api.get<ActivityLogItem[]>('/api/logs', { params: { limit: 80 } }),
+                api.get<ActivityLogItem[]>('/api/logs', { signal, params: { limit: 80 } }),
                 canReviewReports
-                    ? api.get<ActivityLogItem[]>('/api/logs/reports', { params: { limit: 80 } })
+                    ? api.get<ActivityLogItem[]>('/api/logs/reports', { signal, params: { limit: 80 } })
                     : Promise.resolve({ data: [] as ActivityLogItem[] }),
             ]);
             setBasis(Array.isArray(basisResponse.data) ? basisResponse.data : []);
             setReports(Array.isArray(reportResponse.data) ? reportResponse.data : []);
+        } catch (error) {
+            if (!isRequestCanceled(error)) {
+                setBasis([]);
+                setReports([]);
+            }
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     }, [canReviewReports]);
 
     useEffect(() => {
-        void fetchLogs();
+        const controller = new AbortController();
+        void fetchLogs(controller.signal);
+        return () => controller.abort();
     }, [fetchLogs]);
 
     useEffect(() => {
@@ -50,9 +59,15 @@ export default function LogPage({ user }: { user: CurrentUser }) {
     useEffect(() => {
         const openId = searchParams.get('open');
         if (!openId) return;
-        api.get<ActivityLogItem>(`/api/logs/${openId}`)
+        const controller = new AbortController();
+        api.get<ActivityLogItem>(`/api/logs/${openId}`, { signal: controller.signal })
             .then((response) => setSelected(response.data))
-            .catch(() => setSearchParams({}));
+            .catch((error) => {
+                if (!isRequestCanceled(error)) {
+                    setSearchParams({});
+                }
+            });
+        return () => controller.abort();
     }, [searchParams, setSearchParams]);
 
     const items = activeTab === 'reports'

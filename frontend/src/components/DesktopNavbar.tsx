@@ -66,6 +66,8 @@ export default function DesktopNavbar({ user, menuItems, onTerminate }: DesktopN
                                 <img
                                     src={user.picture || defaultAvatar}
                                     alt="Profile"
+                                    width={32}
+                                    height={32}
                                     className="h-full w-full object-cover"
                                     referrerPolicy="no-referrer"
                                     onError={(event) => { event.currentTarget.src = defaultAvatar; }}

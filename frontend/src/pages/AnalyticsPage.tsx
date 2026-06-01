@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowBigUp, Eye, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { cachedGet } from '../lib/api';
+import { cachedGet, isRequestCanceled } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import type { AnalyticsPayload, CurrentUser } from '../types/forum';
@@ -14,12 +14,23 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        cachedGet<AnalyticsPayload>('/content/analytics', undefined, {
+        const controller = new AbortController();
+        cachedGet<AnalyticsPayload>('/content/analytics', { signal: controller.signal }, {
             ttlMs: 60_000,
             scope: user.userID,
         })
             .then(data => setAnalytics(data))
-            .finally(() => setLoading(false));
+            .catch((error) => {
+                if (!isRequestCanceled(error)) {
+                    setAnalytics(null);
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            });
+        return () => controller.abort();
     }, [user.userID]);
 
     return (

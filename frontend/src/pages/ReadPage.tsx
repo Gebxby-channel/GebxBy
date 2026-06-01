@@ -3,11 +3,13 @@ import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, CalendarDays, Eye, Flag, MessageSquare, Trash2, UserRound } from 'lucide-react';
 import axios from 'axios';
-import api, { cachedGet, invalidateApiCache } from '../lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import api, { invalidateApiCache } from '../lib/api';
 import { sanitizeArticle } from '../utils/sanitize';
 import type { CommentItem, ContentImage, ContentItem, ContentStats, CurrentUser, PublicUser, VoteDirection } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useFeedback } from '../components/feedback';
+import { useRealtimeContentSubscription } from '../hooks/useRealtimeContentSubscription';
 import { profilePathForUser } from '../utils/profilePath';
 import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
 
@@ -17,6 +19,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const { id } = useParams();
     const navigate = useNavigate();
     const feedback = useFeedback();
+    const queryClient = useQueryClient();
     const [content, setContent] = useState<ContentItem | null>(null);
     const [stats, setStats] = useState<ContentStats | null>(null);
     const [comments, setComments] = useState<CommentItem[]>([]);
@@ -29,43 +32,101 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const readCompletionRef = useRef<HTMLDivElement | null>(null);
     const viewRecordedRef = useRef<string | null>(null);
     const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+    useRealtimeContentSubscription(id);
 
-    const fetchComments = useCallback((force = false) => {
-        if (!id) return Promise.resolve();
-        return cachedGet<CommentItem[]>(`/content/${id}/comments`, undefined, {
-            ttlMs: 10_000,
-            force,
-        })
-            .then(data => setComments(Array.isArray(data) ? data : []));
-    }, [id]);
+    const contentQuery = useQuery({
+        queryKey: ['content-detail', id, user?.userID ?? 'guest'],
+        enabled: Boolean(id),
+        queryFn: async ({ signal }) => {
+            const response = await api.get<ContentItem>(`/content/${id}`, { signal });
+            return response.data;
+        },
+        staleTime: 5 * 60_000,
+    });
+    const commentsQuery = useQuery({
+        queryKey: ['content-comments', id],
+        enabled: Boolean(id),
+        queryFn: async ({ signal }) => {
+            const response = await api.get<CommentItem[]>(`/content/${id}/comments`, { signal });
+            return Array.isArray(response.data) ? response.data : [];
+        },
+        staleTime: 10_000,
+        refetchInterval: 60_000,
+    });
+    const statsQuery = useQuery({
+        queryKey: ['content-stats', id],
+        enabled: Boolean(id),
+        queryFn: async ({ signal }) => {
+            const response = await api.get<ContentStats>(`/content/${id}/stats`, { signal });
+            return response.data;
+        },
+        staleTime: 15_000,
+        refetchInterval: 60_000,
+    });
 
-    const fetchStats = useCallback(() => {
-        if (!id) return Promise.resolve();
-        return api.get<ContentStats>(`/content/${id}/stats`)
-            .then(res => setStats(res.data));
+    const fetchComments = useCallback(async () => {
+        if (!id) return;
+        const data = await queryClient.fetchQuery({
+            queryKey: ['content-comments', id],
+            queryFn: async ({ signal }) => {
+                const response = await api.get<CommentItem[]>(`/content/${id}/comments`, { signal });
+                return Array.isArray(response.data) ? response.data : [];
+            },
+            staleTime: 0,
+        });
+        setComments(data);
+    }, [id, queryClient]);
+
+    const fetchStats = useCallback(async () => {
+        if (!id) return;
+        const data = await queryClient.fetchQuery({
+            queryKey: ['content-stats', id],
+            queryFn: async ({ signal }) => {
+                const response = await api.get<ContentStats>(`/content/${id}/stats`, { signal });
+                return response.data;
+            },
+            staleTime: 0,
+        });
+        setStats(data);
+    }, [id, queryClient]);
+
+    useEffect(() => {
+        setContent(null);
+        setComments([]);
+        setStats(null);
+        viewRecordedRef.current = null;
     }, [id]);
 
     useEffect(() => {
-        if (!id) return;
-        cachedGet<ContentItem>(`/content/${id}`, undefined, {
-            ttlMs: 5 * 60_000,
-            scope: user?.userID ?? 'guest',
-        })
-            .then(data => {
-                setContent(data);
-                setStats({
-                    idContent: data.idContent,
-                    viewCount: data.viewCount,
-                    upCount: data.upCount,
-                    downCount: data.downCount,
-                    commentCount: data.commentCount,
-                    userVote: data.userVote,
-                });
-            })
-            .catch(() => setContent(null));
+        if (!contentQuery.data) return;
+        setContent(contentQuery.data);
+        setStats((current) => current ?? {
+            idContent: contentQuery.data.idContent,
+            viewCount: contentQuery.data.viewCount,
+            upCount: contentQuery.data.upCount,
+            downCount: contentQuery.data.downCount,
+            commentCount: contentQuery.data.commentCount,
+            userVote: contentQuery.data.userVote,
+        });
+    }, [contentQuery.data]);
 
-        void fetchComments();
-    }, [id, fetchComments, fetchStats, user?.userID]);
+    useEffect(() => {
+        if (contentQuery.isError) {
+            setContent(null);
+        }
+    }, [contentQuery.isError]);
+
+    useEffect(() => {
+        if (commentsQuery.data) {
+            setComments(commentsQuery.data);
+        }
+    }, [commentsQuery.data]);
+
+    useEffect(() => {
+        if (statsQuery.data) {
+            setStats(statsQuery.data);
+        }
+    }, [statsQuery.data]);
 
     useEffect(() => {
         if (!id || !content || !readCompletionRef.current) return;
@@ -80,6 +141,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             api.post<ContentStats>(`/content/${id}/view`)
                 .then(response => {
                     setStats(response.data);
+                    queryClient.setQueryData(['content-stats', id], response.data);
                     invalidateContentCacheForMutation(id);
                 })
                 .catch(() => {
@@ -92,15 +154,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         });
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [content, fetchStats, id]);
-
-    useEffect(() => {
-        const timer = window.setInterval(() => {
-            void fetchStats();
-            void fetchComments(true);
-        }, 5000);
-        return () => window.clearInterval(timer);
-    }, [fetchComments, fetchStats]);
+    }, [content, fetchStats, id, queryClient]);
 
     const safeBody = useMemo(() => sanitizeArticle(content?.paragrafs), [content?.paragrafs]);
 
@@ -118,6 +172,8 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         try {
             const response = await api.post<ContentStats>(`/content/${id}/vote`, { vote });
             setStats(response.data);
+            queryClient.setQueryData(['content-stats', id], response.data);
+            void queryClient.invalidateQueries({ queryKey: ['feed-page'] });
             invalidateContentCacheForMutation(id);
         } catch (error) {
             feedback.toast(getMutationErrorMessage(error), 'error');
@@ -148,6 +204,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             const alreadyRendered = threadContainsComment(comments, response.data.id);
 
             setComments((current) => mergeCommentIntoThread(current, response.data));
+            queryClient.setQueryData<CommentItem[]>(['content-comments', id], (current) => mergeCommentIntoThread(current ?? [], response.data));
             invalidateApiCache(`/content/${id}/comments`);
             invalidateContentCacheForMutation(id);
             if (!parentId) {
@@ -157,6 +214,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                 setStats((current) => current ? { ...current, commentCount: current.commentCount + 1 } : current);
             }
             setCommentNotice({ type: 'success', message: alreadyRendered ? 'Komentar ini sudah tercatat.' : 'Komentar berhasil dikirim.' });
+            void queryClient.invalidateQueries({ queryKey: ['feed-page'] });
             void fetchStats();
             return true;
         } catch (error) {
@@ -185,7 +243,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             await api.delete(`/content/${id}/comments/${commentId}`);
             invalidateApiCache(`/content/${id}/comments`);
             invalidateContentCacheForMutation(id);
-            await fetchComments(true);
+            await fetchComments();
             await fetchStats();
         } catch (error) {
             feedback.toast(getMutationErrorMessage(error), 'error');
@@ -343,6 +401,9 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
                     <div className="mb-8 flex flex-col gap-3">
                         <textarea
+                            id="root-comment"
+                            name="commentBody"
+                            aria-label="Write a comment"
                             value={commentBody}
                             onChange={(event) => setCommentBody(event.target.value)}
                             placeholder={user ? 'Add field note...' : 'Login required to comment...'}
@@ -581,6 +642,8 @@ function ArticleAuthorBox({
                     <img
                         src={author.picture}
                         alt=""
+                        width={48}
+                        height={48}
                         className="h-full w-full object-cover"
                         referrerPolicy="no-referrer"
                         onError={(event) => { event.currentTarget.src = defaultAvatar; }}
@@ -592,7 +655,7 @@ function ArticleAuthorBox({
             <span className="min-w-0 flex-1">
                 <span className="block font-mono text-[10px] font-black uppercase tracking-[0.25em] text-[#666]">Author Archive</span>
                 <span className="mt-1 block truncate font-mono text-sm font-black uppercase text-white">{author?.name || 'Unknown Officer'}</span>
-                <span className="mt-0.5 block truncate font-mono text-[10px] uppercase text-[#777]">{author?.designation || 'No designation'}</span>
+                <span className="mt-0.5 block truncate font-mono text-[10px] uppercase text-[#777]">{author?.username ? `@${author.username}` : author?.designation || 'No designation'}</span>
             </span>
         </button>
     );
@@ -621,6 +684,8 @@ function ImageGallery({ images, title }: { images: ContentImage[]; title: string
                         <img
                             src={selected.data}
                             alt={selected.alt || `${title} attachment ${selectedIndex + 1}`}
+                            width={selected.width ?? 960}
+                            height={selected.height ?? 540}
                             loading="lazy"
                             decoding="async"
                             className="max-h-[680px] w-full object-contain"
@@ -647,6 +712,8 @@ function ImageGallery({ images, title }: { images: ContentImage[]; title: string
                                 <img
                                     src={image.thumbnail || image.data}
                                     alt=""
+                                    width={image.width ?? 150}
+                                    height={image.height ?? 150}
                                     loading="lazy"
                                     decoding="async"
                                     className="h-full w-full object-cover"
@@ -743,13 +810,13 @@ function CommentNode({
                     >
                         <span className="h-9 w-9 flex-shrink-0 overflow-hidden border border-[#333] bg-[#222] transition-all hover:border-[#e60000]">
                             {comment.user?.picture ? (
-                                <img src={comment.user.picture} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                                <img src={comment.user.picture} alt="" width={36} height={36} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                                 <span className="flex h-full w-full items-center justify-center text-[#777]"><UserRound size={15} /></span>
                             )}
                         </span>
                         <span className="min-w-0">
-                            <span className="block truncate font-mono text-[11px] font-black uppercase text-white">{comment.user?.name || 'UNKNOWN'}</span>
+                            <span className="block truncate font-mono text-[11px] font-black uppercase text-white">{comment.user?.name || 'UNKNOWN'} {comment.user?.username ? <span className="text-[#666]">@{comment.user.username}</span> : null}</span>
                             <span className="block font-mono text-[9px] uppercase text-[#555]">{formatCommentDate(comment.createdAt)}</span>
                         </span>
                     </button>
@@ -794,6 +861,9 @@ function CommentNode({
                 {replyOpen && (
                     <div className="mt-3 flex flex-col gap-2">
                         <textarea
+                            id={`reply-comment-${comment.id}`}
+                            name={`replyComment-${comment.id}`}
+                            aria-label="Write reply"
                             value={replyBody}
                             onChange={(event) => setReplyBody(event.target.value)}
                             disabled={replyPosting}
@@ -871,6 +941,9 @@ function ReportDialog({
                 </div>
                 <div className="space-y-4">
                     <select
+                        id="report-category"
+                        name="reportCategory"
+                        aria-label="Report category"
                         value={category}
                         onChange={(event) => setCategory(event.target.value)}
                         className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs uppercase text-white outline-none focus:border-[#e60000]"
@@ -880,6 +953,9 @@ function ReportDialog({
                         ))}
                     </select>
                     <textarea
+                        id="report-reason"
+                        name="reportReason"
+                        aria-label="Report reason"
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                         maxLength={500}

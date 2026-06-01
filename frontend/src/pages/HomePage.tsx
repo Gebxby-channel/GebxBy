@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Megaphone } from 'lucide-react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import api, { cachedGet } from '../lib/api';
+import api from '../lib/api';
 import ContentCard from '../components/ContentCard';
-import LoadingSpinner from '../components/LoadingSpinner';
 import GlobalSearch from '../components/GlobalSearch';
 import type { AnnouncementItem, ContentItem, CurrentUser, FeedPayload, GenreItem } from '../types/forum';
 import { useFeedback } from '../components/feedback';
@@ -15,78 +15,75 @@ type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
 export default function HomePage({ user }: { user: CurrentUser | null }) {
     const navigate = useNavigate();
     const feedback = useFeedback();
-    const [articles, setArticles] = useState<ContentItem[]>([]);
-    const [announcement, setAnnouncement] = useState<AnnouncementItem | null>(null);
-    const [categories, setCategories] = useState<string[]>([]);
     const [feedMode, setFeedMode] = useState<FeedMode>('all');
     const [selectedCategory, setSelectedCategory] = useState('General');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
-    const [loading, setLoading] = useState(true);
-    const [pageLoading, setPageLoading] = useState(false);
-    const [page, setPage] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
     const terminalId = useMemo(() => user ? user.userID.replaceAll('-', '').substring(0, 6).toUpperCase() : 'GUEST', [user]);
-    const sortedArticles = useMemo(() => sortArticles(articles, sortOrder), [articles, sortOrder]);
-
-    const loadFeedPage = useCallback(async (targetPage: number, replace = false) => {
-        setPageLoading(true);
-        try {
+    const feedQuery = useInfiniteQuery({
+        queryKey: ['feed-page', user?.userID ?? 'guest', feedMode, feedMode === 'category' ? selectedCategory : 'all'],
+        initialPageParam: 0,
+        queryFn: async ({ pageParam, signal }) => {
             const response = await api.get<FeedPayload>('/content/feed-page', {
+                signal,
                 params: {
                     mode: feedMode,
                     category: feedMode === 'category' ? selectedCategory : undefined,
-                    page: targetPage,
+                    page: pageParam,
                     limit: 12,
                 },
             });
-            const payload = response.data;
-            setArticles((current) => replace ? payload.items : mergeArticles(current, payload.items));
-            setPage(payload.page);
-            setHasMore(payload.hasMore);
-        } catch {
-            if (replace) {
-                setArticles([]);
-                setHasMore(false);
-            }
+            return response.data;
+        },
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
+        placeholderData: (previous) => previous,
+        staleTime: 30_000,
+    });
+    const articles = useMemo(() => mergePages(feedQuery.data?.pages ?? []), [feedQuery.data?.pages]);
+    const sortedArticles = useMemo(() => sortArticles(articles, sortOrder), [articles, sortOrder]);
+
+    const announcementQuery = useQuery({
+        queryKey: ['announcement', 'latest'],
+        queryFn: async ({ signal }) => {
+            const response = await api.get<AnnouncementItem | ''>('/api/announcements/latest', { signal });
+            return isAnnouncement(response.data) ? response.data : null;
+        },
+        staleTime: 60_000,
+    });
+
+    const categoryQuery = useQuery({
+        queryKey: ['content-taxonomy'],
+        queryFn: async ({ signal }) => {
+            const [categoriesResponse, genreResponse] = await Promise.all([
+                api.get<string[]>('/content/categories', { signal }),
+                api.get<GenreItem[]>('/content/genre-definitions', { signal }),
+            ]);
+            return {
+                categories: Array.isArray(categoriesResponse.data) ? categoriesResponse.data : [],
+                genres: Array.isArray(genreResponse.data) ? genreResponse.data : [],
+            };
+        },
+        staleTime: 5 * 60_000,
+    });
+    const categories = useMemo(() => categoryQuery.data?.categories ?? [], [categoryQuery.data?.categories]);
+    const announcement = announcementQuery.data ?? null;
+
+    useEffect(() => {
+        if (feedQuery.isError) {
             feedback.toast('Feed gagal dimuat. Coba sync ulang sebentar lagi.', 'error');
-        } finally {
-            setPageLoading(false);
         }
-    }, [feedback, feedMode, selectedCategory]);
+    }, [feedQuery.isError, feedback]);
 
     useEffect(() => {
-        setLoading(true);
-        void loadFeedPage(0, true).finally(() => setLoading(false));
-    }, [loadFeedPage, user?.userID]);
+        if (categoryQuery.data?.genres) {
+            setRuntimeCategoryColors(categoryQuery.data.genres);
+        }
+    }, [categoryQuery.data?.genres]);
 
     useEffect(() => {
-        Promise.allSettled([
-            cachedGet<AnnouncementItem | ''>('/api/announcements/latest', undefined, {
-                ttlMs: 60_000,
-                scope: 'public',
-            }),
-            cachedGet<string[]>('/content/categories', undefined, {
-                ttlMs: 5 * 60_000,
-                scope: 'public',
-            }),
-            cachedGet<GenreItem[]>('/content/genre-definitions', undefined, {
-                ttlMs: 5 * 60_000,
-                scope: 'public',
-            }),
-        ])
-            .then(([announcementResult, categoriesResult, genreResult]) => {
-                setAnnouncement(announcementResult.status === 'fulfilled' && isAnnouncement(announcementResult.value) ? announcementResult.value : null);
-                if (genreResult.status === 'fulfilled' && Array.isArray(genreResult.value)) {
-                    setRuntimeCategoryColors(genreResult.value);
-                }
-                if (categoriesResult.status === 'fulfilled' && Array.isArray(categoriesResult.value)) {
-                    setCategories(categoriesResult.value);
-                    if (!categoriesResult.value.includes(selectedCategory)) {
-                        setSelectedCategory(categoriesResult.value[0] ?? 'General');
-                    }
-                }
-            });
-    }, [selectedCategory]);
+        if (categories.length > 0 && !categories.includes(selectedCategory)) {
+            setSelectedCategory(categories[0] ?? 'General');
+        }
+    }, [categories, selectedCategory]);
 
     const selectFeedMode = (nextMode: FeedMode) => {
         if (nextMode === 'following' && !user) {
@@ -120,6 +117,9 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                     </div>
                     {feedMode === 'category' && (
                         <select
+                            id="feed-category-filter"
+                            name="feedCategory"
+                            aria-label="Filter feed by category"
                             value={selectedCategory}
                             onChange={(event) => setSelectedCategory(event.target.value)}
                             className="h-10 border border-[#333] bg-[#0d0d0d] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] outline-none focus:border-[#e60000]"
@@ -132,7 +132,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 </div>
             </section>
 
-            <div className="mb-12 flex flex-col gap-6 border-l-4 border-[#e60000] pl-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mb-12 flex min-h-[220px] flex-col gap-6 border-l-4 border-[#e60000] pl-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
                     <div className="mb-3 flex items-center gap-3">
                         <span className="flex h-10 w-10 items-center justify-center border border-[#e60000] bg-[#170707] text-[#e60000]">
@@ -165,6 +165,8 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                                         <img
                                             src={announcement.adminPhoto}
                                             alt=""
+                                            width={36}
+                                            height={36}
                                             className="h-full w-full object-cover"
                                             referrerPolicy="no-referrer"
                                         />
@@ -185,6 +187,9 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 <div className="flex flex-col items-start gap-2 lg:items-end">
                     <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#444]">Filter_Protocol</span>
                     <select
+                        id="feed-sort-order"
+                        name="feedSortOrder"
+                        aria-label="Sort feed entries"
                         value={sortOrder}
                         onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest' | 'popular')}
                         className="cursor-pointer border border-[#333] bg-[#111] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none transition-colors focus:border-[#e60000]"
@@ -196,25 +201,25 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 </div>
             </div>
 
-            {loading ? (
-                <LoadingSpinner label="Syncing Database" />
+            {feedQuery.isLoading ? (
+                <FeedSkeleton />
             ) : sortedArticles.length === 0 ? (
-                <div className="border border-dashed border-[#222] py-40 text-center font-mono uppercase tracking-[0.4em] text-[#333]">
+                <div className="min-h-[360px] border border-dashed border-[#222] py-40 text-center font-mono uppercase tracking-[0.4em] text-[#333]">
                     [ No_Data_Found_In_Sector ]
                 </div>
             ) : (
-                <div className="flex flex-col">
+                <div className="flex min-h-[640px] flex-col">
                     {sortedArticles.map((art) => (
                         <ContentCard key={art.idContent} art={art} user={user} />
                     ))}
-                    {hasMore && (
+                    {feedQuery.hasNextPage && (
                         <button
                             type="button"
-                            onClick={() => void loadFeedPage(page + 1)}
-                            disabled={pageLoading}
+                            onClick={() => void feedQuery.fetchNextPage()}
+                            disabled={feedQuery.isFetchingNextPage}
                             className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
                         >
-                            {pageLoading ? 'Loading...' : 'Load More'}
+                            {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load More'}
                         </button>
                     )}
                 </div>
@@ -223,9 +228,15 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
     );
 }
 
-function mergeArticles(current: ContentItem[], incoming: ContentItem[]) {
-    const known = new Set(current.map((item) => item.idContent));
-    return [...current, ...incoming.filter((item) => !known.has(item.idContent))];
+function mergePages(pages: FeedPayload[]) {
+    const known = new Set<string>();
+    return pages.flatMap((page) => page.items).filter((item) => {
+        if (known.has(item.idContent)) {
+            return false;
+        }
+        known.add(item.idContent);
+        return true;
+    });
 }
 
 function FeedButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
@@ -257,4 +268,34 @@ function sortArticles(articles: ContentItem[], sortOrder: 'newest' | 'oldest' | 
 
 function isAnnouncement(value: AnnouncementItem | '' | null | undefined): value is AnnouncementItem {
     return typeof value === 'object' && value !== null && typeof value.message === 'string';
+}
+
+function FeedSkeleton() {
+    return (
+        <div className="flex min-h-[640px] flex-col" aria-label="Loading feed entries" aria-busy="true">
+            {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="flex flex-col gap-6 border-b border-[#222] px-4 py-8 md:flex-row">
+                    <div className="flex flex-[2] flex-col">
+                        <div className="mb-4 flex items-center gap-2">
+                            <SkeletonBlock className="h-6 w-6" />
+                            <SkeletonBlock className="h-4 w-40" />
+                        </div>
+                        <SkeletonBlock className="mb-3 h-7 w-3/4" />
+                        <SkeletonBlock className="mb-2 h-4 w-full max-w-2xl" />
+                        <SkeletonBlock className="mb-8 h-4 w-2/3 max-w-xl" />
+                        <div className="mt-auto flex gap-4">
+                            <SkeletonBlock className="h-3 w-20" />
+                            <SkeletonBlock className="h-3 w-12" />
+                            <SkeletonBlock className="h-3 w-12" />
+                        </div>
+                    </div>
+                    <SkeletonBlock className="hidden aspect-square w-full max-w-[180px] flex-1 md:block" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function SkeletonBlock({ className = '' }: { className?: string }) {
+    return <div className={`animate-pulse bg-[#1d1d1d] ${className}`} />;
 }

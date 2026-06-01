@@ -1,5 +1,7 @@
 package gebxby.gebxbyblog.service;
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.dto.SignupRequest;
+import gebxby.gebxbyblog.dto.UsernameCheckResponse;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -13,7 +15,10 @@ public interface UserService {
     User processUserLogin(OAuth2User principal);
     User getCurrentUser(OAuth2User principal);
     User loginWithEmailPassword(String email, String password);
+    User registerWithEmail(SignupRequest request);
     User createManualUser(User user);
+    UsernameCheckResponse checkUsername(String username);
+    List<String> suggestUsernames(String seed, int limit);
     User getUserById(UUID userId);
     List<User> getAllUsers(User admin);
     User suspendUser(UUID userId, Duration duration, User admin);

@@ -98,6 +98,9 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                 >
                     {promptState.multiline ? (
                         <textarea
+                            id="feedback-prompt-textarea"
+                            name="feedbackPrompt"
+                            aria-label="Feedback prompt"
                             autoFocus
                             value={promptState.value}
                             maxLength={promptState.maxLength}
@@ -107,6 +110,9 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                         />
                     ) : (
                         <input
+                            id="feedback-prompt-input"
+                            name="feedbackPrompt"
+                            aria-label="Feedback prompt"
                             autoFocus
                             value={promptState.value}
                             maxLength={promptState.maxLength}

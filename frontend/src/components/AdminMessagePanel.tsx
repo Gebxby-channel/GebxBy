@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Megaphone, Send, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api, { cachedGet, invalidateApiCache } from '../lib/api';
+import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import type { AnnouncementItem, CurrentUser } from '../types/forum';
 import { useFeedback } from './feedback';
 import { profilePathForUser } from '../utils/profilePath';
@@ -20,26 +20,34 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
     const [sending, setSending] = useState(false);
 
     useEffect(() => {
-        api.get<CurrentUser[]>('/api/admin/users')
+        const controller = new AbortController();
+        api.get<CurrentUser[]>('/api/admin/users', { signal: controller.signal })
             .then((response) => {
                 const data = Array.isArray(response.data) ? response.data : [];
                 setUsers(data);
                 setRecipientId('ALL');
             })
-            .catch(() => setUsers([]));
-        void fetchLatestAnnouncement();
+            .catch((error) => {
+                if (!isRequestCanceled(error)) {
+                    setUsers([]);
+                }
+            });
+        void fetchLatestAnnouncement(false, controller.signal);
+        return () => controller.abort();
     }, []);
 
-    const fetchLatestAnnouncement = async (force = false) => {
+    const fetchLatestAnnouncement = async (force = false, signal?: AbortSignal) => {
         try {
-            const data = await cachedGet<AnnouncementItem | ''>('/api/announcements/latest', undefined, {
+            const data = await cachedGet<AnnouncementItem | ''>('/api/announcements/latest', { signal }, {
                 ttlMs: 60_000,
                 scope: 'public',
                 force,
             });
             setLatestAnnouncement(isAnnouncement(data) ? data : null);
-        } catch {
-            setLatestAnnouncement(null);
+        } catch (error) {
+            if (!isRequestCanceled(error)) {
+                setLatestAnnouncement(null);
+            }
         }
     };
 
@@ -87,6 +95,9 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
 
             <div className="grid gap-3 md:grid-cols-[0.85fr_1fr_1fr]">
                 <select
+                    id="admin-broadcast-type"
+                    name="broadcastType"
+                    aria-label="Broadcast type"
                     value={broadcastType}
                     onChange={(event) => {
                         const nextType = event.target.value as BroadcastType;
@@ -99,6 +110,9 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                     <option value="ANNOUNCEMENT_EVENT">Announcement Event</option>
                 </select>
                 <select
+                    id="admin-broadcast-recipient"
+                    name="broadcastRecipient"
+                    aria-label="Broadcast recipient"
                     value={recipientId}
                     onChange={(event) => setRecipientId(event.target.value)}
                     disabled={broadcastType === 'ANNOUNCEMENT_EVENT'}
@@ -112,6 +126,9 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                     ))}
                 </select>
                 <input
+                    id="admin-broadcast-title"
+                    name="broadcastTitle"
+                    aria-label="Broadcast title"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     maxLength={120}
@@ -121,6 +138,9 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
             </div>
 
             <textarea
+                id="admin-broadcast-message"
+                name="broadcastMessage"
+                aria-label="Broadcast message"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 maxLength={1000}

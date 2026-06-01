@@ -23,9 +23,15 @@ public class User {
     private String email;
 
     private String name;
+    private String username;
+
+    @Indexed(unique = true, sparse = true)
+    private String usernameNormalized;
+
     private String photo;
     private String moto;
     private String designation;
+    private String passwordHash;
 
     private String role = "USER";
 

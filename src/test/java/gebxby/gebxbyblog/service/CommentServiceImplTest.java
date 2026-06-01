@@ -5,6 +5,7 @@ import gebxby.gebxbyblog.dto.CommentResponse;
 import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.realtime.RealtimeGateway;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
@@ -43,6 +45,8 @@ class CommentServiceImplTest {
     private BadgeService badgeService;
     @Mock
     private ActivityLogService activityLogService;
+    @Mock
+    private RealtimeGateway realtimeGateway;
 
     private CommentServiceImpl commentService;
     private User author;
@@ -51,7 +55,7 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(badgeService), notificationService, activityLogService);
+        commentService = new CommentServiceImpl(commentRepository, contentRepository, userService, new ForumMapper(badgeService), notificationService, activityLogService, realtimeGateway);
 
         author = new User();
         author.setUserID(UUID.randomUUID());
@@ -86,6 +90,7 @@ class CommentServiceImplTest {
         verify(userService).ensureActive(author);
         verify(contentRepository).save(content);
         verify(notificationService).notifyCommentOnContent(any(Content.class), any(Comment.class));
+        verify(realtimeGateway).commentCreated(eq(content.getIdContent()), any(CommentResponse.class));
     }
 
     @Test
@@ -171,6 +176,7 @@ class CommentServiceImplTest {
         assertTrue(parent.isDeleted());
         assertEquals("", parent.getBody());
         verify(commentRepository).save(parent);
+        verify(realtimeGateway).commentDeleted(eq(content.getIdContent()), eq(parent.getId()), eq(0L));
     }
 
     @Test

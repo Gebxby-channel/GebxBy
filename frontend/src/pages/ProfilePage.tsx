@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, Bookmark, FileText, ShieldAlert, Users } from 'lucide-react';
-import api, { cachedGet, invalidateApiCache } from '../lib/api';
+import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
@@ -74,8 +74,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         ? { ...selectedProfileCard, displayName: canCustomizeSelectedCard ? cardDisplayName : selectedProfileCard.displayName, displayPhoto: canCustomizeSelectedCard ? cardDisplayPhoto : selectedProfileCard.displayPhoto }
         : undefined;
 
-    const fetchMyContents = useCallback(async (force = false) => {
-        const data = await cachedGet<ContentItem[]>(`/content/by-user/${user.userID}`, undefined, {
+    const fetchMyContents = useCallback(async (force = false, signal?: AbortSignal) => {
+        const data = await cachedGet<ContentItem[]>(`/content/by-user/${user.userID}`, { signal }, {
             ttlMs: 60_000,
             scope: user.userID,
             force,
@@ -89,8 +89,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setContents(myData);
     }, [sortOrder, user.userID]);
 
-    const fetchBookmarks = useCallback(async (force = false) => {
-        const data = await cachedGet<ContentItem[]>('/api/user/bookmarks', undefined, {
+    const fetchBookmarks = useCallback(async (force = false, signal?: AbortSignal) => {
+        const data = await cachedGet<ContentItem[]>('/api/user/bookmarks', { signal }, {
             ttlMs: 30_000,
             scope: user.userID,
             force,
@@ -98,8 +98,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setBookmarks(Array.isArray(data) ? data : []);
     }, [user.userID]);
 
-    const fetchFollowing = useCallback(async (force = false) => {
-        const data = await cachedGet<PublicUser[]>('/api/user/following', undefined, {
+    const fetchFollowing = useCallback(async (force = false, signal?: AbortSignal) => {
+        const data = await cachedGet<PublicUser[]>('/api/user/following', { signal }, {
             ttlMs: 30_000,
             scope: user.userID,
             force,
@@ -108,9 +108,19 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     }, [user.userID]);
 
     useEffect(() => {
-        void fetchMyContents();
-        void fetchBookmarks();
-        void fetchFollowing();
+        const controller = new AbortController();
+        void Promise.all([
+            fetchMyContents(false, controller.signal),
+            fetchBookmarks(false, controller.signal),
+            fetchFollowing(false, controller.signal),
+        ]).catch((error) => {
+            if (!isRequestCanceled(error)) {
+                setContents([]);
+                setBookmarks([]);
+                setFollowing([]);
+            }
+        });
+        return () => controller.abort();
     }, [fetchBookmarks, fetchFollowing, fetchMyContents]);
 
     useEffect(() => {
@@ -282,7 +292,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                         {profileCardId === 'DEFAULT:STARS' ? (
                         <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
                             <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4">
-                                <img src={logo} alt="S.T.A.R.S. Logo" className="w-[85%] object-contain" />
+                                <img src={logo} alt="S.T.A.R.S. Logo" width={180} height={180} className="w-[85%] object-contain" />
                                 <h2 className="mt-3 text-center text-[5px] font-black uppercase leading-tight tracking-normal text-white">Special Tactics and Rescue Service</h2>
                             </div>
                             <div className="relative flex flex-1 flex-col justify-between bg-white p-5 text-[#1a3a63]">
@@ -305,6 +315,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         <img
                                             src={picture || user.picture || defaultAvatar}
                                             alt="Officer"
+                                            width={80}
+                                            height={96}
                                             className="h-full w-full object-cover grayscale contrast-125"
                                             referrerPolicy="no-referrer"
                                             onError={(event) => { event.currentTarget.src = defaultAvatar; }}
@@ -364,6 +376,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 <ProfileTabButton active={profileTab === 'following'} label="Following" icon={<Users size={13} />} onClick={() => setProfileTab('following')} />
                                 <ProfileTabButton active={profileTab === 'badges'} label="Badges" icon={<Award size={13} />} onClick={() => setProfileTab('badges')} />
                                 <select
+                                    id="profile-writing-sort"
+                                    name="profileWritingSort"
+                                    aria-label="Sort profile writings"
                                     value={sortOrder}
                                     onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}
                                     className={`${profileTab === 'writings' ? 'block' : 'hidden'} cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]`}
@@ -437,6 +452,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
                                 Profile Name
                                 <input
+                                    id="profile-display-name"
+                                    name="profileDisplayName"
+                                    aria-label="Profile name"
                                     value={name}
                                     maxLength={80}
                                     onChange={(event) => setName(event.target.value)}
@@ -446,6 +464,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
                                 Role / Designation
                                 <input
+                                    id="profile-designation"
+                                    name="profileDesignation"
+                                    aria-label="Profile designation"
                                     value={designation}
                                     maxLength={80}
                                     onChange={(event) => setDesignation(event.target.value.toUpperCase())}
@@ -457,7 +478,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 <div className="flex flex-wrap gap-2">
                                     <label className="flex h-10 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
                                         Change Profile Photo
-                                        <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
+                                        <input id="profile-photo-upload" name="profilePhoto" aria-label="Profile photo upload" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
                                     </label>
                                     <button
                                         type="button"
@@ -473,6 +494,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             <div className="border-t border-[#2a2a2a] pt-4">
                                 <label className="mb-2 block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Card Model</label>
                                 <select
+                                    id="profile-card-model"
+                                    name="profileCardModel"
+                                    aria-label="Profile card model"
                                     value={profileCardId}
                                     onChange={(event) => setProfileCardId(event.target.value)}
                                     className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
@@ -488,6 +512,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
                                         Name On Card
                                         <input
+                                            id="profile-card-display-name"
+                                            name="profileCardDisplayName"
+                                            aria-label="Name on profile card"
                                             value={cardDisplayName}
                                             maxLength={80}
                                             onChange={(event) => setCardDisplayName(event.target.value)}
@@ -498,7 +525,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <div className="flex flex-wrap gap-2">
                                         <label className="flex h-9 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
                                             Change Card Photo
-                                            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCardPhotoSelect} />
+                                            <input id="profile-card-photo-upload" name="profileCardPhoto" aria-label="Profile card photo upload" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCardPhotoSelect} />
                                         </label>
                                         <button
                                             type="button"
@@ -531,6 +558,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <img
                                         src={cardDisplayPhoto || picture || user.picture || defaultAvatar}
                                         alt="Profile preview"
+                                        width={260}
+                                        height={260}
                                         className="h-full w-full object-cover"
                                         referrerPolicy="no-referrer"
                                         onError={(event) => { event.currentTarget.src = defaultAvatar; }}
@@ -544,6 +573,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         <img
                                             src={cropSource}
                                             alt="Crop preview"
+                                            width={260}
+                                            height={260}
                                             className="h-full w-full object-cover"
                                             style={{
                                                 transform: `scale(${cropZoom}) translate(${cropX}px, ${cropY}px)`,
@@ -551,11 +582,11 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         />
                                     </div>
                                     <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Zoom</label>
-                                    <input className="mb-3 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} />
+                                    <input id="profile-crop-zoom" name="profileCropZoom" aria-label="Photo crop zoom" className="mb-3 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} />
                                     <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Horizontal</label>
-                                    <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
+                                    <input id="profile-crop-x" name="profileCropX" aria-label="Photo crop horizontal position" className="mb-3 w-full" type="range" min="-80" max="80" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
                                     <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
-                                    <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
+                                    <input id="profile-crop-y" name="profileCropY" aria-label="Photo crop vertical position" className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
                                     <div className="flex flex-wrap gap-2">
                                         <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">{editingCardPhoto ? 'Apply Card Photo' : 'Apply Profile Photo'}</button>
                                         <button type="button" onClick={() => { setCropSource(''); setEditingCardPhoto(false); }} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel Crop</button>
@@ -607,11 +638,11 @@ function ArchiveItem({
         <div className="bg-[#181818] p-6 shadow-inner transition-all duration-300" style={{ border: `1px solid #2a2a2a`, borderLeft: `3px solid ${themeColor}` }}>
             {editing ? (
                 <div className="space-y-4">
-                    <input className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none focus:border-[#e60000]" value={editForm.head} onChange={(event) => setEditForm({ ...editForm, head: event.target.value })} />
-                    <select className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.kategori} onChange={(event) => setEditForm({ ...editForm, kategori: event.target.value })}>
+                    <input id={`profile-edit-title-${item.idContent}`} name={`profileEditTitle-${item.idContent}`} aria-label="Edit writing title" className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none focus:border-[#e60000]" value={editForm.head} onChange={(event) => setEditForm({ ...editForm, head: event.target.value })} />
+                    <select id={`profile-edit-category-${item.idContent}`} name={`profileEditCategory-${item.idContent}`} aria-label="Edit writing category" className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.kategori} onChange={(event) => setEditForm({ ...editForm, kategori: event.target.value })}>
                         {DEFAULT_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}
                     </select>
-                    <textarea className="h-40 w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.paragrafs} onChange={(event) => setEditForm({ ...editForm, paragrafs: event.target.value })} />
+                    <textarea id={`profile-edit-body-${item.idContent}`} name={`profileEditBody-${item.idContent}`} aria-label="Edit writing body" className="h-40 w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.paragrafs} onChange={(event) => setEditForm({ ...editForm, paragrafs: event.target.value })} />
                     <div className="flex gap-3">
                         <button type="button" onClick={onSave} className="bg-[#e60000] px-6 py-2 text-xs font-bold uppercase">Confirm</button>
                         <button type="button" onClick={onCancel} className="bg-[#333] px-6 py-2 text-xs font-bold uppercase">Abort</button>
@@ -698,7 +729,8 @@ function AboutPanel({
                 <div className="border border-[#2a2a2a] bg-[#181818] p-5">
                     <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">About</p>
                     <h3 className="m-0 mt-3 font-mono text-xl font-black uppercase text-white">{user.name}</h3>
-                    <p className="m-0 mt-2 font-mono text-[10px] uppercase text-[#666]">{user.designation || 'Archive Officer'}</p>
+                    <p className="m-0 mt-2 font-mono text-[10px] uppercase text-[#666]">{user.username ? `@${user.username}` : user.designation || 'Archive Officer'}</p>
+                    {user.username && <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#444]">{user.designation || 'Archive Officer'}</p>}
                     <p className="m-0 mt-4 font-sans text-sm leading-7 text-[#aaa]">{user.moto || 'No personal note recorded yet.'}</p>
                 </div>
                 <div className="border border-[#2a2a2a] bg-[#181818] p-5">
@@ -815,6 +847,8 @@ function FollowingItem({ target, onOpen }: { target: PublicUser; onOpen: () => v
                 <img
                     src={target.picture || defaultAvatar}
                     alt=""
+                    width={56}
+                    height={56}
                     className="h-full w-full object-cover"
                     referrerPolicy="no-referrer"
                     onError={(event) => { event.currentTarget.src = defaultAvatar; }}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cachedGet } from '../lib/api';
+import { cachedGet, isRequestCanceled } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { DEFAULT_CATEGORIES, getCategoryColor, setRuntimeCategoryColors } from '../utils/categoryColors';
@@ -12,30 +12,48 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
         Promise.allSettled([
-            cachedGet<string[]>('/content/categories', undefined, { ttlMs: 10 * 60_000 }),
-            cachedGet<GenreItem[]>('/content/genre-definitions', undefined, { ttlMs: 10 * 60_000 }),
+            cachedGet<string[]>('/content/categories', { signal: controller.signal }, { ttlMs: 10 * 60_000 }),
+            cachedGet<GenreItem[]>('/content/genre-definitions', { signal: controller.signal }, { ttlMs: 10 * 60_000 }),
         ])
             .then(([categoryResult, genreResult]) => {
+                if (controller.signal.aborted) return;
                 const data = categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value) ? categoryResult.value : [];
                 if (genreResult.status === 'fulfilled' && Array.isArray(genreResult.value)) {
                     setRuntimeCategoryColors(genreResult.value);
                 }
                 setCategories(Array.from(new Set(['All', ...DEFAULT_CATEGORIES, ...data])));
             })
-            .catch(() => setCategories(['All', ...DEFAULT_CATEGORIES]));
+            .catch((error) => {
+                if (!isRequestCanceled(error)) {
+                    setCategories(['All', ...DEFAULT_CATEGORIES]);
+                }
+            });
+        return () => controller.abort();
     }, []);
 
     useEffect(() => {
+        const controller = new AbortController();
         cachedGet<ContentItem[]>('/content/all-content', {
+            signal: controller.signal,
             params: selectedCategory === 'All' ? undefined : { category: selectedCategory },
         }, {
             ttlMs: 45_000,
             scope: user?.userID ?? 'guest',
         })
             .then(data => setArticles(Array.isArray(data) ? data : []))
-            .catch(() => setArticles([]))
-            .finally(() => setLoading(false));
+            .catch((error) => {
+                if (!isRequestCanceled(error)) {
+                    setArticles([]);
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            });
+        return () => controller.abort();
     }, [selectedCategory, user?.userID]);
 
     const selectCategory = (category: string) => {

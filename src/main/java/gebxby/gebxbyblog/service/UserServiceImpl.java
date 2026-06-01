@@ -1,14 +1,18 @@
 package gebxby.gebxbyblog.service;
 
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
+import gebxby.gebxbyblog.dto.SignupRequest;
+import gebxby.gebxbyblog.dto.UsernameCheckResponse;
 import gebxby.gebxbyblog.model.BadgeCode;
-import gebxby.gebxbyblog.model.Comment;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -24,7 +28,6 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,6 +37,7 @@ public class UserServiceImpl implements UserService {
     private static final String DEFAULT_DESIGNATION = "RECONNAISSANCE OFFICER";
     private static final String MANUAL_SUB_PREFIX = "manual:";
     private static final int MAX_PROFILE_IMAGE_LENGTH = 350_000;
+    private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
     private final ContentRepository contentRepository;
@@ -42,14 +46,19 @@ public class UserServiceImpl implements UserService {
     private final String adminLoginEmail;
     private final String adminLoginPasswordHash;
     private final PasswordEncoder passwordEncoder;
+    private final UsernameService usernameService;
+    private final UserProfileProjectionService profileProjectionService;
 
+    @Autowired
     public UserServiceImpl(UserRepository userRepository,
                            ContentRepository contentRepository,
                            CommentRepository commentRepository,
                            @Value("${app.admin-emails:}") String adminEmails,
                            @Value("${app.admin-login-email:}") String adminLoginEmail,
                            @Value("${app.admin-login-password-hash:}") String adminLoginPasswordHash,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           UsernameService usernameService,
+                           UserProfileProjectionService profileProjectionService) {
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
         this.commentRepository = commentRepository;
@@ -61,6 +70,20 @@ public class UserServiceImpl implements UserService {
         this.adminLoginEmail = normalizeEmail(adminLoginEmail);
         this.adminLoginPasswordHash = adminLoginPasswordHash;
         this.passwordEncoder = passwordEncoder;
+        this.usernameService = usernameService;
+        this.profileProjectionService = profileProjectionService;
+    }
+
+    public UserServiceImpl(UserRepository userRepository,
+                           ContentRepository contentRepository,
+                           CommentRepository commentRepository,
+                           String adminEmails,
+                           String adminLoginEmail,
+                           String adminLoginPasswordHash,
+                           PasswordEncoder passwordEncoder) {
+        this(userRepository, contentRepository, commentRepository, adminEmails, adminLoginEmail,
+                adminLoginPasswordHash, passwordEncoder, new UsernameService(userRepository),
+                new UserProfileProjectionService(contentRepository, commentRepository));
     }
 
     @Override
@@ -123,6 +146,7 @@ public class UserServiceImpl implements UserService {
             user.setDesignation(DEFAULT_DESIGNATION);
         }
         user.setRole(resolveRole(email, user.getRole()));
+        usernameService.ensureUsername(user);
         user.setUpdatedAt(now);
 
         return userRepository.save(user);
@@ -136,12 +160,22 @@ public class UserServiceImpl implements UserService {
     @Override
     public User loginWithEmailPassword(String email, String password) {
         String normalizedEmail = normalizeEmail(email);
-        if (!StringUtils.hasText(normalizedEmail)
-                || !StringUtils.hasText(password)
-                || !normalizedEmail.equals(adminLoginEmail)
-                || !StringUtils.hasText(adminLoginPasswordHash)
-                || !passwordEncoder.matches(password, adminLoginPasswordHash)) {
+        if (!StringUtils.hasText(normalizedEmail) || !StringUtils.hasText(password)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email atau password tidak valid");
+        }
+
+        boolean configuredAdminLogin = normalizedEmail.equals(adminLoginEmail)
+                && StringUtils.hasText(adminLoginPasswordHash)
+                && passwordEncoder.matches(password, adminLoginPasswordHash);
+
+        if (!configuredAdminLogin) {
+            User user = userRepository.findByEmail(normalizedEmail)
+                    .filter(candidate -> StringUtils.hasText(candidate.getPasswordHash()))
+                    .filter(candidate -> passwordEncoder.matches(password, candidate.getPasswordHash()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email atau password tidak valid"));
+            usernameService.ensureUsername(user);
+            user.setUpdatedAt(LocalDateTime.now());
+            return userRepository.save(user);
         }
 
         User user = userRepository.findByEmail(normalizedEmail).orElseGet(User::new);
@@ -157,7 +191,46 @@ public class UserServiceImpl implements UserService {
                 ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
                 : "ADMINISTRATOR");
         user.setRole("ADMIN");
+        usernameService.ensureUsername(user);
         user.setUpdatedAt(now);
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User registerWithEmail(SignupRequest request) {
+        if (request == null
+                || !StringUtils.hasText(request.name())
+                || !StringUtils.hasText(request.email())
+                || !StringUtils.hasText(request.password())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nama, email, dan password wajib diisi");
+        }
+        String email = normalizeEmail(request.email());
+        if (!StringUtils.hasText(email) || !email.contains("@")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Format email tidak valid");
+        }
+        if (request.password().length() < MIN_PASSWORD_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password minimal 8 karakter");
+        }
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email sudah terdaftar");
+        }
+
+        User user = new User();
+        LocalDateTime now = LocalDateTime.now();
+        user.setUserID(UUID.randomUUID());
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        user.setEmail(email);
+        user.setGoogleId(MANUAL_SUB_PREFIX + email);
+        user.setName(trimToLength(request.name(), 80));
+        user.setDesignation(DEFAULT_DESIGNATION);
+        user.setRole(resolveRole(email, "USER"));
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        if (StringUtils.hasText(request.username())) {
+            usernameService.applyRequestedUsername(user, request.username());
+        } else {
+            usernameService.ensureUsername(user);
+        }
         return userRepository.save(user);
     }
 
@@ -179,20 +252,38 @@ public class UserServiceImpl implements UserService {
                 ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
                 : DEFAULT_DESIGNATION);
         existing.setRole(resolveRole(existing.getEmail(), existing.getRole()));
+        if (StringUtils.hasText(user.getUsername())) {
+            usernameService.applyRequestedUsername(existing, user.getUsername());
+        } else {
+            usernameService.ensureUsername(existing);
+        }
         existing.setUpdatedAt(now);
         return saveUserAndRefreshEmbeddedProfiles(existing);
     }
 
     @Override
+    public UsernameCheckResponse checkUsername(String username) {
+        return usernameService.checkUsername(username);
+    }
+
+    @Override
+    public List<String> suggestUsernames(String seed, int limit) {
+        return usernameService.suggestUsernames(seed, limit);
+    }
+
+    @Override
     public User getUserById(UUID userId) {
-        return userRepository.findById(userId)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan"));
+        return ensurePersistedUsername(user);
     }
 
     @Override
     public List<User> getAllUsers(User admin) {
         requireAdmin(admin);
-        return userRepository.findAll();
+        return userRepository.findAll().stream()
+                .map(this::ensurePersistedUsername)
+                .toList();
     }
 
     @Override
@@ -368,27 +459,36 @@ public class UserServiceImpl implements UserService {
         return picture;
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void backfillMissingUsernamesOnStartup() {
+        try {
+            userRepository.findAll().forEach(this::ensurePersistedUsername);
+        } catch (RuntimeException ignored) {
+            // Startup must not fail only because the optional one-time username backfill cannot reach storage yet.
+        }
+    }
+
+    private User ensurePersistedUsername(User user) {
+        if (user == null || usernameService.hasUsername(user)) {
+            return user;
+        }
+        usernameService.ensureUsername(user);
+        user.setUpdatedAt(LocalDateTime.now());
+        return saveUserAndRefreshEmbeddedProfiles(user);
+    }
+
     private String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     private User saveUserAndRefreshEmbeddedProfiles(User user) {
+        usernameService.ensureUsername(user);
         User saved = userRepository.save(user);
         if (saved.getUserID() == null) {
             return saved;
         }
 
-        List<Content> contents = Optional.ofNullable(contentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
-        contents.forEach(content -> content.setUser(saved));
-        if (!contents.isEmpty()) {
-            contentRepository.saveAll(contents);
-        }
-
-        List<Comment> comments = Optional.ofNullable(commentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
-        comments.forEach(comment -> comment.setUser(saved));
-        if (!comments.isEmpty()) {
-            commentRepository.saveAll(comments);
-        }
+        profileProjectionService.refreshEmbeddedProfiles(saved);
         return saved;
     }
 }
