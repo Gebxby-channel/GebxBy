@@ -43,6 +43,6 @@ public record ProfileCardLayoutResponse(
                                      String accentColor) {
         this(photoX, photoY, photoW, photoH, nameX, nameY, nameW, nameH,
                 designationX, designationY, designationW, designationH,
-                statsX, statsY, statsW, statsH, 3.0, 1.5, 1.2, textColor, accentColor);
+                statsX, statsY, statsW, statsH, 0.9, 0.9, 1.2, textColor, accentColor);
     }
 }

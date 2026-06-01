@@ -1,39 +1,26 @@
 import type { CurrentUser, ProfileCardItem, PublicUser } from '../types/forum';
-import Card_Ubrella from './Card_Ubrella';
-
-type ProfileStats = {
-    writings: number;
-    up: number;
-    comments: number;
-    views: number;
-};
 
 export default function ProfileCardRenderer({
     user,
     card,
-    stats,
 }: {
     user: CurrentUser | PublicUser;
     card?: ProfileCardItem;
-    stats: ProfileStats;
 }) {
-    if (card?.id === 'DEFAULT:UMBRELLA' || card?.code === 'DEFAULT:UMBRELLA') {
-        return <Card_Ubrella user={user} stats={stats} />;
-    }
     if (card?.custom && card.backgroundImage) {
-        return <CustomProfileCard user={user} card={card} stats={stats} />;
+        return <CustomProfileCard user={user} card={card} />;
     }
     return null;
 }
 
-function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUser; card: ProfileCardItem; stats: ProfileStats }) {
+function CustomProfileCard({ user, card }: { user: CurrentUser | PublicUser; card: ProfileCardItem }) {
     const layout = card.layout;
     const displayName = card.displayName || user.name || 'User';
     const avatar = card.displayPhoto || user.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(displayName)}`;
     const aspect = card.orientation === 'VERTICAL' ? 'aspect-[0.64/1]' : 'aspect-[1.58/1]';
 
     return (
-        <div className={`relative w-full max-w-[520px] overflow-hidden border border-[#2a2a2a] bg-[#111] shadow-2xl ${aspect}`}>
+        <div className={`profile-card-stage relative w-full max-w-[620px] overflow-hidden border border-[#2a2a2a] bg-[#111] shadow-2xl [container-type:inline-size] ${aspect}`}>
             <img src={card.backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
             <img
                 src={avatar}
@@ -55,7 +42,7 @@ function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUs
                     width: `${layout.nameW}%`,
                     height: `${layout.nameH}%`,
                     color: layout.textColor,
-                    fontSize: `${layout.nameFontSize || 3}cqw`,
+                    fontSize: responsiveCardFont(layout.nameFontSize, 3),
                 }}
             >
                 {displayName}
@@ -68,27 +55,17 @@ function CustomProfileCard({ user, card, stats }: { user: CurrentUser | PublicUs
                     width: `${layout.designationW}%`,
                     height: `${layout.designationH}%`,
                     color: layout.textColor,
-                    fontSize: `${layout.designationFontSize || 1.5}cqw`,
+                    fontSize: responsiveCardFont(layout.designationFontSize, 1.5),
                 }}
             >
                 {user.designation || 'Archive Officer'}
             </div>
-            <div
-                className="absolute grid grid-cols-2 gap-1 font-mono font-black uppercase leading-none"
-                style={{
-                    left: `${layout.statsX}%`,
-                    top: `${layout.statsY}%`,
-                    width: `${layout.statsW}%`,
-                    height: `${layout.statsH}%`,
-                    color: layout.accentColor,
-                    fontSize: `${layout.statsFontSize || 1.2}cqw`,
-                }}
-            >
-                <span>W {stats.writings}</span>
-                <span>U {stats.up}</span>
-                <span>C {stats.comments}</span>
-                <span>V {stats.views}</span>
-            </div>
         </div>
     );
+}
+
+function responsiveCardFont(value: number | undefined, fallback: number) {
+    const clean = Number.isFinite(value) && value && value > 0 ? value : fallback;
+    const scaled = clean * 4;
+    return `clamp(${Math.max(8, clean * 7)}px, ${scaled}cqw, ${Math.max(18, clean * 24)}px)`;
 }

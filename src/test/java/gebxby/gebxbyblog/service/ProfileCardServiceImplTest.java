@@ -94,12 +94,12 @@ class ProfileCardServiceImplTest {
     }
 
     @Test
-    void cardsForUserAlwaysIncludesDefaultCards() {
+    void cardsForUserAlwaysIncludesDefaultCard() {
         when(userCardRepository.findByUserIdOrderByGrantedAtDesc(target.getUserID())).thenReturn(List.of());
 
         List<ProfileCardResponse> cards = profileCardService.cardsForUser(target);
 
-        assertEquals(2, cards.size());
+        assertEquals(1, cards.size());
         assertEquals(ProfileCardServiceImpl.DEFAULT_STARS, cards.getFirst().id());
     }
 

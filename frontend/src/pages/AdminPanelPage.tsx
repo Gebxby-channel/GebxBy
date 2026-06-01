@@ -970,8 +970,8 @@ function initialProfileCardForm(): ProfileCardFormState {
             statsY: 78,
             statsW: 30,
             statsH: 12,
-            nameFontSize: 2.6,
-            designationFontSize: 1.25,
+            nameFontSize: 0.9,
+            designationFontSize: 0.9,
             statsFontSize: 1.05,
             textColor: '#111111',
             accentColor: '#e60000',
@@ -996,15 +996,10 @@ function LayoutEditor({ layout, onChange }: { layout: ProfileCardLayout; onChang
                 <NumberField label="Designation Y" value={layout.designationY} onChange={(value) => update('designationY', value)} />
                 <NumberField label="Designation W" value={layout.designationW} onChange={(value) => update('designationW', value)} />
                 <NumberField label="Designation H" value={layout.designationH} onChange={(value) => update('designationH', value)} />
-                <NumberField label="Stats X" value={layout.statsX} onChange={(value) => update('statsX', value)} />
-                <NumberField label="Stats Y" value={layout.statsY} onChange={(value) => update('statsY', value)} />
-                <NumberField label="Stats W" value={layout.statsW} onChange={(value) => update('statsW', value)} />
-                <NumberField label="Stats H" value={layout.statsH} onChange={(value) => update('statsH', value)} />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-                <NumberField label="Name Font" value={layout.nameFontSize ?? 2.6} min={0.6} max={12} step={0.1} onChange={(value) => update('nameFontSize', value)} />
-                <NumberField label="Role Font" value={layout.designationFontSize ?? 1.25} min={0.6} max={12} step={0.1} onChange={(value) => update('designationFontSize', value)} />
-                <NumberField label="Stats Font" value={layout.statsFontSize ?? 1.05} min={0.6} max={12} step={0.1} onChange={(value) => update('statsFontSize', value)} />
+            <div className="grid grid-cols-2 gap-2">
+                <NumberField label="Name Font" value={layout.nameFontSize ?? 0.9} min={0.4} max={4} step={0.05} onChange={(value) => update('nameFontSize', value)} />
+                <NumberField label="Role Font" value={layout.designationFontSize ?? 0.9} min={0.4} max={4} step={0.05} onChange={(value) => update('designationFontSize', value)} />
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <label className="font-mono text-[9px] uppercase text-[#666]">Text Color<input type="color" value={layout.textColor} onChange={(event) => update('textColor', event.target.value)} className="mt-1 block h-8 w-full" /></label>
@@ -1051,7 +1046,6 @@ function TemplateOverlay({ layout }: { layout: ProfileCardLayout }) {
             <div className="absolute border-2 border-[#e60000]" style={{ left: `${layout.photoX}%`, top: `${layout.photoY}%`, width: `${layout.photoW}%`, height: `${layout.photoH}%` }} />
             <div className="absolute border border-[#38bdf8] bg-[#38bdf8]/20" style={{ left: `${layout.nameX}%`, top: `${layout.nameY}%`, width: `${layout.nameW}%`, height: `${layout.nameH}%` }} />
             <div className="absolute border border-[#22c55e] bg-[#22c55e]/20" style={{ left: `${layout.designationX}%`, top: `${layout.designationY}%`, width: `${layout.designationW}%`, height: `${layout.designationH}%` }} />
-            <div className="absolute border border-[#facc15] bg-[#facc15]/20" style={{ left: `${layout.statsX}%`, top: `${layout.statsY}%`, width: `${layout.statsW}%`, height: `${layout.statsH}%` }} />
         </>
     );
 }

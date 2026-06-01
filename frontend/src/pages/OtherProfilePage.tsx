@@ -8,6 +8,7 @@ import { stripHtml } from '../utils/sanitize';
 import type { BadgeCode, ContentItem, CurrentUser, PublicUser } from '../types/forum';
 import BadgeStrip from '../components/BadgeStrip';
 import { useFeedback } from '../components/feedback';
+import ProfileCardRenderer from '../components/ProfileCardRenderer';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
@@ -52,6 +53,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
 
     const displayUser = isMyOwnProfile && user ? user : viewedUser;
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(displayUser?.name || 'User')}`;
+    const activeProfileCard = displayUser?.activeProfileCard;
+    const showCustomProfileCard = Boolean(activeProfileCard?.custom && activeProfileCard.backgroundImage);
     const canModerate = Boolean(user?.badges?.some((badge) => badge.code === 'MODERATOR' || badge.code === 'ADMIN'));
     const isAdminViewer = user?.role === 'ADMIN';
     const isSelfTarget = displayUser?.userID === user?.userID;
@@ -224,7 +227,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                 <div className="flex flex-col items-start gap-10 lg:flex-row">
                     <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
                         <div
-                            className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl"
+                            className="w-full"
                             onContextMenu={(event) => {
                                 if (!canModerate || !displayUser) return;
                                 event.preventDefault();
@@ -233,43 +236,11 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                             }}
                             title={canModerate ? 'Klik kanan untuk action moderator/admin' : undefined}
                         >
-                            <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4 text-center">
-                                <img src={logo} alt="STARS" className="mb-2 w-[80%]" />
-                                <h2 className="text-[10px] font-black uppercase leading-tight text-white">SPECIAL TACTICS AND RESCUE SERVICE</h2>
-                            </div>
-
-                            <div className="relative flex flex-1 flex-col justify-between bg-white p-5 text-[#1a3a63]">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex flex-col">
-                                        <h1 className="text-3xl font-black leading-none">POLICE</h1>
-                                        <p className="text-[10px] font-bold">CENTRAL ARCHIVE DEP.</p>
-                                    </div>
-                                    <div className="flex h-8 w-8 items-center justify-center border border-[#1a3a63] text-xs font-black italic">RPD</div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <ProfileField label="Officer Name" value={displayUser?.name || 'N/A'} />
-                                    <ProfileField label="Designation" value={displayUser?.designation || 'ACCESS_RESTRICTED'} />
-                                </div>
-
-                                <div className="flex items-end justify-between gap-3">
-                                    <div className="h-24 w-20 flex-shrink-0 border border-[#1a3a63] bg-gray-200 p-0.5">
-                                        <img
-                                            src={displayUser?.picture || defaultAvatar}
-                                            alt="Photo"
-                                            className="h-full w-full object-cover grayscale contrast-125"
-                                            onError={(event) => { event.currentTarget.src = defaultAvatar; }}
-                                            referrerPolicy="no-referrer"
-                                        />
-                                    </div>
-                                    <div className="flex flex-1 flex-col items-end">
-                                        <div className="w-full max-w-[100px] text-center">
-                                            <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic leading-none">GEBXBY</div>
-                                            <span className="text-[7px] font-black uppercase">Authorized Signature</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            {showCustomProfileCard ? (
+                                <ProfileCardRenderer user={displayUser as PublicUser} card={activeProfileCard} />
+                            ) : (
+                                <DefaultPublicProfileCard displayUser={displayUser} defaultAvatar={defaultAvatar} />
+                            )}
                         </div>
                         <div className="mt-3">
                             <BadgeStrip badges={displayUser?.badges} />
@@ -529,6 +500,50 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function DefaultPublicProfileCard({ displayUser, defaultAvatar }: { displayUser: PublicUser | CurrentUser | null; defaultAvatar: string }) {
+    return (
+        <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
+            <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4 text-center">
+                <img src={logo} alt="STARS" className="mb-2 w-[80%]" />
+                <h2 className="text-[10px] font-black uppercase leading-tight text-white">SPECIAL TACTICS AND RESCUE SERVICE</h2>
+            </div>
+
+            <div className="relative flex flex-1 flex-col justify-between bg-white p-5 text-[#1a3a63]">
+                <div className="flex items-start justify-between">
+                    <div className="flex flex-col">
+                        <h1 className="text-3xl font-black leading-none">POLICE</h1>
+                        <p className="text-[10px] font-bold">CENTRAL ARCHIVE DEP.</p>
+                    </div>
+                    <div className="flex h-8 w-8 items-center justify-center border border-[#1a3a63] text-xs font-black italic">RPD</div>
+                </div>
+
+                <div className="space-y-4">
+                    <ProfileField label="Officer Name" value={displayUser?.name || 'N/A'} />
+                    <ProfileField label="Designation" value={displayUser?.designation || 'ACCESS_RESTRICTED'} />
+                </div>
+
+                <div className="flex items-end justify-between gap-3">
+                    <div className="h-24 w-20 flex-shrink-0 border border-[#1a3a63] bg-gray-200 p-0.5">
+                        <img
+                            src={displayUser?.picture || defaultAvatar}
+                            alt="Photo"
+                            className="h-full w-full object-cover grayscale contrast-125"
+                            onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                            referrerPolicy="no-referrer"
+                        />
+                    </div>
+                    <div className="flex flex-1 flex-col items-end">
+                        <div className="w-full max-w-[100px] text-center">
+                            <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic leading-none">GEBXBY</div>
+                            <span className="text-[7px] font-black uppercase">Authorized Signature</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

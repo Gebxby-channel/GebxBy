@@ -30,7 +30,6 @@ import java.util.UUID;
 @Service
 public class ProfileCardServiceImpl implements ProfileCardService {
     public static final String DEFAULT_STARS = "DEFAULT:STARS";
-    public static final String DEFAULT_UMBRELLA = "DEFAULT:UMBRELLA";
     private static final int MAX_CARD_IMAGE_LENGTH = 650_000;
     private static final int MAX_CARD_PHOTO_LENGTH = 350_000;
     private static final int MAX_NAME_LENGTH = 60;
@@ -141,7 +140,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
             return defaultCard(DEFAULT_STARS);
         }
         String active = StringUtils.hasText(user.getActiveProfileCardId()) ? user.getActiveProfileCardId() : DEFAULT_STARS;
-        if (DEFAULT_UMBRELLA.equals(active) || DEFAULT_STARS.equals(active)) {
+        if (DEFAULT_STARS.equals(active)) {
             return defaultCard(active);
         }
         try {
@@ -159,7 +158,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
     public User setActiveCard(String cardId, User user) {
         userService.ensureActive(user);
         String nextCardId = StringUtils.hasText(cardId) ? cardId.trim() : DEFAULT_STARS;
-        if (!DEFAULT_STARS.equals(nextCardId) && !DEFAULT_UMBRELLA.equals(nextCardId)) {
+        if (!DEFAULT_STARS.equals(nextCardId)) {
             UUID id;
             try {
                 id = UUID.fromString(nextCardId);
@@ -220,19 +219,15 @@ public class ProfileCardServiceImpl implements ProfileCardService {
     }
 
     private List<ProfileCardResponse> defaultCards() {
-        return List.of(defaultCard(DEFAULT_STARS), defaultCard(DEFAULT_UMBRELLA));
+        return List.of(defaultCard(DEFAULT_STARS));
     }
 
     private ProfileCardResponse defaultCard(String code) {
-        String name = DEFAULT_UMBRELLA.equals(code) ? "Umbrella Security Card" : "S.T.A.R.S. Archive Card";
-        String description = DEFAULT_UMBRELLA.equals(code)
-                ? "Default Umbrella-inspired personnel card."
-                : "Default S.T.A.R.S. police archive card.";
         return new ProfileCardResponse(
-                code,
-                code,
-                name,
-                description,
+                DEFAULT_STARS,
+                DEFAULT_STARS,
+                "S.T.A.R.S. Archive Card",
+                "Default S.T.A.R.S. police archive card.",
                 null,
                 "HORIZONTAL",
                 toResponseLayout(new ProfileCardLayout()),
@@ -293,8 +288,8 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         layout.setStatsY(clamp(response.statsY()));
         layout.setStatsW(clamp(response.statsW()));
         layout.setStatsH(clamp(response.statsH()));
-        layout.setNameFontSize(clampFont(response.nameFontSize(), 3.0));
-        layout.setDesignationFontSize(clampFont(response.designationFontSize(), 1.5));
+        layout.setNameFontSize(clampFont(response.nameFontSize(), 0.9));
+        layout.setDesignationFontSize(clampFont(response.designationFontSize(), 0.9));
         layout.setStatsFontSize(clampFont(response.statsFontSize(), 1.2));
         layout.setTextColor(normalizeHex(response.textColor(), "#111111"));
         layout.setAccentColor(normalizeHex(response.accentColor(), "#e60000"));
@@ -377,7 +372,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         if (Double.isNaN(value) || Double.isInfinite(value) || value <= 0) {
             return fallback;
         }
-        return Math.max(0.6, Math.min(value, 12));
+        return Math.max(0.4, Math.min(value, 4));
     }
 
     private String normalizeHex(String value, String fallback) {

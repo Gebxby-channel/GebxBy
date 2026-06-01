@@ -12,6 +12,7 @@ import BadgeStrip from '../components/BadgeStrip';
 import { useFeedback } from '../components/feedback';
 import { formatIndonesiaDate } from '../utils/time';
 import ProfileCardRenderer from '../components/ProfileCardRenderer';
+import { Modal, Button as UiButton } from '../components/ui';
 
 interface EditForm {
     head: string;
@@ -40,6 +41,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [cropY, setCropY] = useState(0);
     const [editingCardPhoto, setEditingCardPhoto] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
+    const [profileEditorOpen, setProfileEditorOpen] = useState(false);
     const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
     const navigate = useNavigate();
@@ -55,7 +57,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     };
     const availableProfileCards = user.profileCards?.length ? user.profileCards : [
         { id: 'DEFAULT:STARS', code: 'DEFAULT:STARS', name: 'S.T.A.R.S. Archive Card', orientation: 'HORIZONTAL', layout: defaultCardLayout(), custom: false, template: false },
-        { id: 'DEFAULT:UMBRELLA', code: 'DEFAULT:UMBRELLA', name: 'Umbrella Security Card', orientation: 'HORIZONTAL', layout: defaultCardLayout(), custom: false, template: false },
     ];
     const selectedProfileCard = availableProfileCards.find(card => card.id === profileCardId || card.code === profileCardId) ?? user.activeProfileCard;
     const canCustomizeSelectedCard = isGiftedProfileCard(selectedProfileCard);
@@ -162,6 +163,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
             invalidateApiCache('/api/profile-cards/mine');
             invalidateApiCache(`/content/by-user/${nextUser.userID}`);
             invalidateApiCache('/content/all-content');
+            setProfileEditorOpen(false);
         } finally {
             setSavingProfile(false);
         }
@@ -176,6 +178,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setCardDisplayPhoto(user.activeProfileCard?.displayPhoto || '');
         setCropSource('');
         setEditingCardPhoto(false);
+        setProfileEditorOpen(false);
     };
 
     const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -289,36 +292,23 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 </div>
                                 <div className="space-y-4">
                                     <div className="relative border-b border-[#1a3a63] pb-0.5">
-                                        <input
-                                            type="text"
-                                            value={name}
-                                            onChange={(event) => setName(event.target.value)}
-                                            className="w-full bg-transparent text-sm font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
-                                        />
+                                        <span className="block truncate text-sm font-black uppercase tracking-normal">{name || user.name || 'N/A'}</span>
                                         <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Officer Name</span>
                                     </div>
                                     <div className="relative border-b border-[#1a3a63] pb-0.5">
-                                        <input
-                                            type="text"
-                                            value={designation}
-                                            onChange={(event) => setDesignation(event.target.value.toUpperCase())}
-                                            className="w-full bg-transparent text-xs font-black uppercase tracking-normal outline-none transition-colors focus:text-red-600"
-                                        />
+                                        <span className="block truncate text-xs font-black uppercase tracking-normal">{designation || 'Archive Officer'}</span>
                                         <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Asignation</span>
                                     </div>
                                 </div>
                                 <div className="flex items-end justify-between gap-3">
                                     <div className="h-24 w-20 flex-shrink-0 border border-[#1a3a63] bg-gray-100 p-0.5 shadow-md">
-                                        <label className="block h-full w-full cursor-pointer" title="Change profile photo">
-                                            <img
-                                                src={picture || user.picture || defaultAvatar}
-                                                alt="Officer"
-                                                className="h-full w-full object-cover grayscale contrast-125"
-                                                referrerPolicy="no-referrer"
-                                                onError={(event) => { event.currentTarget.src = defaultAvatar; }}
-                                            />
-                                            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
-                                        </label>
+                                        <img
+                                            src={picture || user.picture || defaultAvatar}
+                                            alt="Officer"
+                                            className="h-full w-full object-cover grayscale contrast-125"
+                                            referrerPolicy="no-referrer"
+                                            onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                                        />
                                     </div>
                                     <div className="flex flex-1 flex-col items-end">
                                         <div className="w-full max-w-[100px] text-center">
@@ -330,107 +320,21 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             </div>
                         </div>
                         ) : (
-                            <ProfileCardRenderer user={previewUser} card={previewProfileCard} stats={profileStats} />
+                            <ProfileCardRenderer user={previewUser} card={previewProfileCard} />
                         )}
                         <div className="mt-3">
                             <BadgeStrip badges={user.badges} />
                         </div>
 
-                        <div className="mt-4 border border-[#2a2a2a] bg-[#151515] p-3">
-                            <label className="mb-2 block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Card Model</label>
-                            <select
-                                value={profileCardId}
-                                onChange={(event) => setProfileCardId(event.target.value)}
-                                className="h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
-                            >
-                                {availableProfileCards.map(card => (
-                                    <option key={card.id} value={card.id}>{card.name}</option>
-                                ))}
-                            </select>
-                            {canCustomizeSelectedCard ? (
-                                <div className="mt-4 space-y-3 border-t border-[#2a2a2a] pt-4">
-                                    <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
-                                        Name On Card
-                                        <input
-                                            value={cardDisplayName}
-                                            maxLength={80}
-                                            onChange={(event) => setCardDisplayName(event.target.value)}
-                                            placeholder={name || user.name || 'Use profile name'}
-                                            className="mt-2 h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
-                                        />
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        <label className="flex h-9 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
-                                            Change Card Photo
-                                            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCardPhotoSelect} />
-                                        </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setCardDisplayPhoto('')}
-                                            disabled={!cardDisplayPhoto}
-                                            className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                                        >
-                                            Use Profile Photo
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleDeleteProfileCard()}
-                                            className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
-                                        >
-                                            Delete Card
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="m-0 mt-3 font-mono text-[9px] uppercase leading-5 text-[#555]">
-                                    Default card mengikuti nama dan foto profil utama.
-                                </p>
-                            )}
-                        </div>
-
                         <div className="mt-4 flex flex-wrap gap-2">
                             <button
                                 type="button"
-                                onClick={() => void handleSaveProfile()}
-                                disabled={!profileDirty || savingProfile}
-                                className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
+                                onClick={() => setProfileEditorOpen(true)}
+                                className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
                             >
-                                {savingProfile ? 'Saving' : 'Save Profile'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleCancelProfile}
-                                disabled={!profileDirty || savingProfile}
-                                className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                Cancel
+                                Edit Profile
                             </button>
                         </div>
-
-                        {cropSource && (
-                            <div className="mt-4 border border-[#2a2a2a] bg-[#151515] p-4">
-                                <div className="mb-3 aspect-square w-full max-w-[260px] overflow-hidden border border-[#333] bg-[#090909]">
-                                    <img
-                                        src={cropSource}
-                                        alt="Crop preview"
-                                        className="h-full w-full object-cover"
-                                        style={{
-                                            transform: `scale(${cropZoom}) translate(${cropX}px, ${cropY}px)`,
-                                        }}
-                                    />
-                                </div>
-                                <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Zoom</label>
-                                <input className="mb-3 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} />
-                                <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Horizontal</label>
-                                <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
-                                <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
-                                <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">{editingCardPhoto ? 'Apply Card Photo' : 'Apply Photo'}</button>
-                                    <button type="button" onClick={() => { setCropSource(''); setEditingCardPhoto(false); }} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel</button>
-                                </div>
-                            </div>
-                        )}
 
                         {user.suspensionMarked && (
                             <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
@@ -515,6 +419,153 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                     </div>
                 </div>
             </div>
+            {profileEditorOpen && (
+                <Modal
+                    title="Edit Profile"
+                    onClose={handleCancelProfile}
+                    footer={(
+                        <>
+                            <UiButton onClick={handleCancelProfile} disabled={savingProfile}>Cancel</UiButton>
+                            <UiButton onClick={() => void handleSaveProfile()} disabled={!profileDirty || savingProfile} variant="danger">
+                                {savingProfile ? 'Saving' : 'Save Profile'}
+                            </UiButton>
+                        </>
+                    )}
+                >
+                    <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
+                        <div className="space-y-4">
+                            <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
+                                Profile Name
+                                <input
+                                    value={name}
+                                    maxLength={80}
+                                    onChange={(event) => setName(event.target.value)}
+                                    className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                />
+                            </label>
+                            <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
+                                Role / Designation
+                                <input
+                                    value={designation}
+                                    maxLength={80}
+                                    onChange={(event) => setDesignation(event.target.value.toUpperCase())}
+                                    className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                />
+                            </label>
+                            <div>
+                                <p className="m-0 mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Profile Photo</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <label className="flex h-10 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                                        Change Profile Photo
+                                        <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPicture('')}
+                                        disabled={!picture}
+                                        className="h-10 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                        Use Account Photo
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-[#2a2a2a] pt-4">
+                                <label className="mb-2 block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Card Model</label>
+                                <select
+                                    value={profileCardId}
+                                    onChange={(event) => setProfileCardId(event.target.value)}
+                                    className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                >
+                                    {availableProfileCards.map(card => (
+                                        <option key={card.id} value={card.id}>{card.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {canCustomizeSelectedCard ? (
+                                <div className="space-y-3 border border-[#2a2a2a] bg-[#111] p-3">
+                                    <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
+                                        Name On Card
+                                        <input
+                                            value={cardDisplayName}
+                                            maxLength={80}
+                                            onChange={(event) => setCardDisplayName(event.target.value)}
+                                            placeholder={name || user.name || 'Use profile name'}
+                                            className="mt-2 h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                        />
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        <label className="flex h-9 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                                            Change Card Photo
+                                            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCardPhotoSelect} />
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCardDisplayPhoto('')}
+                                            disabled={!cardDisplayPhoto}
+                                            className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            Use Profile Photo
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleDeleteProfileCard()}
+                                            className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                        >
+                                            Delete Card
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="m-0 border border-[#2a2a2a] bg-[#111] p-3 font-mono text-[9px] uppercase leading-5 text-[#555]">
+                                    Default card mengikuti nama, role, dan foto profil utama.
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="border border-[#2a2a2a] bg-[#111] p-3">
+                                <p className="m-0 mb-3 font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Preview</p>
+                                <div className="aspect-square overflow-hidden border border-[#333] bg-[#090909]">
+                                    <img
+                                        src={cardDisplayPhoto || picture || user.picture || defaultAvatar}
+                                        alt="Profile preview"
+                                        className="h-full w-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                        onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                                    />
+                                </div>
+                            </div>
+
+                            {cropSource && (
+                                <div className="border border-[#2a2a2a] bg-[#151515] p-4">
+                                    <div className="mb-3 aspect-square w-full overflow-hidden border border-[#333] bg-[#090909]">
+                                        <img
+                                            src={cropSource}
+                                            alt="Crop preview"
+                                            className="h-full w-full object-cover"
+                                            style={{
+                                                transform: `scale(${cropZoom}) translate(${cropX}px, ${cropY}px)`,
+                                            }}
+                                        />
+                                    </div>
+                                    <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Zoom</label>
+                                    <input className="mb-3 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} />
+                                    <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Horizontal</label>
+                                    <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
+                                    <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
+                                    <input className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
+                                    <div className="flex flex-wrap gap-2">
+                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">{editingCardPhoto ? 'Apply Card Photo' : 'Apply Profile Photo'}</button>
+                                        <button type="button" onClick={() => { setCropSource(''); setEditingCardPhoto(false); }} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel Crop</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </Modal>
+            )}
             {selectedBadge && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
                     <div className="w-full max-w-md border border-[#2a2a2a] bg-[#0d0d0d] p-6">
@@ -840,8 +891,8 @@ function defaultCardLayout() {
         statsY: 78,
         statsW: 30,
         statsH: 12,
-        nameFontSize: 3,
-        designationFontSize: 1.5,
+        nameFontSize: 0.9,
+        designationFontSize: 0.9,
         statsFontSize: 1.2,
         textColor: '#111111',
         accentColor: '#e60000',
