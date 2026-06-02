@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.util.PatternMatchUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -30,7 +32,21 @@ public class ApiOriginFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (isUnsafeApiMutation(request) && isDisallowedBrowserOrigin(request)) {
+        String origin = browserOrigin(request);
+        if (origin != null && !origin.isBlank() && isAllowedOrigin(origin)) {
+            applyCorsHeaders(response, origin);
+        }
+
+        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+            if (origin != null && !origin.isBlank() && !isAllowedOrigin(origin)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Origin is not allowed");
+                return;
+            }
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (isUnsafeApiMutation(request) && isDisallowedBrowserOrigin(origin)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Origin is not allowed");
             return;
         }
@@ -45,17 +61,31 @@ public class ApiOriginFilter extends OncePerRequestFilter {
         return unsafe && api;
     }
 
-    private boolean isDisallowedBrowserOrigin(HttpServletRequest request) {
+    private String browserOrigin(HttpServletRequest request) {
         String origin = request.getHeader("Origin");
         if (origin == null || origin.isBlank()) {
             origin = originFromReferer(request.getHeader("Referer"));
         }
+        return origin;
+    }
+
+    private boolean isDisallowedBrowserOrigin(String origin) {
         return origin != null && !origin.isBlank() && !isAllowedOrigin(origin);
     }
 
     private boolean isAllowedOrigin(String origin) {
         return allowedOrigins.stream()
                 .anyMatch(allowed -> allowed.equals(origin) || PatternMatchUtils.simpleMatch(allowed, origin));
+    }
+
+    private void applyCorsHeaders(HttpServletResponse response, String origin) {
+        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                "Content-Type,Authorization,X-Requested-With,Accept,X-CSRF-TOKEN,X-XSRF-TOKEN");
+        response.setHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-CSRF-TOKEN,X-XSRF-TOKEN");
+        response.addHeader(HttpHeaders.VARY, "Origin");
     }
 
     private String originFromReferer(String referer) {
