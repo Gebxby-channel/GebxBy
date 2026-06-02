@@ -34,8 +34,21 @@ class MediaPipelineServiceImplTest {
     }
 
     @Test
-    void r2ProviderRequiresStorageConfiguration() {
+    void r2ProviderFallsBackToInlineWhenStorageConfigurationIsMissing() {
         MediaPipelineServiceImpl r2Pipeline = new MediaPipelineServiceImpl("r2", "", "", "", "", "", "", "auto");
+        String dataUrl = "data:image/webp;base64,"
+                + Base64.getEncoder().encodeToString("tiny-image".getBytes(StandardCharsets.UTF_8));
+
+        List<ContentImage> images = r2Pipeline.prepareContentImages(List.of(new ContentImageRequest(dataUrl, "Evidence")));
+
+        assertEquals(1, images.size());
+        assertEquals("INLINE_MONGO_V1", images.getFirst().getStorageProvider());
+        assertEquals(dataUrl, images.getFirst().getData());
+    }
+
+    @Test
+    void strictR2ProviderRequiresStorageConfiguration() {
+        MediaPipelineServiceImpl r2Pipeline = new MediaPipelineServiceImpl("r2", "", "", "", "", "", "", "auto", false);
         String dataUrl = "data:image/webp;base64,"
                 + Base64.getEncoder().encodeToString("tiny-image".getBytes(StandardCharsets.UTF_8));
 

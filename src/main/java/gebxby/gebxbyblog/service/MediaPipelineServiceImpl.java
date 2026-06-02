@@ -5,6 +5,9 @@ import gebxby.gebxbyblog.dto.MediaSmokeTestResponse;
 import gebxby.gebxbyblog.model.ContentImage;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,13 +15,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.net.URI;
 import java.net.HttpURLConnection;
@@ -32,6 +35,7 @@ import java.util.UUID;
 
 @Service
 public class MediaPipelineServiceImpl implements MediaPipelineService {
+    private static final Logger log = LoggerFactory.getLogger(MediaPipelineServiceImpl.class);
     private static final String SMOKE_TEST_IMAGE =
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     private static final int MAX_IMAGES = 6;
@@ -52,8 +56,10 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
     private final String r2Endpoint;
     private final String r2PublicBaseUrl;
     private final String r2Region;
+    private final boolean r2FallbackInlineOnFailure;
     private volatile S3Client s3Client;
 
+    @Autowired
     public MediaPipelineServiceImpl(@Value("${app.media.storage-provider:inline}") String storageProvider,
                                     @Value("${app.media.r2.bucket-name:}") String r2BucketName,
                                     @Value("${app.media.r2.account-id:}") String r2AccountId,
@@ -61,7 +67,8 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
                                     @Value("${app.media.r2.secret-access-key:}") String r2SecretAccessKey,
                                     @Value("${app.media.r2.endpoint:}") String r2Endpoint,
                                     @Value("${app.media.r2.public-base-url:}") String r2PublicBaseUrl,
-                                    @Value("${app.media.r2.region:auto}") String r2Region) {
+                                    @Value("${app.media.r2.region:auto}") String r2Region,
+                                    @Value("${app.media.r2.fallback-inline-on-failure:true}") boolean r2FallbackInlineOnFailure) {
         this.storageProvider = normalizeStorageProvider(storageProvider);
         this.r2BucketName = clean(r2BucketName);
         this.r2AccountId = clean(r2AccountId);
@@ -70,6 +77,19 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
         this.r2Endpoint = clean(r2Endpoint);
         this.r2PublicBaseUrl = trimTrailingSlash(clean(r2PublicBaseUrl));
         this.r2Region = StringUtils.hasText(r2Region) ? r2Region.trim() : "auto";
+        this.r2FallbackInlineOnFailure = r2FallbackInlineOnFailure;
+    }
+
+    public MediaPipelineServiceImpl(String storageProvider,
+                                    String r2BucketName,
+                                    String r2AccountId,
+                                    String r2AccessKeyId,
+                                    String r2SecretAccessKey,
+                                    String r2Endpoint,
+                                    String r2PublicBaseUrl,
+                                    String r2Region) {
+        this(storageProvider, r2BucketName, r2AccountId, r2AccessKeyId, r2SecretAccessKey,
+                r2Endpoint, r2PublicBaseUrl, r2Region, true);
     }
 
     @Override
@@ -108,12 +128,18 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
             image.setWidth(cleanDimension(request.width()));
             image.setHeight(cleanDimension(request.height()));
             if (isR2Enabled()) {
-                applyR2Storage(image, payload, thumbnail);
+                try {
+                    applyR2Storage(image, payload, thumbnail);
+                } catch (ResponseStatusException ex) {
+                    if (!r2FallbackInlineOnFailure) {
+                        throw ex;
+                    }
+                    log.warn("R2 image storage failed with status {}. Falling back to inline media storage for image {}.",
+                            ex.getStatusCode(), image.getId());
+                    applyInlineStorage(image, request.data().trim(), thumbnail);
+                }
             } else {
-                image.setData(request.data().trim());
-                image.setThumbnail(thumbnail);
-                image.setStorageProvider(INLINE_STORAGE_PROVIDER);
-                image.setStorageKey("content-image/" + id);
+                applyInlineStorage(image, request.data().trim(), thumbnail);
             }
             result.add(image);
         }
@@ -196,7 +222,7 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
                     .cacheControl("public, max-age=31536000, immutable")
                     .build();
             s3().putObject(request, RequestBody.fromBytes(bytes));
-        } catch (S3Exception | IllegalArgumentException ex) {
+        } catch (SdkException | IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Upload gambar ke R2 gagal");
         }
     }
@@ -262,6 +288,13 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private void applyInlineStorage(ContentImage image, String dataUrl, String thumbnail) {
+        image.setData(dataUrl);
+        image.setThumbnail(thumbnail);
+        image.setStorageProvider(INLINE_STORAGE_PROVIDER);
+        image.setStorageKey("content-image/" + image.getId());
     }
 
     private String effectiveR2Endpoint() {
