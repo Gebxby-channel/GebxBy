@@ -23,6 +23,31 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+type RetriableRequestConfig = AxiosRequestConfig & { _csrfRetry?: boolean };
+
+api.interceptors.response.use(
+  response => response,
+  async (error) => {
+    const config = error?.config as RetriableRequestConfig | undefined;
+    const status = error?.response?.status;
+    if (
+      status === 403 &&
+      config &&
+      !config._csrfRetry &&
+      isUnsafeMethod(config.method) &&
+      !config.url?.includes('/api/csrf')
+    ) {
+      config._csrfRetry = true;
+      clearCsrfToken();
+      const token = await ensureCsrfToken();
+      config.headers = config.headers ?? {};
+      config.headers[csrfHeaderName] = token;
+      return api.request(config);
+    }
+    return Promise.reject(error);
+  }
+);
+
 type CacheOptions = {
   ttlMs?: number;
   scope?: string;
@@ -117,6 +142,11 @@ async function ensureCsrfToken() {
       });
   }
   return csrfPromise;
+}
+
+function clearCsrfToken() {
+  csrfToken = null;
+  csrfPromise = null;
 }
 
 function isUnsafeMethod(method?: string) {

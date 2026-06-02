@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.PatternMatchUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -49,7 +50,12 @@ public class ApiOriginFilter extends OncePerRequestFilter {
         if (origin == null || origin.isBlank()) {
             origin = originFromReferer(request.getHeader("Referer"));
         }
-        return origin != null && !origin.isBlank() && !allowedOrigins.contains(origin);
+        return origin != null && !origin.isBlank() && !isAllowedOrigin(origin);
+    }
+
+    private boolean isAllowedOrigin(String origin) {
+        return allowedOrigins.stream()
+                .anyMatch(allowed -> allowed.equals(origin) || PatternMatchUtils.simpleMatch(allowed, origin));
     }
 
     private String originFromReferer(String referer) {

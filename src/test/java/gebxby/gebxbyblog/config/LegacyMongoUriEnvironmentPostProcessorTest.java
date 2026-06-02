@@ -25,7 +25,7 @@ class LegacyMongoUriEnvironmentPostProcessorTest {
                 .postProcessEnvironment(environment, new SpringApplication());
 
         assertEquals(
-                "mongodb+srv://gebxby_db:secret@cluster00.wey8cvq.mongodb.net/gebxby_db?retryWrites=true&w=majority",
+                "mongodb+srv://gebxby_db:secret@cluster00.wey8cvq.mongodb.net/blog_db?retryWrites=true&w=majority",
                 environment.getProperty("spring.data.mongodb.uri")
         );
     }

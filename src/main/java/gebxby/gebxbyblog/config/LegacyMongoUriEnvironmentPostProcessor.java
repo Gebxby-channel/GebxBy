@@ -14,6 +14,7 @@ import java.util.Map;
 public class LegacyMongoUriEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
     private static final String PROPERTY_SOURCE_NAME = "legacyMongoUri";
     private static final String DEFAULT_CLUSTER_HOST = "cluster00.wey8cvq.mongodb.net";
+    private static final String DEFAULT_DATABASE = "blog_db";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -41,7 +42,10 @@ public class LegacyMongoUriEnvironmentPostProcessor implements EnvironmentPostPr
                 environment.getProperty("MONGODB_DATABASE"),
                 environment.getProperty("MONGO_DATABASE"),
                 environment.getProperty("DB_NAME"),
-                username
+                environment.getProperty("DATABASE_NAME"),
+                environment.getProperty("MONGODB_DB"),
+                environment.getProperty("MONGO_DB"),
+                DEFAULT_DATABASE
         );
         String clusterHost = normalizeClusterHost(firstText(
                 environment.getProperty("MONGODB_CLUSTER_HOST"),
