@@ -93,7 +93,7 @@ public class UserServiceImpl implements UserService {
                            PasswordEncoder passwordEncoder) {
         this(userRepository, contentRepository, commentRepository, adminEmails, adminLoginEmail,
                 adminLoginPasswordHash, passwordEncoder, new UsernameService(userRepository),
-                new UserProfileProjectionService(contentRepository, commentRepository), null, null);
+                new UserProfileProjectionService(contentRepository, commentRepository, new UserSnapshotService()), null, null);
     }
 
     @Override

@@ -42,6 +42,7 @@ public class CommentServiceImpl implements CommentService {
     private final ActivityLogService activityLogService;
     private final RealtimeGateway realtimeGateway;
     private final ContentCounterService counterService;
+    private final UserSnapshotService userSnapshotService;
 
     @Autowired
     public CommentServiceImpl(CommentRepository commentRepository,
@@ -51,7 +52,8 @@ public class CommentServiceImpl implements CommentService {
                               NotificationService notificationService,
                               ActivityLogService activityLogService,
                               RealtimeGateway realtimeGateway,
-                              ContentCounterService counterService) {
+                              ContentCounterService counterService,
+                              UserSnapshotService userSnapshotService) {
         this.commentRepository = commentRepository;
         this.contentRepository = contentRepository;
         this.userService = userService;
@@ -60,6 +62,7 @@ public class CommentServiceImpl implements CommentService {
         this.activityLogService = activityLogService;
         this.realtimeGateway = realtimeGateway;
         this.counterService = counterService;
+        this.userSnapshotService = userSnapshotService;
     }
 
     public CommentServiceImpl(CommentRepository commentRepository,
@@ -70,7 +73,7 @@ public class CommentServiceImpl implements CommentService {
                               ActivityLogService activityLogService,
                               RealtimeGateway realtimeGateway) {
         this(commentRepository, contentRepository, userService, mapper, notificationService, activityLogService,
-                realtimeGateway, new ContentCounterService(contentRepository, null));
+                realtimeGateway, new ContentCounterService(contentRepository, null), new UserSnapshotService());
     }
 
     @Override
@@ -138,7 +141,7 @@ public class CommentServiceImpl implements CommentService {
         comment.setId(UUID.randomUUID());
         comment.setContentId(contentId);
         comment.setParentId(parentId);
-        comment.setUser(author);
+        comment.setUser(userSnapshotService.snapshot(author));
         comment.setBody(body);
         comment.setAdminHighlighted(userService.isAdmin(author));
         comment.setCreatedAt(now);

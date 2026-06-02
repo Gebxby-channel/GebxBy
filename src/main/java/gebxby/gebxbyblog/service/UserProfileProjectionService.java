@@ -14,11 +14,14 @@ import java.util.Optional;
 public class UserProfileProjectionService {
     private final ContentRepository contentRepository;
     private final CommentRepository commentRepository;
+    private final UserSnapshotService userSnapshotService;
 
     public UserProfileProjectionService(ContentRepository contentRepository,
-                                        CommentRepository commentRepository) {
+                                        CommentRepository commentRepository,
+                                        UserSnapshotService userSnapshotService) {
         this.contentRepository = contentRepository;
         this.commentRepository = commentRepository;
+        this.userSnapshotService = userSnapshotService;
     }
 
     public void refreshEmbeddedProfiles(User saved) {
@@ -26,13 +29,14 @@ public class UserProfileProjectionService {
             return;
         }
         List<Content> contents = Optional.ofNullable(contentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
-        contents.forEach(content -> content.setUser(saved));
+        User snapshot = userSnapshotService.snapshot(saved);
+        contents.forEach(content -> content.setUser(snapshot));
         if (!contents.isEmpty()) {
             contentRepository.saveAll(contents);
         }
 
         List<Comment> comments = Optional.ofNullable(commentRepository.findByAuthorId(saved.getUserID())).orElse(List.of());
-        comments.forEach(comment -> comment.setUser(saved));
+        comments.forEach(comment -> comment.setUser(snapshot));
         if (!comments.isEmpty()) {
             commentRepository.saveAll(comments);
         }

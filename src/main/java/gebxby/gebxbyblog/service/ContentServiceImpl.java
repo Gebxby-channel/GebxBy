@@ -63,6 +63,7 @@ public class ContentServiceImpl implements ContentService {
     private final ArticleContentPolicy articlePolicy;
     private final ContentCounterService counterService;
     private final ValidReadTrackingService readTrackingService;
+    private final UserSnapshotService userSnapshotService;
     private volatile CacheEntry<List<String>> categoriesCache;
 
     @Autowired
@@ -80,7 +81,8 @@ public class ContentServiceImpl implements ContentService {
                               ContentAnalyticsService analyticsService,
                               ArticleContentPolicy articlePolicy,
                               ContentCounterService counterService,
-                              ValidReadTrackingService readTrackingService) {
+                              ValidReadTrackingService readTrackingService,
+                              UserSnapshotService userSnapshotService) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
@@ -93,6 +95,7 @@ public class ContentServiceImpl implements ContentService {
         this.articlePolicy = articlePolicy;
         this.counterService = counterService;
         this.readTrackingService = readTrackingService;
+        this.userSnapshotService = userSnapshotService;
     }
 
     public ContentServiceImpl(ContentRepository contentRepository,
@@ -110,7 +113,8 @@ public class ContentServiceImpl implements ContentService {
                 new ContentAnalyticsService(contentRepository, voteRepository, userRepository, mapper),
                 new ArticleContentPolicy(mediaPipelineService, maxUploadBytes),
                 new ContentCounterService(contentRepository, null),
-                new ValidReadTrackingService(null));
+                new ValidReadTrackingService(null),
+                new UserSnapshotService());
     }
 
     @Override
@@ -121,7 +125,7 @@ public class ContentServiceImpl implements ContentService {
         content.setIdContent(UUID.randomUUID());
         articlePolicy.applyPublishedFields(content, request);
         content.setStatus(STATUS_PUBLISHED);
-        content.setUser(author);
+        content.setUser(userSnapshotService.snapshot(author));
         content.setCreatedAt(now);
         content.setUpdatedAt(now);
         Content saved = contentRepository.save(content);
@@ -136,13 +140,14 @@ public class ContentServiceImpl implements ContentService {
         Content draft = draftId == null ? new Content() : getContentOrThrow(draftId);
         if (draftId == null) {
             draft.setIdContent(UUID.randomUUID());
-            draft.setUser(author);
+            draft.setUser(userSnapshotService.snapshot(author));
             draft.setCreatedAt(LocalDateTime.now());
         } else {
             requireOwnerOrAdmin(draft, author);
             if (!isDraft(draft)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tulisan ini sudah diterbitkan");
             }
+            refreshAuthorSnapshot(draft, author);
         }
         articlePolicy.applyDraftFields(draft, request);
         draft.setStatus(STATUS_DRAFT);
@@ -160,6 +165,7 @@ public class ContentServiceImpl implements ContentService {
         if (!isDraft(draft)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tulisan ini bukan draft");
         }
+        refreshAuthorSnapshot(draft, author);
         articlePolicy.applyPublishedFields(draft, request);
         draft.setStatus(STATUS_PUBLISHED);
         draft.setUpdatedAt(LocalDateTime.now());
@@ -254,6 +260,7 @@ public class ContentServiceImpl implements ContentService {
         userService.ensureActive(actor);
         Content existingContent = getContentOrThrow(id);
         requireOwnerOrAdmin(existingContent, actor);
+        refreshAuthorSnapshot(existingContent, actor);
         articlePolicy.applyPublishedFields(existingContent, contentDetails);
         existingContent.setStatus(STATUS_PUBLISHED);
         existingContent.setUpdatedAt(LocalDateTime.now());
@@ -454,6 +461,18 @@ public class ContentServiceImpl implements ContentService {
         return voteRepository.findByContentIdAndUserId(contentId, viewer.getUserID())
                 .map(ContentVote::getVote)
                 .orElse(VoteDirection.NONE);
+    }
+
+    private void refreshAuthorSnapshot(Content content, User actor) {
+        if (content == null) {
+            return;
+        }
+        UUID ownerId = content.getUser() == null ? null : content.getUser().getUserID();
+        if (ownerId != null && actor != null && ownerId.equals(actor.getUserID())) {
+            content.setUser(userSnapshotService.snapshot(actor));
+            return;
+        }
+        content.setUser(userSnapshotService.snapshot(content.getUser()));
     }
 
     private void invalidateContentCaches() {

@@ -50,11 +50,12 @@ class LegacyMongoUriEnvironmentPostProcessorTest {
     }
 
     @Test
-    void keepsExplicitMongoUriAheadOfLegacyVariables() {
+    void normalizesExplicitMongoUriToConfiguredDatabase() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
-                "MONGODB_URI", "mongodb://mongo.example/explicit",
-                "spring.data.mongodb.uri", "mongodb://mongo.example/explicit",
+                "MONGODB_URI", "mongodb://mongo.example/gabrielselwas_db_user?retryWrites=true",
+                "spring.data.mongodb.uri", "mongodb://mongo.example/gabrielselwas_db_user?retryWrites=true",
+                "MONGODB_DATABASE", "blog_db",
                 "uName_DB", "gebxby_db",
                 "pw_DB", "secret"
         )));
@@ -62,7 +63,23 @@ class LegacyMongoUriEnvironmentPostProcessorTest {
         new LegacyMongoUriEnvironmentPostProcessor()
                 .postProcessEnvironment(environment, new SpringApplication());
 
-        assertEquals("mongodb://mongo.example/explicit", environment.getProperty("spring.data.mongodb.uri"));
+        assertEquals("mongodb://mongo.example/blog_db?retryWrites=true", environment.getProperty("spring.data.mongodb.uri"));
+    }
+
+    @Test
+    void addsDefaultDatabaseToExplicitMongoUriWithoutPath() {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+                "MONGODB_URI", "mongodb+srv://user:pw@cluster00.wey8cvq.mongodb.net?retryWrites=true"
+        )));
+
+        new LegacyMongoUriEnvironmentPostProcessor()
+                .postProcessEnvironment(environment, new SpringApplication());
+
+        assertEquals(
+                "mongodb+srv://user:pw@cluster00.wey8cvq.mongodb.net/blog_db?retryWrites=true",
+                environment.getProperty("spring.data.mongodb.uri")
+        );
     }
 
     @Test

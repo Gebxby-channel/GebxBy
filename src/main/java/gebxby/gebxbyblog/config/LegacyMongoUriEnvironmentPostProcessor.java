@@ -18,7 +18,12 @@ public class LegacyMongoUriEnvironmentPostProcessor implements EnvironmentPostPr
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        String database = resolveDatabase(environment);
         if (StringUtils.hasText(environment.getProperty("MONGODB_URI"))) {
+            environment.getPropertySources().addFirst(new MapPropertySource(
+                    PROPERTY_SOURCE_NAME,
+                    Map.of("spring.data.mongodb.uri", withDatabase(environment.getProperty("MONGODB_URI"), database))
+            ));
             return;
         }
 
@@ -38,15 +43,6 @@ public class LegacyMongoUriEnvironmentPostProcessor implements EnvironmentPostPr
             return;
         }
 
-        String database = firstText(
-                environment.getProperty("MONGODB_DATABASE"),
-                environment.getProperty("MONGO_DATABASE"),
-                environment.getProperty("DB_NAME"),
-                environment.getProperty("DATABASE_NAME"),
-                environment.getProperty("MONGODB_DB"),
-                environment.getProperty("MONGO_DB"),
-                DEFAULT_DATABASE
-        );
         String clusterHost = normalizeClusterHost(firstText(
                 environment.getProperty("MONGODB_CLUSTER_HOST"),
                 environment.getProperty("MONGO_CLUSTER_HOST"),
@@ -90,6 +86,36 @@ public class LegacyMongoUriEnvironmentPostProcessor implements EnvironmentPostPr
             normalized = normalized.substring(0, slash);
         }
         return normalized;
+    }
+
+    private String resolveDatabase(ConfigurableEnvironment environment) {
+        return firstText(
+                environment.getProperty("MONGODB_DATABASE"),
+                environment.getProperty("MONGO_DATABASE"),
+                environment.getProperty("DB_NAME"),
+                environment.getProperty("DATABASE_NAME"),
+                environment.getProperty("MONGODB_DB"),
+                environment.getProperty("MONGO_DB"),
+                DEFAULT_DATABASE
+        );
+    }
+
+    private String withDatabase(String uri, String database) {
+        String trimmed = uri.trim();
+        int queryStart = trimmed.indexOf('?');
+        String base = queryStart >= 0 ? trimmed.substring(0, queryStart) : trimmed;
+        String query = queryStart >= 0 ? trimmed.substring(queryStart) : "";
+        int schemeEnd = base.indexOf("://");
+        if (schemeEnd < 0) {
+            return trimmed;
+        }
+        int authorityStart = schemeEnd + 3;
+        int pathStart = base.indexOf('/', authorityStart);
+        String encodedDatabase = encodeUriPart(firstText(database, DEFAULT_DATABASE));
+        if (pathStart < 0) {
+            return base + "/" + encodedDatabase + query;
+        }
+        return base.substring(0, pathStart + 1) + encodedDatabase + query;
     }
 
     private String encodeUriPart(String value) {

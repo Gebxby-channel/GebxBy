@@ -111,6 +111,25 @@ class ContentServiceImplTest {
     }
 
     @Test
+    void addContentStoresSafeAuthorSnapshot() {
+        author.setEmail("author@example.com");
+        author.setGoogleId("google-id");
+        author.setPasswordHash("secret-hash");
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        contentService.addContent(new ContentRequest("Title", null, "Body", "General"), author);
+
+        verify(contentRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+                saved.getUser() != author
+                        && author.getUserID().equals(saved.getUser().getUserID())
+                        && "Author".equals(saved.getUser().getName())
+                        && saved.getUser().getEmail() == null
+                        && saved.getUser().getGoogleId() == null
+                        && saved.getUser().getPasswordHash() == null
+        ));
+    }
+
+    @Test
     void addContentPreservesPlainTextParagraphBreaks() {
         when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

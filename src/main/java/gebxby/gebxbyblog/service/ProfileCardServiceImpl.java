@@ -59,7 +59,7 @@ public class ProfileCardServiceImpl implements ProfileCardService {
                                   CommentRepository commentRepository,
                                   UserService userService) {
         this(templateRepository, userCardRepository, userRepository, userService,
-                new UserProfileProjectionService(contentRepository, commentRepository));
+                new UserProfileProjectionService(contentRepository, commentRepository, new UserSnapshotService()));
     }
 
     @Override

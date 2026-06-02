@@ -96,6 +96,27 @@ class CommentServiceImplTest {
     }
 
     @Test
+    void addCommentStoresSafeAuthorSnapshot() {
+        author.setEmail("commenter@example.com");
+        author.setGoogleId("google-id");
+        author.setPasswordHash("secret-hash");
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        commentService.addComment(content.getIdContent(), new CommentRequest("Hello", null), author);
+
+        verify(commentRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+                saved.getUser() != author
+                        && author.getUserID().equals(saved.getUser().getUserID())
+                        && "Commenter".equals(saved.getUser().getName())
+                        && saved.getUser().getEmail() == null
+                        && saved.getUser().getGoogleId() == null
+                        && saved.getUser().getPasswordHash() == null
+        ));
+    }
+
+    @Test
     void addCommentReturnsRecentDuplicateWithoutIncrementingCount() {
         Comment existing = new Comment();
         existing.setId(UUID.randomUUID());
