@@ -1,7 +1,6 @@
 package gebxby.gebxbyblog.model;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.Getter;
@@ -19,13 +18,11 @@ public class User {
     @Id
     private UUID userID;
 
-    @Indexed(unique = true, sparse = true)
     private String email;
 
     private String name;
     private String username;
 
-    @Indexed(unique = true, sparse = true)
     private String usernameNormalized;
 
     private String photo;
@@ -35,7 +32,6 @@ public class User {
 
     private String role = "USER";
 
-    @Indexed(unique = true, sparse = true)
     private String googleId;
 
     private LocalDateTime createdAt;

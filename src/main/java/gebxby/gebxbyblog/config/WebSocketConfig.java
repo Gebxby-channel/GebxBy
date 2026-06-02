@@ -32,6 +32,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(realtimeWebSocketHandler, "/ws/realtime")
                 .addInterceptors(authenticatedUserHandshakeInterceptor)
-                .setAllowedOrigins(allowedOrigins);
+                .setAllowedOriginPatterns(allowedOrigins);
     }
 }
