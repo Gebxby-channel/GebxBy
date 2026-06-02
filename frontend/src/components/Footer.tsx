@@ -7,25 +7,25 @@ export default function Footer() {
     const year = new Date().getFullYear();
 
     return (
-        <footer className="border-t border-[#2a2a2a] bg-[#111] px-6 py-8 font-mono text-[#777]">
+        <footer className="border-t border-[var(--app-border)] bg-[var(--app-surface)] px-6 py-8 font-mono text-[var(--app-text-muted)]">
             <div className="mx-auto flex max-w-5xl flex-col gap-6 md:flex-row md:items-start md:justify-between">
                 <div className="max-w-xl">
-                    <div className="mb-3 border-l-2 border-[#e60000] pl-3">
-                        <p className="m-0 text-sm font-black uppercase tracking-widest text-white">CodeXAvernico</p>
-                        <p className="m-0 mt-1 text-[9px] uppercase tracking-widest text-[#666]">Community archive // fan forum</p>
+                    <div className="mb-3 border-l-2 border-[var(--app-accent)] pl-3">
+                        <p className="m-0 text-sm font-black uppercase tracking-widest text-[var(--app-text)]">CodeXAvernico</p>
+                        <p className="m-0 mt-1 text-[9px] uppercase tracking-widest text-[var(--app-text-dim)]">Community archive // fan forum</p>
                     </div>
-                    <p className="m-0 text-[10px] leading-5 text-[#666]">
-                        © {year} GebxBy / CodeXAvernico. Tulisan original tetap milik masing-masing penulis. Resident Evil dan semua trademark terkait adalah milik Capcom. Forum ini fan-made dan tidak berafiliasi resmi dengan Capcom.
+                    <p className="m-0 text-[10px] leading-5 text-[var(--app-text-dim)]">
+                        &copy; {year} GebxBy / CodeXAvernico. Tulisan original tetap milik masing-masing penulis. Resident Evil dan semua trademark terkait adalah milik Capcom. Forum ini fan-made dan tidak berafiliasi resmi dengan Capcom.
                     </p>
                 </div>
 
                 <div className="grid gap-3 text-[10px] font-black uppercase tracking-widest">
                     <FooterLink href="https://www.youtube.com/@GebxBy" icon={<PlayCircle size={14} />} label="Youtube" value="@GebxBy" />
                     <FooterLink href="https://www.instagram.com/gebxby/" icon={<Camera size={14} />} label="Instagram" value="@gebxby" />
-                    <div className="flex items-center gap-2 text-[#555]">
+                    <div className="flex items-center gap-2 text-[var(--app-text-dim)]">
                         <MessageCircle size={14} />
                         <span>Discord</span>
-                        <span className="text-[#777]">Menyusul</span>
+                        <span className="text-[var(--app-text-muted)]">Menyusul</span>
                     </div>
                     <FooterLink href={feedbackUrl} icon={<ExternalLink size={14} />} label="Feedback" value="Google Form" />
                 </div>
@@ -40,11 +40,11 @@ function FooterLink({ href, icon, label, value }: { href: string; icon: ReactNod
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 text-[#777] no-underline transition-colors hover:text-[#e60000]"
+            className="flex items-center gap-2 text-[var(--app-text-muted)] no-underline transition-colors hover:text-[var(--app-accent)]"
         >
             {icon}
             <span>{label}</span>
-            <span className="text-white">{value}</span>
+            <span className="text-[var(--app-text)]">{value}</span>
         </a>
     );
 }

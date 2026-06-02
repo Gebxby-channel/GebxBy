@@ -14,15 +14,54 @@
     --color-re-green: #00ff41;
 }
 
+:root,
+html[data-theme="dark"] {
+    --app-bg: #0f0f0f;
+    --app-surface: #111111;
+    --app-surface-2: #151515;
+    --app-surface-hover: #181818;
+    --app-panel: #0d0d0d;
+    --app-input: #101010;
+    --app-border: #2a2a2a;
+    --app-border-soft: #333333;
+    --app-text: #ffffff;
+    --app-text-soft: #aaaaaa;
+    --app-text-muted: #777777;
+    --app-text-dim: #666666;
+    --app-accent: #e60000;
+    --app-success-border: #166534;
+    --app-success-text: #4ade80;
+    --app-overlay: rgba(0, 0, 0, 0.8);
+}
+
+html[data-theme="light"] {
+    --app-bg: #f3f4f6;
+    --app-surface: #ffffff;
+    --app-surface-2: #ffffff;
+    --app-surface-hover: #f8fafc;
+    --app-panel: #ffffff;
+    --app-input: #ffffff;
+    --app-border: #d1d5db;
+    --app-border-soft: #cbd5e1;
+    --app-text: #111827;
+    --app-text-soft: #4b5563;
+    --app-text-muted: #64748b;
+    --app-text-dim: #6b7280;
+    --app-accent: #dc0000;
+    --app-success-border: #15803d;
+    --app-success-text: #166534;
+    --app-overlay: rgba(15, 23, 42, 0.55);
+}
+
 html {
-    background: #0f0f0f;
+    background: var(--app-bg);
 }
 
 body {
     margin: 0;
     min-width: 320px;
-    background: #0f0f0f;
-    color: #fff;
+    background: var(--app-bg);
+    color: var(--app-text);
     font-family: Roboto, Arial, sans-serif;
 }
 
@@ -144,9 +183,18 @@ textarea {
 
 @keyframes profile-card-gloss {
     0% {
+        opacity: 0;
         transform: translateX(-130%) skewX(-18deg);
     }
-    100% {
+    12% {
+        opacity: 0.85;
+    }
+    36% {
+        opacity: 0.35;
+        transform: translateX(150%) skewX(-18deg);
+    }
+    48%, 100% {
+        opacity: 0;
         transform: translateX(150%) skewX(-18deg);
     }
 }
@@ -157,11 +205,10 @@ textarea {
     inset: -20% 0;
     pointer-events: none;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+    opacity: 0;
     transform: translateX(-130%) skewX(-18deg);
-}
-
-.profile-card-shimmer:hover::after {
-    animation: profile-card-gloss 2.8s ease-in-out;
+    animation: profile-card-gloss 5.5s ease-in-out infinite;
+    will-change: transform, opacity;
 }
 
 .terminal-grid {
@@ -173,8 +220,8 @@ textarea {
 
 html[data-theme="light"],
 html[data-theme="light"] body {
-    background: #f3f4f6;
-    color: #111827;
+    background: var(--app-bg);
+    color: var(--app-text);
 }
 
 html[data-theme="light"] .terminal-grid {
@@ -262,7 +309,7 @@ html[data-theme="light"] .archive-card::after {
     .archive-card:hover::after,
     .badge-aura,
     .badge-aura:hover::after,
-    .profile-card-shimmer:hover::after {
+    .profile-card-shimmer::after {
         animation: none !important;
     }
 }

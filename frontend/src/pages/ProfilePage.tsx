@@ -583,17 +583,16 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                 </Modal>
             )}
             {selectedBadge && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-                    <div className="w-full max-w-md border border-[#2a2a2a] bg-[#0d0d0d] p-6">
-                        <div className="mb-4 border-l-4 border-[#e60000] pl-4">
-                            <p className="m-0 text-3xl">{selectedBadge.icon}</p>
-                            <h2 className="m-0 mt-2 font-mono text-2xl font-black uppercase text-white">{selectedBadge.label}</h2>
-                            <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">{selectedBadge.custom ? 'Custom Badge' : 'Core Badge'} // {selectedBadge.automatic ? 'Automatic' : 'Manual'}</p>
-                        </div>
-                        <p className="m-0 whitespace-pre-wrap font-sans text-sm leading-7 text-[#ccc]">{selectedBadge.description || 'No description.'}</p>
-                        <button type="button" onClick={() => setSelectedBadge(null)} className="mt-6 border border-[#333] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Close</button>
-                    </div>
-                </div>
+                <Modal
+                    title={selectedBadge.label}
+                    description={`${selectedBadge.custom ? 'Custom Badge' : 'Core Badge'} // ${selectedBadge.automatic ? 'Automatic' : 'Manual'}`}
+                    onClose={() => setSelectedBadge(null)}
+                    size="sm"
+                    footer={<UiButton onClick={() => setSelectedBadge(null)}>Close</UiButton>}
+                >
+                    <div className="mb-4 text-3xl">{selectedBadge.icon}</div>
+                    <p className="m-0 whitespace-pre-wrap font-sans text-sm leading-7 text-[var(--app-text-soft)]">{selectedBadge.description || 'No description.'}</p>
+                </Modal>
             )}
         </div>
     );
