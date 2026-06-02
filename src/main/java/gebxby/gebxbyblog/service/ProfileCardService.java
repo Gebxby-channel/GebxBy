@@ -19,4 +19,5 @@ public interface ProfileCardService {
     User setActiveCard(String cardId, User user);
     ProfileCardResponse customizeUserCard(UUID cardId, ProfileCardCustomizeRequest request, User user);
     User deleteUserCard(UUID cardId, User user);
+    User deleteUserCardForAdmin(UUID cardId, UUID userId, User admin);
 }

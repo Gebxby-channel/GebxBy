@@ -1,4 +1,4 @@
-import { Home, User, PenTool, BarChart2, Terminal, Folder, ShieldCheck, History } from 'lucide-react';
+import { Home, User, PenTool, BarChart2, Terminal, ShieldCheck, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { CurrentUser } from '../types/forum';
 
@@ -7,7 +7,6 @@ export default function Sidebar({ active, user }: { active: string; user: Curren
 
     const navItems = [
         { id: 'home', icon: Home, label: 'DATABASE', path: '/' },
-        { id: 'category', icon: Folder, label: 'CATEGORY', path: '/category' },
         ...(user ? [
             { id: 'logs', icon: History, label: 'LOG', path: '/logs' },
             { id: 'write', icon: PenTool, label: 'WRITE', path: '/write' },

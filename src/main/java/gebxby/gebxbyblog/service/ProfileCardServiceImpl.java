@@ -202,6 +202,20 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         UserProfileCard card = userCardRepository.findById(cardId)
                 .filter(item -> user.getUserID().equals(item.getUserId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card profile tidak ditemukan"));
+        return deleteOwnedUserCard(card, user);
+    }
+
+    @Override
+    public User deleteUserCardForAdmin(UUID cardId, UUID userId, User admin) {
+        requireAdmin(admin);
+        User target = userService.getUserById(userId);
+        UserProfileCard card = userCardRepository.findById(cardId)
+                .filter(item -> target.getUserID().equals(item.getUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card profile tidak ditemukan"));
+        return deleteOwnedUserCard(card, target);
+    }
+
+    private User deleteOwnedUserCard(UserProfileCard card, User user) {
         userCardRepository.delete(card);
         if (card.getId().toString().equals(user.getActiveProfileCardId())) {
             user.setActiveProfileCardId(DEFAULT_STARS);

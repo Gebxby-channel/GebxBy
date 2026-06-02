@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Bold, Eye, FileText, Heading1, Heading2, ImagePlus, Italic, Link as LinkIcon, List, ListOrdered, LoaderCircle, Pencil, Quote, Redo2, RotateCcw, Send, Type, Underline as UnderlineIcon, Undo2, Upload, X } from 'lucide-react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -13,6 +13,7 @@ import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
 import { sanitizeArticle, stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
 import { useFeedback } from '../components/feedback';
+import { Button as UiButton, Modal } from '../components/ui';
 
 const MAX_IMAGE_ATTACHMENTS = 6;
 const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -45,7 +46,9 @@ type WriterDraft = {
 
 export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const feedback = useFeedback();
+    const editId = searchParams.get('edit') || '';
     const [title, setTitle] = useState('');
     const [selectedKategori, setSelectedKategori] = useState('General');
     const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
@@ -59,11 +62,16 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const [studioMode, setStudioMode] = useState<'edit' | 'preview'>('edit');
     const [draftNotice, setDraftNotice] = useState<string | null>(null);
     const [draftId, setDraftId] = useState<string | undefined>(undefined);
+    const [editContentId, setEditContentId] = useState<string | undefined>(undefined);
+    const [exitPrompt, setExitPrompt] = useState<{ nextPath: string } | null>(null);
+    const [savingExitDraft, setSavingExitDraft] = useState(false);
     const lastServerImageSignature = useRef('');
-    const draftKey = useMemo(() => `gebxby:writer-draft:${user?.userID ?? 'guest'}`, [user?.userID]);
+    const allowExitRef = useRef(false);
+    const draftKey = useMemo(() => `gebxby:writer-draft:${user?.userID ?? 'guest'}:${editId || 'new'}`, [editId, user?.userID]);
     const articleText = useMemo(() => stripHtml(content), [content]);
     const wordCount = useMemo(() => articleText ? articleText.split(/\s+/).filter(Boolean).length : 0, [articleText]);
     const readMinutes = Math.max(1, Math.ceil(wordCount / 220));
+    const hasWritableDraft = useMemo(() => Boolean(title.trim() || hasReadableText(content) || images.length > 0 || file), [content, file, images.length, title]);
 
     useEffect(() => {
         if (!user) return;
@@ -72,66 +80,169 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             .catch(() => setCategoryOptions(DEFAULT_CATEGORIES));
     }, [user]);
 
+    const buildLocalDraft = useCallback((nextDraftId = draftId): WriterDraft => ({
+        version: DRAFT_SCHEMA_VERSION,
+        draftId: nextDraftId,
+        title,
+        kategori: selectedKategori,
+        activeTab,
+        content,
+        images,
+        savedAt: new Date().toISOString(),
+    }), [activeTab, content, draftId, images, selectedKategori, title]);
+
+    const applyLocalDraft = useCallback((draft: WriterDraft) => {
+        if (draft.version !== DRAFT_SCHEMA_VERSION) return false;
+        setDraftId(draft.draftId);
+        setTitle(draft.title ?? '');
+        setSelectedKategori(draft.kategori ?? 'General');
+        setActiveTab(draft.activeTab ?? 'manual');
+        setContent(draft.content ?? '');
+        setImages(Array.isArray(draft.images) ? draft.images : []);
+        setDraftNotice('Local draft restored');
+        return true;
+    }, []);
+
+    const applyContentToStudio = useCallback((item: ContentItem) => {
+        setEditContentId(item.idContent);
+        setDraftId(item.status === 'DRAFT' ? item.idContent : undefined);
+        setTitle(item.head || '');
+        setSelectedKategori(item.kategori || 'General');
+        setActiveTab('manual');
+        setContent(item.paragrafs || '');
+        setImages(toAttachedImages(item));
+        setDraftNotice(item.status === 'DRAFT' ? 'Server draft loaded' : 'Writing loaded');
+    }, []);
+
     useEffect(() => {
         if (!user) return;
-        const stored = localStorage.getItem(draftKey);
-        if (!stored) return;
-        try {
-            const draft = JSON.parse(stored) as WriterDraft;
-            if (draft.version !== DRAFT_SCHEMA_VERSION) return;
-            setDraftId(draft.draftId);
-            setTitle(draft.title ?? '');
-            setSelectedKategori(draft.kategori ?? 'General');
-            setActiveTab(draft.activeTab ?? 'manual');
-            setContent(draft.content ?? '');
-            setImages(Array.isArray(draft.images) ? draft.images : []);
-            setDraftNotice('Draft restored');
-        } catch {
-            localStorage.removeItem(draftKey);
+        const controller = new AbortController();
+
+        const restoreLocalDraft = () => {
+            const stored = localStorage.getItem(draftKey);
+            if (!stored) return false;
+            try {
+                const draft = JSON.parse(stored) as WriterDraft;
+                return applyLocalDraft(draft);
+            } catch {
+                localStorage.removeItem(draftKey);
+                return false;
+            }
+        };
+
+        if (!editId) {
+            setEditContentId(undefined);
+            setDraftId(undefined);
+            if (!restoreLocalDraft()) {
+                setTitle('');
+                setSelectedKategori('General');
+                setActiveTab('manual');
+                setContent('');
+                setFile(null);
+                setImages([]);
+                setStudioMode('edit');
+                setDraftNotice('Draft standby');
+            }
+            return () => controller.abort();
         }
-    }, [draftKey, user]);
+
+        api.get<ContentItem>(`/content/${editId}`, { signal: controller.signal })
+            .then((response) => {
+                applyContentToStudio(response.data);
+                restoreLocalDraft();
+            })
+            .catch((error) => {
+                if (!axios.isCancel(error)) {
+                    feedback.toast('Tulisan tidak bisa dimuat ke Writing Studio.', 'error');
+                    navigate('/profile');
+                }
+            });
+
+        return () => controller.abort();
+    }, [applyContentToStudio, applyLocalDraft, draftKey, editId, feedback, navigate, user]);
 
     useEffect(() => {
         if (!user) return;
         const timer = window.setTimeout(() => {
-            const hasDraft = title.trim() || content.trim() || images.length > 0;
-            if (!hasDraft) {
+            if (!hasWritableDraft) {
                 localStorage.removeItem(draftKey);
                 return;
             }
-            const draft: WriterDraft = {
-                version: DRAFT_SCHEMA_VERSION,
-                draftId,
-                title,
-                kategori: selectedKategori,
-                activeTab,
-                content,
-                images,
-                savedAt: new Date().toISOString(),
-            };
-            localStorage.setItem(draftKey, JSON.stringify(draft));
-            setDraftNotice('Draft autosaved');
-            const imageSignature = images.map(image => `${image.id}:${image.size}:${image.alt}`).join('|');
-            const includeImages = imageSignature !== lastServerImageSignature.current;
-            void saveServerDraft({
-                draftId,
-                title,
-                selectedKategori,
-                activeTab,
-                content,
-                images,
-                includeImages,
-                onSaved: (savedDraft) => {
-                    if (includeImages) {
-                        lastServerImageSignature.current = imageSignature;
-                    }
-                    setDraftId(savedDraft.idContent);
-                    localStorage.setItem(draftKey, JSON.stringify({ ...draft, draftId: savedDraft.idContent }));
-                },
-            }).catch(() => setDraftNotice('Local draft autosaved'));
+            localStorage.setItem(draftKey, JSON.stringify(buildLocalDraft()));
+            setDraftNotice('Local draft autosaved');
         }, 900);
         return () => window.clearTimeout(timer);
-    }, [activeTab, content, draftId, draftKey, images, selectedKategori, title, user]);
+    }, [buildLocalDraft, draftKey, hasWritableDraft, user]);
+
+    const persistServerDraft = useCallback(async () => {
+        if (!user || !hasWritableDraft) {
+            return undefined;
+        }
+        const imageSignature = images.map(image => `${image.id}:${image.size}:${image.alt}`).join('|');
+        const includeImages = images.length > 0 && imageSignature !== lastServerImageSignature.current;
+        return saveServerDraft({
+            draftId,
+            title,
+            selectedKategori,
+            activeTab,
+            content,
+            images,
+            includeImages,
+            onSaved: (savedDraft) => {
+                if (includeImages) {
+                    lastServerImageSignature.current = imageSignature;
+                }
+                setDraftId(savedDraft.idContent);
+                localStorage.setItem(draftKey, JSON.stringify(buildLocalDraft(savedDraft.idContent)));
+                setDraftNotice('Server draft saved');
+            },
+        });
+    }, [activeTab, buildLocalDraft, content, draftId, draftKey, hasWritableDraft, images, selectedKategori, title, user]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (allowExitRef.current || !hasWritableDraft) return;
+            void persistServerDraft();
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        const handlePageHide = () => {
+            if (allowExitRef.current || !hasWritableDraft) return;
+            void persistServerDraft();
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('pagehide', handlePageHide);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('pagehide', handlePageHide);
+        };
+    }, [hasWritableDraft, persistServerDraft]);
+
+    useEffect(() => {
+        const interceptInternalNavigation = (event: MouseEvent) => {
+            if (allowExitRef.current || !hasWritableDraft || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                return;
+            }
+            const target = event.target instanceof Element ? event.target : null;
+            const anchor = target?.closest('a[href]') as HTMLAnchorElement | null;
+            if (!anchor || anchor.target || anchor.download) {
+                return;
+            }
+            const url = new URL(anchor.href);
+            if (url.origin !== window.location.origin) {
+                return;
+            }
+            const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            const nextPath = `${url.pathname}${url.search}${url.hash}`;
+            if (nextPath === currentPath) {
+                return;
+            }
+            event.preventDefault();
+            setExitPrompt({ nextPath });
+        };
+        document.addEventListener('click', interceptInternalNavigation, true);
+        return () => document.removeEventListener('click', interceptInternalNavigation, true);
+    }, [hasWritableDraft]);
 
     if (!user) {
         return <div className="mt-20 text-center font-mono italic text-white">ACCESS DENIED: SESSION REQUIRED</div>;
@@ -150,9 +261,12 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                 kategori: selectedKategori,
                 images: buildImagePayload(images),
             };
-            const response = draftId
-                ? await publishDraftOrCreateContent(draftId, payload)
-                : await api.post<ContentItem>('/content/add-manual', payload);
+            const response = editContentId && !draftId
+                ? await api.put<ContentItem>(`/content/edit/${editContentId}`, payload)
+                : draftId
+                    ? await publishDraftOrCreateContent(draftId, payload)
+                    : await api.post<ContentItem>('/content/add-manual', payload);
+            allowExitRef.current = true;
             localStorage.removeItem(draftKey);
             setDraftId(undefined);
             invalidatePublishedContentCaches(user.userID);
@@ -179,6 +293,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setSubmitting(true);
         try {
             const response = await api.post<ContentItem>('/content/upload', formData);
+            allowExitRef.current = true;
             localStorage.removeItem(draftKey);
             if (draftId) {
                 void deleteServerDraft(draftId);
@@ -235,6 +350,34 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         } finally {
             setCompressingImages(false);
         }
+    };
+
+    const saveDraftAndLeave = async () => {
+        if (!exitPrompt) return;
+        setSavingExitDraft(true);
+        try {
+            const saved = await persistServerDraft();
+            if (saved) {
+                localStorage.removeItem(draftKey);
+                invalidateApiCache(`/content/by-user/${user.userID}`);
+                feedback.toast('Draft disimpan ke database.', 'success');
+            }
+            allowExitRef.current = true;
+            navigate(exitPrompt.nextPath);
+        } catch {
+            feedback.toast('Draft gagal disimpan ke database. Local draft tetap aman.', 'error');
+        } finally {
+            setSavingExitDraft(false);
+            setExitPrompt(null);
+        }
+    };
+
+    const discardDraftAndLeave = () => {
+        if (!exitPrompt) return;
+        allowExitRef.current = true;
+        localStorage.removeItem(draftKey);
+        setExitPrompt(null);
+        navigate(exitPrompt.nextPath);
     };
 
     return (
@@ -346,6 +489,24 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                     />
                 </div>
             </div>
+            {exitPrompt && (
+                <Modal
+                    title="Save Draft?"
+                    onClose={() => setExitPrompt(null)}
+                    footer={(
+                        <>
+                            <UiButton onClick={discardDraftAndLeave} disabled={savingExitDraft}>Discard</UiButton>
+                            <UiButton onClick={() => void saveDraftAndLeave()} disabled={savingExitDraft} variant="danger">
+                                {savingExitDraft ? 'Saving' : 'Save Draft'}
+                            </UiButton>
+                        </>
+                    )}
+                >
+                    <p className="m-0 font-sans text-sm leading-7 text-[#bbb]">
+                        Ada perubahan di Writing Studio. Simpan sebagai draft database sebelum keluar, atau buang perubahan ini.
+                    </p>
+                </Modal>
+            )}
         </div>
     );
 }
@@ -395,6 +556,7 @@ async function saveServerDraft({
         : await api.post<ContentItem>('/content/drafts', body);
     onSaved(response.data);
     invalidateApiCache(`/content/by-user/${response.data.user?.userID ?? ''}`);
+    return response.data;
 }
 
 async function updateDraftOrCreateNew(
@@ -459,6 +621,22 @@ function buildImagePayload(images: AttachedImage[]) {
         width: image.width,
         height: image.height,
     }));
+}
+
+function toAttachedImages(item: ContentItem): AttachedImage[] {
+    return (item.images ?? [])
+        .filter(image => Boolean(image.data))
+        .slice(0, MAX_IMAGE_ATTACHMENTS)
+        .map(image => ({
+            id: image.id || createClientId(),
+            data: image.data,
+            thumbnail: image.thumbnail || image.data,
+            alt: image.alt || 'Attached visual',
+            size: image.size || image.data.length,
+            originalSize: image.size || image.data.length,
+            width: image.width || 1280,
+            height: image.height || 720,
+        }));
 }
 
 function ArticlePreview({

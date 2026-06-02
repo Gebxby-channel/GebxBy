@@ -371,23 +371,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
                     <ImageGallery images={content.images ?? []} title={content.head} />
 
-                    <footer className="flex flex-col gap-4 border-t border-[#2a2a2a] bg-[#1a1a1a]/50 p-6 md:flex-row md:items-center md:justify-between">
-                        <div className="flex flex-wrap items-center gap-4 text-[#777]">
-                            <Counter icon={<Eye size={16} />} label="READ" value={stats?.viewCount ?? content.viewCount} />
-                            <VoteButton active={stats?.userVote === 'UP'} disabled={busy} icon={<ArrowBigUp size={18} />} value={stats?.upCount ?? content.upCount} onClick={() => void handleVote('UP')} />
-                            <VoteButton active={stats?.userVote === 'DOWN'} disabled={busy} icon={<ArrowBigDown size={18} />} value={stats?.downCount ?? content.downCount} onClick={() => void handleVote('DOWN')} />
-                            <Counter icon={<MessageSquare size={16} />} label="COMMENTS" value={stats?.commentCount ?? content.commentCount} />
-                            <button
-                                type="button"
-                                onClick={() => void handleBookmark()}
-                                className={`flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-black transition-all ${
-                                    bookmarked ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-white'
-                                }`}
-                            >
-                                {bookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-                                {bookmarked ? 'SAVED' : 'SAVE'}
-                            </button>
-                        </div>
+                    <footer className="flex justify-end border-t border-[#2a2a2a] bg-[#1a1a1a]/50 p-6">
                         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-[#444]">
                             End_Of_Transmission
                         </p>
@@ -753,31 +737,6 @@ function ImageGallery({ images, title }: { images: ContentImage[]; title: string
                 )}
             </div>
         </section>
-    );
-}
-
-function Counter({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-    return (
-        <div className="flex items-center gap-2 font-mono text-[10px] font-black uppercase" title={label}>
-            {icon}
-            <span>{value}</span>
-        </div>
-    );
-}
-
-function VoteButton({ active, disabled, icon, value, onClick }: { active: boolean; disabled: boolean; icon: ReactNode; value: number; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            disabled={disabled}
-            onClick={onClick}
-            className={`flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-black transition-all disabled:cursor-wait ${
-                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-white'
-            }`}
-        >
-            {icon}
-            {value}
-        </button>
     );
 }
 

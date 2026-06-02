@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Award, Ban, CheckCircle2, HardDrive, ImagePlus, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertTriangle, Award, Ban, Check, CheckCircle2, ChevronDown, HardDrive, ImagePlus, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import api, { invalidateApiCache, isRequestCanceled } from '../lib/api';
 import type { ActivityLogItem, Badge, BadgeCode, ContentItem, CurrentUser, MediaSmokeTestResult } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
@@ -38,11 +38,11 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [genres, setGenres] = useState<GenreItem[]>([]);
     const [genreForm, setGenreForm] = useState({ name: '', color: '#e60000', editingId: '' });
     const [profileCardTemplates, setProfileCardTemplates] = useState<ProfileCardItem[]>([]);
-    const [selectedProfileCardTemplate, setSelectedProfileCardTemplate] = useState('');
     const [cardForm, setCardForm] = useState<ProfileCardFormState>(initialProfileCardForm());
     const [suspendHours, setSuspendHours] = useState(24);
-    const [selectedBadge, setSelectedBadge] = useState<BadgeCode>('WRITERS');
-    const [selectedCustomBadge, setSelectedCustomBadge] = useState('');
+    const [drawerBadgeSelection, setDrawerBadgeSelection] = useState<string[]>([]);
+    const [drawerCardGrantSelection, setDrawerCardGrantSelection] = useState<string[]>([]);
+    const [drawerCardRevokeSelection, setDrawerCardRevokeSelection] = useState<string[]>([]);
     const [customBadgeForm, setCustomBadgeForm] = useState({ editingId: '', label: '', description: '', image: '' });
     const [userQuery, setUserQuery] = useState('');
     const [drawerUser, setDrawerUser] = useState<CurrentUser | null>(null);
@@ -65,14 +65,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             setUsers(Array.isArray(userResponse.data) ? userResponse.data : []);
             setContents(Array.isArray(contentResponse.data) ? contentResponse.data : []);
             setReports(Array.isArray(reportResponse.data) ? reportResponse.data : []);
-            const custom = Array.isArray(customBadgeResponse.data) ? customBadgeResponse.data : [];
-            setCustomBadges(custom);
-            const grantableCustom = custom.filter(badge => badge.custom && badge.id);
-            setSelectedCustomBadge(current => current || grantableCustom[0]?.id || '');
+            setCustomBadges(Array.isArray(customBadgeResponse.data) ? customBadgeResponse.data : []);
             setGenres(Array.isArray(genreResponse.data) ? genreResponse.data : []);
-            const templates = Array.isArray(cardTemplateResponse.data) ? cardTemplateResponse.data : [];
-            setProfileCardTemplates(templates);
-            setSelectedProfileCardTemplate(current => current || templates[0]?.id || '');
+            setProfileCardTemplates(Array.isArray(cardTemplateResponse.data) ? cardTemplateResponse.data : []);
             setEmailDomains(Array.isArray(emailDomainResponse.data) ? emailDomainResponse.data : []);
         } catch (error) {
             if (!isRequestCanceled(error)) {
@@ -97,6 +92,12 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         return () => controller.abort();
     }, [fetchUsers]);
 
+    useEffect(() => {
+        setDrawerBadgeSelection([]);
+        setDrawerCardGrantSelection([]);
+        setDrawerCardRevokeSelection([]);
+    }, [drawerUser?.userID]);
+
     const suspendUser = async (target: CurrentUser) => {
         if (target.role === 'ADMIN') return;
         await api.post(`/api/admin/users/${target.userID}/suspend`, { hours: suspendHours });
@@ -119,16 +120,14 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         await fetchUsers();
     };
 
-    const grantBadge = async (target: CurrentUser) => {
-        await api.post(`/api/admin/users/${target.userID}/badges/${selectedBadge}`);
+    const grantCoreBadge = async (target: CurrentUser, badge: BadgeCode) => {
+        await api.post(`/api/admin/users/${target.userID}/badges/${badge}`);
         invalidateApiCache(`/api/user/${target.userID}`);
-        await fetchUsers();
     };
 
-    const revokeBadge = async (target: CurrentUser) => {
-        await api.delete(`/api/admin/users/${target.userID}/badges/${selectedBadge}`);
+    const revokeCoreBadge = async (target: CurrentUser, badge: BadgeCode) => {
+        await api.delete(`/api/admin/users/${target.userID}/badges/${badge}`);
         invalidateApiCache(`/api/user/${target.userID}`);
-        await fetchUsers();
     };
 
     const saveCustomBadge = async () => {
@@ -152,9 +151,6 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             const without = current.filter(item => item.id !== response.data.id);
             return [response.data, ...without];
         });
-        if (response.data.custom) {
-            setSelectedCustomBadge(response.data.id || '');
-        }
         setCustomBadgeForm({ editingId: '', label: '', description: '', image: '' });
         feedback.toast(customBadgeForm.editingId ? 'Badge berhasil diupdate.' : 'Custom badge berhasil dibuat.', 'success');
     };
@@ -183,28 +179,17 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         if (!accepted) return;
         await api.delete(`/api/admin/custom-badges/${badge.id}`);
         setCustomBadges(current => current.filter(item => item.id !== badge.id));
-        setSelectedCustomBadge(current => current === badge.id ? '' : current);
         await fetchUsers();
     };
 
-    const grantCustomBadge = async (target: CurrentUser) => {
-        if (!selectedCustomBadge) {
-            feedback.toast('Pilih custom badge dulu.', 'info');
-            return;
-        }
-        await api.post(`/api/admin/users/${target.userID}/custom-badges/${selectedCustomBadge}`);
+    const grantCustomBadge = async (target: CurrentUser, badgeId: string) => {
+        await api.post(`/api/admin/users/${target.userID}/custom-badges/${badgeId}`);
         invalidateApiCache(`/api/user/${target.userID}`);
-        await fetchUsers();
     };
 
-    const revokeCustomBadge = async (target: CurrentUser) => {
-        if (!selectedCustomBadge) {
-            feedback.toast('Pilih custom badge dulu.', 'info');
-            return;
-        }
-        await api.delete(`/api/admin/users/${target.userID}/custom-badges/${selectedCustomBadge}`);
+    const revokeCustomBadge = async (target: CurrentUser, badgeId: string) => {
+        await api.delete(`/api/admin/users/${target.userID}/custom-badges/${badgeId}`);
         invalidateApiCache(`/api/user/${target.userID}`);
-        await fetchUsers();
     };
 
     const createEmailDomain = async () => {
@@ -281,7 +266,6 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             const without = current.filter(item => item.id !== response.data.id);
             return [response.data, ...without];
         });
-        setSelectedProfileCardTemplate(response.data.id);
         setCardForm(initialProfileCardForm());
         feedback.toast('Template profile card tersimpan.', 'success');
     };
@@ -295,7 +279,6 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             orientation: template.orientation === 'VERTICAL' ? 'VERTICAL' : 'HORIZONTAL',
             layout: template.layout,
         });
-        setSelectedProfileCardTemplate(template.id);
     };
 
     const deleteProfileCardTemplate = async (template: ProfileCardItem) => {
@@ -310,15 +293,14 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         setProfileCardTemplates(current => current.filter(item => item.id !== template.id));
     };
 
-    const grantProfileCard = async (target: CurrentUser) => {
-        if (!selectedProfileCardTemplate) {
-            feedback.toast('Pilih template profile card dulu.', 'info');
-            return;
-        }
-        await api.post(`/api/admin/users/${target.userID}/profile-cards/${selectedProfileCardTemplate}`);
+    const grantProfileCard = async (target: CurrentUser, templateId: string) => {
+        await api.post(`/api/admin/users/${target.userID}/profile-cards/${templateId}`);
         invalidateApiCache(`/api/user/${target.userID}`);
-        feedback.toast('Profile card berhasil diberikan dan masuk notifikasi user.', 'success');
-        await fetchUsers();
+    };
+
+    const revokeProfileCard = async (target: CurrentUser, cardId: string) => {
+        await api.delete(`/api/admin/users/${target.userID}/profile-cards/${cardId}`);
+        invalidateApiCache(`/api/user/${target.userID}`);
     };
 
     const deleteContent = async (content: ContentItem) => {
@@ -390,6 +372,60 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         }
     };
 
+    const applyDrawerBadges = async (mode: 'grant' | 'revoke') => {
+        if (!drawerUser) return;
+        if (drawerBadgeSelection.length === 0) {
+            feedback.toast('Pilih satu atau lebih badge dulu.', 'info');
+            return;
+        }
+        for (const key of drawerBadgeSelection) {
+            if (key.startsWith('core:')) {
+                const code = key.replace('core:', '') as BadgeCode;
+                if (mode === 'grant') {
+                    await grantCoreBadge(drawerUser, code);
+                } else {
+                    await revokeCoreBadge(drawerUser, code);
+                }
+            }
+            if (key.startsWith('custom:')) {
+                const badgeId = key.replace('custom:', '');
+                if (mode === 'grant') {
+                    await grantCustomBadge(drawerUser, badgeId);
+                } else {
+                    await revokeCustomBadge(drawerUser, badgeId);
+                }
+            }
+        }
+        feedback.toast(mode === 'grant' ? 'Badge terpilih berhasil dipasang.' : 'Badge terpilih berhasil dicopot.', 'success');
+        await fetchUsers();
+    };
+
+    const grantDrawerProfileCards = async () => {
+        if (!drawerUser) return;
+        if (drawerCardGrantSelection.length === 0) {
+            feedback.toast('Pilih satu atau lebih profile card dulu.', 'info');
+            return;
+        }
+        for (const templateId of drawerCardGrantSelection) {
+            await grantProfileCard(drawerUser, templateId);
+        }
+        feedback.toast('Profile card terpilih berhasil diberikan.', 'success');
+        await fetchUsers();
+    };
+
+    const revokeDrawerProfileCards = async () => {
+        if (!drawerUser) return;
+        if (drawerCardRevokeSelection.length === 0) {
+            feedback.toast('Pilih card milik user yang mau dicopot.', 'info');
+            return;
+        }
+        for (const cardId of drawerCardRevokeSelection) {
+            await revokeProfileCard(drawerUser, cardId);
+        }
+        feedback.toast('Profile card terpilih berhasil dicopot.', 'success');
+        await fetchUsers();
+    };
+
     const openReports = reports.filter(report => !report.resolved);
     const filteredUsers = users.filter(target => {
         const query = userQuery.trim().toLowerCase();
@@ -397,6 +433,35 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         return [target.name, target.username, target.email, target.designation, target.role]
             .some(value => (value || '').toLowerCase().includes(query));
     });
+    const badgeGrantOptions: MultiSelectOption[] = [
+        ...assignableBadges.map((code) => {
+            const definition = customBadges.find(badge => badge.code === code);
+            return {
+                value: `core:${code}`,
+                label: definition?.label || code,
+                meta: 'Core',
+            };
+        }),
+        ...customBadges
+            .filter(badge => badge.custom && badge.id && !badge.code)
+            .map((badge) => ({
+                value: `custom:${badge.id}`,
+                label: badge.label,
+                meta: 'Custom',
+            })),
+    ];
+    const drawerCardGrantOptions: MultiSelectOption[] = profileCardTemplates.map((template) => ({
+        value: template.id,
+        label: template.name,
+        meta: template.orientation,
+    }));
+    const drawerCardRevokeOptions: MultiSelectOption[] = (drawerUser?.profileCards ?? [])
+        .filter(card => card.custom && !card.template && card.id)
+        .map(card => ({
+            value: card.id,
+            label: card.name,
+            meta: 'Owned',
+        }));
     const totalViews = contents.reduce((sum, item) => sum + (item.viewCount || 0), 0);
     const totalUp = contents.reduce((sum, item) => sum + (item.upCount || 0), 0);
 
@@ -773,7 +838,6 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         <UiButton onClick={() => editProfileCardTemplate(template)}>Edit</UiButton>
-                                        <UiButton onClick={() => setSelectedProfileCardTemplate(template.id)} variant={selectedProfileCardTemplate === template.id ? 'primary' : 'ghost'}>Select Gift</UiButton>
                                         <UiButton onClick={() => void deleteProfileCardTemplate(template)} variant="danger">Delete</UiButton>
                                     </div>
                                 </div>
@@ -802,31 +866,6 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 className="w-40 bg-transparent font-mono text-[10px] uppercase text-white outline-none placeholder:text-[#555]"
                             />
                         </div>
-                        <Select
-                            id="admin-badge-target"
-                            name="adminBadgeTarget"
-                            aria-label="Core badge target"
-                            value={selectedBadge}
-                            onChange={(event) => setSelectedBadge(event.target.value as BadgeCode)}
-                            title="Badge target"
-                        >
-                            {assignableBadges.map((badge) => (
-                                <option key={badge} value={badge}>{badge}</option>
-                            ))}
-                        </Select>
-                        <Select
-                            id="admin-custom-badge-target"
-                            name="adminCustomBadgeTarget"
-                            aria-label="Custom badge target"
-                            value={selectedCustomBadge}
-                            onChange={(event) => setSelectedCustomBadge(event.target.value)}
-                            title="Custom badge target"
-                        >
-                            <option value="">CUSTOM_BADGE</option>
-                            {customBadges.filter(badge => badge.custom && badge.id).map((badge) => (
-                                <option key={badge.id ?? badge.label} value={badge.id}>{badge.label}</option>
-                            ))}
-                        </Select>
                         <input
                             id="admin-suspend-hours"
                             name="suspendHours"
@@ -889,20 +928,6 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => void grantBadge(target)}
-                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#22c55e] hover:text-[#22c55e]"
-                                        >
-                                            Badge+
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => void revokeBadge(target)}
-                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]"
-                                        >
-                                            Badge-
-                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => setDrawerUser(target)}
@@ -1007,28 +1032,47 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 <div className="mt-2"><BadgeStrip badges={drawerUser.badges} compact /></div>
                             </div>
                         </div>
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid gap-3">
                             <div className="border border-[#242424] bg-[#101010] p-4">
-                                <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Core Badge</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <UiButton onClick={() => void grantBadge(drawerUser)} variant="success">Grant {selectedBadge}</UiButton>
-                                    <UiButton onClick={() => void revokeBadge(drawerUser)} variant="danger">Revoke {selectedBadge}</UiButton>
+                                <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Badge Loadout</p>
+                                <ActionMultiSelect
+                                    label="Select badges"
+                                    options={badgeGrantOptions}
+                                    value={drawerBadgeSelection}
+                                    onChange={setDrawerBadgeSelection}
+                                    emptyLabel="No grantable badges"
+                                />
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <UiButton onClick={() => void applyDrawerBadges('grant')} disabled={drawerBadgeSelection.length === 0} variant="success">Grant Selected</UiButton>
+                                    <UiButton onClick={() => void applyDrawerBadges('revoke')} disabled={drawerBadgeSelection.length === 0} variant="danger">Revoke Selected</UiButton>
                                 </div>
                             </div>
-                            <div className="border border-[#242424] bg-[#101010] p-4">
-                                <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Custom Badge</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <UiButton onClick={() => void grantCustomBadge(drawerUser)} disabled={!selectedCustomBadge} variant="success">Grant Custom</UiButton>
-                                    <UiButton onClick={() => void revokeCustomBadge(drawerUser)} disabled={!selectedCustomBadge} variant="danger">Revoke Custom</UiButton>
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div className="border border-[#242424] bg-[#101010] p-4">
+                                    <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Grant Profile Card</p>
+                                    <ActionMultiSelect
+                                        label="Select templates"
+                                        options={drawerCardGrantOptions}
+                                        value={drawerCardGrantSelection}
+                                        onChange={setDrawerCardGrantSelection}
+                                        emptyLabel="No card templates"
+                                    />
+                                    <div className="mt-3">
+                                        <UiButton onClick={() => void grantDrawerProfileCards()} disabled={drawerCardGrantSelection.length === 0} variant="success">Grant Selected Cards</UiButton>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="border border-[#242424] bg-[#101010] p-4 md:col-span-2">
-                                <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Profile Card Gift</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <UiButton onClick={() => void grantProfileCard(drawerUser)} disabled={!selectedProfileCardTemplate} variant="success">Grant Selected Card</UiButton>
-                                    <span className="self-center font-mono text-[10px] uppercase text-[#666]">
-                                        {profileCardTemplates.find(template => template.id === selectedProfileCardTemplate)?.name || 'No template selected'}
-                                    </span>
+                                <div className="border border-[#242424] bg-[#101010] p-4">
+                                    <p className="m-0 mb-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">Revoke User Card</p>
+                                    <ActionMultiSelect
+                                        label="Select owned cards"
+                                        options={drawerCardRevokeOptions}
+                                        value={drawerCardRevokeSelection}
+                                        onChange={setDrawerCardRevokeSelection}
+                                        emptyLabel="No removable user cards"
+                                    />
+                                    <div className="mt-3">
+                                        <UiButton onClick={() => void revokeDrawerProfileCards()} disabled={drawerCardRevokeSelection.length === 0} variant="danger">Revoke Selected Cards</UiButton>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1058,6 +1102,75 @@ function invalidateContentCaches(content: ContentItem) {
     if (content.user?.userID) {
         invalidateApiCache(`/content/by-user/${content.user.userID}`);
     }
+}
+
+type MultiSelectOption = {
+    value: string;
+    label: string;
+    meta?: string;
+};
+
+function ActionMultiSelect({
+    label,
+    options,
+    value,
+    onChange,
+    emptyLabel,
+}: {
+    label: string;
+    options: MultiSelectOption[];
+    value: string[];
+    onChange: (next: string[]) => void;
+    emptyLabel: string;
+}) {
+    const [open, setOpen] = useState(false);
+    const selected = options.filter(option => value.includes(option.value));
+    const toggleValue = (nextValue: string) => {
+        onChange(value.includes(nextValue)
+            ? value.filter(item => item !== nextValue)
+            : [...value, nextValue]);
+    };
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(current => !current)}
+                className={`flex min-h-11 w-full items-center justify-between gap-3 border px-3 text-left font-mono text-[10px] font-black uppercase transition-all ${open ? 'border-[#e60000] text-white' : 'border-[#333] text-[#aaa] hover:border-white hover:text-white'}`}
+            >
+                <span className="min-w-0">
+                    <span className="block text-[8px] tracking-[0.25em] text-[#666]">{label}</span>
+                    <span className="block truncate">{selected.length ? selected.map(option => option.label).join(', ') : 'Select...'}</span>
+                </span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? 'rotate-180 text-[#e60000]' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[160] max-h-56 overflow-y-auto border border-[#333] bg-[#080808] p-2 shadow-2xl">
+                    {options.length === 0 ? (
+                        <div className="px-3 py-6 text-center font-mono text-[9px] uppercase tracking-[0.25em] text-[#444]">[ {emptyLabel} ]</div>
+                    ) : options.map((option) => {
+                        const checked = value.includes(option.value);
+                        return (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => toggleValue(option.value)}
+                                className={`mb-1 flex w-full items-center justify-between gap-3 border px-3 py-2 text-left font-mono text-[10px] font-black uppercase transition-all last:mb-0 ${checked ? 'border-[#e60000] bg-[#1a0505] text-white' : 'border-[#1f1f1f] text-[#777] hover:border-[#e60000] hover:text-white'}`}
+                            >
+                                <span className="min-w-0">
+                                    <span className="block truncate">{option.label}</span>
+                                    {option.meta && <span className="block text-[8px] tracking-[0.2em] text-[#555]">{option.meta}</span>}
+                                </span>
+                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center border ${checked ? 'border-[#e60000] text-[#e60000]' : 'border-[#333] text-transparent'}`}>
+                                    <Check size={12} />
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
 }
 
 function ProfileTextButton({

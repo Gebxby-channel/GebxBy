@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { BarChart2, Database, Folder, History, PenTool, Settings, ShieldCheck, User } from 'lucide-react';
+import { BarChart2, Database, History, PenTool, Settings, ShieldCheck, User } from 'lucide-react';
 import type { CurrentUser } from '../types/forum';
 
 export interface NavigationItem {
@@ -10,7 +10,6 @@ export interface NavigationItem {
 
 const publicMenuItems: NavigationItem[] = [
     { label: 'Database', path: '/', icon: Database },
-    { label: 'Kategori', path: '/category', icon: Folder },
     { label: 'Setting', path: '/settings', icon: Settings },
 ];
 

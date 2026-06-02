@@ -372,4 +372,14 @@ public class AdminController {
         ), admin);
         return ResponseEntity.ok(card);
     }
+
+    @DeleteMapping("/users/{userId}/profile-cards/{cardId}")
+    public ResponseEntity<Void> revokeProfileCard(
+            @PathVariable UUID userId,
+            @PathVariable UUID cardId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        profileCardService.deleteUserCardForAdmin(cardId, userId, admin);
+        return ResponseEntity.noContent().build();
+    }
 }

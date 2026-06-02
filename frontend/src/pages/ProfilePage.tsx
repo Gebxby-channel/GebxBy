@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Award, Bookmark, FileText, ShieldAlert, Users } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
-import { DEFAULT_CATEGORIES, getCategoryColor } from '../utils/categoryColors';
+import { getCategoryColor } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
 import type { Badge, ContentItem, CurrentUser, ProfileCardItem, PublicUser } from '../types/forum';
@@ -14,12 +14,6 @@ import { formatIndonesiaDate } from '../utils/time';
 import ProfileCardRenderer from '../components/ProfileCardRenderer';
 import { Modal, Button as UiButton } from '../components/ui';
 
-interface EditForm {
-    head: string;
-    paragrafs: string;
-    kategori: string;
-}
-
 export default function ProfilePage({ user, setUser }: { user: CurrentUser; setUser: (user: CurrentUser) => void }) {
     const feedback = useFeedback();
     const [contents, setContents] = useState<ContentItem[]>([]);
@@ -27,8 +21,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [following, setFollowing] = useState<PublicUser[]>([]);
     const [followers, setFollowers] = useState<PublicUser[]>([]);
     const [profileTab, setProfileTab] = useState<'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges'>('about');
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
     const [name, setName] = useState(user.name || '');
     const [designation, setDesignation] = useState(user.designation || 'RECONNAISSANCE OFFICER');
@@ -40,7 +32,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [cropZoom, setCropZoom] = useState(1);
     const [cropX, setCropX] = useState(0);
     const [cropY, setCropY] = useState(0);
-    const [editingCardPhoto, setEditingCardPhoto] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
     const [profileEditorOpen, setProfileEditorOpen] = useState(false);
     const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
@@ -148,7 +139,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     useEffect(() => {
         setCardDisplayName(canCustomizeSelectedCard ? selectedProfileCard?.displayName || '' : '');
         setCardDisplayPhoto(canCustomizeSelectedCard ? selectedProfileCard?.displayPhoto || '' : '');
-        setEditingCardPhoto(false);
         setCropSource('');
     }, [canCustomizeSelectedCard, profileCardId, selectedProfileCard?.displayName, selectedProfileCard?.displayPhoto]);
 
@@ -199,7 +189,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setCardDisplayName(user.activeProfileCard?.displayName || '');
         setCardDisplayPhoto(user.activeProfileCard?.displayPhoto || '');
         setCropSource('');
-        setEditingCardPhoto(false);
         setProfileEditorOpen(false);
     };
 
@@ -222,22 +211,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         if (!file) return;
         const reader = new FileReader();
         reader.onload = () => {
-            setEditingCardPhoto(false);
-            setCropSource(String(reader.result || ''));
-            setCropZoom(1);
-            setCropX(0);
-            setCropY(0);
-        };
-        reader.readAsDataURL(file);
-        event.currentTarget.value = '';
-    };
-
-    const handleCardPhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            setEditingCardPhoto(true);
             setCropSource(String(reader.result || ''));
             setCropZoom(1);
             setCropX(0);
@@ -250,13 +223,11 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const applyCroppedPhoto = async () => {
         if (!cropSource) return;
         const cropped = await cropImage(cropSource, cropZoom, cropX, cropY);
-        if (editingCardPhoto) {
+        setPicture(cropped);
+        if (canCustomizeSelectedCard) {
             setCardDisplayPhoto(cropped);
-        } else {
-            setPicture(cropped);
         }
         setCropSource('');
-        setEditingCardPhoto(false);
     };
 
     const handleDeleteProfileCard = async () => {
@@ -276,18 +247,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         invalidateApiCache('/api/user/me');
         invalidateApiCache('/api/profile-cards/mine');
         invalidateApiCache(`/api/user/${response.data.userID}`);
-    };
-
-    const handleUpdate = async (id: string) => {
-        await api.put(`/content/edit/${id}`, editForm);
-        invalidateContentCaches(user.userID, id);
-        setEditingId(null);
-        await fetchMyContents(true);
-    };
-
-    const startEdit = (item: ContentItem) => {
-        setEditingId(item.idContent);
-        setEditForm({ head: item.head, paragrafs: stripHtml(item.paragrafs), kategori: item.kategori || 'General' });
     };
 
     const handleDelete = async (idContent: string) => {
@@ -433,12 +392,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <ArchiveItem
                                         key={item.idContent}
                                         item={item}
-                                        editing={editingId === item.idContent}
-                                        editForm={editForm}
-                                        setEditForm={setEditForm}
-                                        onEdit={() => startEdit(item)}
-                                        onCancel={() => setEditingId(null)}
-                                        onSave={() => void handleUpdate(item.idContent)}
+                                        onEdit={() => navigate(`/write?edit=${item.idContent}`)}
                                         onDelete={() => void handleDelete(item.idContent)}
                                     />
                                 ))
@@ -522,7 +476,10 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     </label>
                                     <button
                                         type="button"
-                                        onClick={() => setPicture('')}
+                                        onClick={() => {
+                                            setPicture('');
+                                            setCardDisplayPhoto('');
+                                        }}
                                         disabled={!picture}
                                         className="h-10 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                                     >
@@ -563,18 +520,6 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         />
                                     </label>
                                     <div className="flex flex-wrap gap-2">
-                                        <label className="flex h-9 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
-                                            Change Card Photo
-                                            <input id="profile-card-photo-upload" name="profileCardPhoto" aria-label="Profile card photo upload" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCardPhotoSelect} />
-                                        </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setCardDisplayPhoto('')}
-                                            disabled={!cardDisplayPhoto}
-                                            className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                                        >
-                                            Use Profile Photo
-                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => void handleDeleteProfileCard()}
@@ -628,8 +573,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
                                     <input id="profile-crop-y" name="profileCropY" aria-label="Photo crop vertical position" className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
                                     <div className="flex flex-wrap gap-2">
-                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">{editingCardPhoto ? 'Apply Card Photo' : 'Apply Profile Photo'}</button>
-                                        <button type="button" onClick={() => { setCropSource(''); setEditingCardPhoto(false); }} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel Crop</button>
+                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">Apply Photo</button>
+                                        <button type="button" onClick={() => setCropSource('')} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel Crop</button>
                                     </div>
                                 </div>
                             )}
@@ -656,58 +601,34 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
 
 function ArchiveItem({
     item,
-    editing,
-    editForm,
-    setEditForm,
     onEdit,
-    onCancel,
-    onSave,
     onDelete,
 }: {
     item: ContentItem;
-    editing: boolean;
-    editForm: EditForm;
-    setEditForm: (form: EditForm) => void;
     onEdit: () => void;
-    onCancel: () => void;
-    onSave: () => void;
     onDelete: () => void;
 }) {
     const themeColor = getCategoryColor(item.kategori);
     return (
         <div className="bg-[#181818] p-6 shadow-inner transition-all duration-300" style={{ border: `1px solid #2a2a2a`, borderLeft: `3px solid ${themeColor}` }}>
-            {editing ? (
-                <div className="space-y-4">
-                    <input id={`profile-edit-title-${item.idContent}`} name={`profileEditTitle-${item.idContent}`} aria-label="Edit writing title" className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none focus:border-[#e60000]" value={editForm.head} onChange={(event) => setEditForm({ ...editForm, head: event.target.value })} />
-                    <select id={`profile-edit-category-${item.idContent}`} name={`profileEditCategory-${item.idContent}`} aria-label="Edit writing category" className="w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.kategori} onChange={(event) => setEditForm({ ...editForm, kategori: event.target.value })}>
-                        {DEFAULT_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}
-                    </select>
-                    <textarea id={`profile-edit-body-${item.idContent}`} name={`profileEditBody-${item.idContent}`} aria-label="Edit writing body" className="h-40 w-full border border-[#333] bg-[#111] p-3 font-mono text-white outline-none" value={editForm.paragrafs} onChange={(event) => setEditForm({ ...editForm, paragrafs: event.target.value })} />
-                    <div className="flex gap-3">
-                        <button type="button" onClick={onSave} className="bg-[#e60000] px-6 py-2 text-xs font-bold uppercase">Confirm</button>
-                        <button type="button" onClick={onCancel} className="bg-[#333] px-6 py-2 text-xs font-bold uppercase">Abort</button>
+            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+                <div className="flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-4">
+                        <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
+                        <span className="font-mono text-[9px] font-bold uppercase text-[#444]">FILE DATE: {formatDate(item.createdAt)}</span>
+                        <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                        {item.status === 'DRAFT' && (
+                            <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">Draft</span>
+                        )}
                     </div>
+                    <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
+                    <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                 </div>
-            ) : (
-                <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-                    <div className="flex-1">
-                        <div className="mb-2 flex flex-wrap items-center gap-4">
-                            <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
-                            <span className="font-mono text-[9px] font-bold uppercase text-[#444]">FILE DATE: {formatDate(item.createdAt)}</span>
-                            <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
-                            {item.status === 'DRAFT' && (
-                                <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">Draft</span>
-                            )}
-                        </div>
-                        <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
-                        <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
-                    </div>
-                    <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
-                        <button type="button" onClick={onEdit} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-white md:w-28">Edit File</button>
-                        <button type="button" onClick={onDelete} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-[#e60000] hover:bg-[#e60000] md:w-28">Delete</button>
-                    </div>
+                <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
+                    <button type="button" onClick={onEdit} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-white md:w-28">Edit File</button>
+                    <button type="button" onClick={onDelete} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-[#e60000] hover:bg-[#e60000] md:w-28">Delete</button>
                 </div>
-            )}
+            </div>
         </div>
     );
 }

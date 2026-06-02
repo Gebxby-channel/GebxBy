@@ -141,4 +141,23 @@ class ProfileCardServiceImplTest {
         verify(userCardRepository).delete(card);
         verify(userRepository).save(target);
     }
+
+    @Test
+    void adminCanDeleteUserCardSnapshot() {
+        UUID cardId = UUID.randomUUID();
+        UserProfileCard card = new UserProfileCard();
+        card.setId(cardId);
+        card.setUserId(target.getUserID());
+        target.setActiveProfileCardId(cardId.toString());
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(userService.getUserById(target.getUserID())).thenReturn(target);
+        when(userCardRepository.findById(cardId)).thenReturn(Optional.of(card));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User response = profileCardService.deleteUserCardForAdmin(cardId, target.getUserID(), admin);
+
+        assertEquals(ProfileCardServiceImpl.DEFAULT_STARS, response.getActiveProfileCardId());
+        verify(userCardRepository).delete(card);
+        verify(userRepository).save(target);
+    }
 }
