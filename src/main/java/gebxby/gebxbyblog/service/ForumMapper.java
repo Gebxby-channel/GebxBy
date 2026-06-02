@@ -4,6 +4,7 @@ import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ContentSummaryResponse;
 import gebxby.gebxbyblog.dto.ContentStatsResponse;
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
+import gebxby.gebxbyblog.dto.ProfileCardResponse;
 import gebxby.gebxbyblog.dto.PublicUserResponse;
 import gebxby.gebxbyblog.model.Content;
 import gebxby.gebxbyblog.dto.ContentImageResponse;
@@ -49,7 +50,7 @@ public class ForumMapper {
                 user.isSuspensionMarked(),
                 user.getSuspendedUntil(),
                 badgeService.effectiveBadges(user),
-                profileCardService == null ? null : profileCardService.activeCard(user)
+                activeCardSafely(user)
         );
     }
 
@@ -68,9 +69,20 @@ public class ForumMapper {
                 badgeService.effectiveBadges(user),
                 copyUuidSet(user.getBookmarkedContentIds()),
                 copyUuidSet(user.getFollowingUserIds()),
-                profileCardService == null ? null : profileCardService.activeCard(user),
+                activeCardSafely(user),
                 profileCardService == null ? List.of() : profileCardService.cardsForUser(user)
         );
+    }
+
+    private ProfileCardResponse activeCardSafely(User user) {
+        if (profileCardService == null) {
+            return null;
+        }
+        try {
+            return profileCardService.activeCard(user);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private Set<UUID> copyUuidSet(Set<UUID> values) {

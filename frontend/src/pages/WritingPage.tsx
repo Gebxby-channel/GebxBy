@@ -151,7 +151,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                 images: buildImagePayload(images),
             };
             const response = draftId
-                ? await api.post<ContentItem>(`/content/drafts/${draftId}/publish`, payload)
+                ? await publishDraftOrCreateContent(draftId, payload)
                 : await api.post<ContentItem>('/content/add-manual', payload);
             localStorage.removeItem(draftKey);
             setDraftId(undefined);
@@ -391,10 +391,56 @@ async function saveServerDraft({
         body.images = buildImagePayload(images);
     }
     const response = draftId
-        ? await api.put<ContentItem>(`/content/drafts/${draftId}`, body)
+        ? await updateDraftOrCreateNew(draftId, body)
         : await api.post<ContentItem>('/content/drafts', body);
     onSaved(response.data);
     invalidateApiCache(`/content/by-user/${response.data.user?.userID ?? ''}`);
+}
+
+async function updateDraftOrCreateNew(
+    draftId: string,
+    body: {
+        head: string;
+        paragrafs: string;
+        kategori: string;
+        images?: ReturnType<typeof buildImagePayload>;
+    },
+) {
+    try {
+        return await api.put<ContentItem>(`/content/drafts/${draftId}`, body);
+    } catch (error) {
+        if (!shouldRecoverStaleDraft(error)) {
+            throw error;
+        }
+        return api.post<ContentItem>('/content/drafts', body);
+    }
+}
+
+async function publishDraftOrCreateContent(
+    draftId: string,
+    payload: {
+        head: string;
+        paragrafs: string;
+        kategori: string;
+        images: ReturnType<typeof buildImagePayload>;
+    },
+) {
+    try {
+        return await api.post<ContentItem>(`/content/drafts/${draftId}/publish`, payload);
+    } catch (error) {
+        if (!shouldRecoverStaleDraft(error)) {
+            throw error;
+        }
+        return api.post<ContentItem>('/content/add-manual', payload);
+    }
+}
+
+function shouldRecoverStaleDraft(error: unknown) {
+    if (!axios.isAxiosError(error)) {
+        return false;
+    }
+    const status = error.response?.status;
+    return !status || status === 404 || status === 410 || status === 500 || status === 502 || status === 503;
 }
 
 async function deleteServerDraft(draftId: string) {
@@ -470,6 +516,8 @@ function RichTextEditor({
                 heading: {
                     levels: [1, 2, 3],
                 },
+                link: false,
+                underline: false,
             }),
             Underline,
             Link.configure({

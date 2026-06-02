@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiOriginFilter extends OncePerRequestFilter {
     private final Set<String> allowedOrigins;
 

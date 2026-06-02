@@ -19,6 +19,8 @@ import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +41,7 @@ import java.util.UUID;
 
 @Service
 public class ContentServiceImpl implements ContentService {
+    private static final Logger log = LoggerFactory.getLogger(ContentServiceImpl.class);
     private static final List<String> DEFAULT_CATEGORIES = List.of(
             "General",
             "Lore",
@@ -129,7 +132,7 @@ public class ContentServiceImpl implements ContentService {
         content.setCreatedAt(now);
         content.setUpdatedAt(now);
         Content saved = contentRepository.save(content);
-        activityLogService.recordPublication(saved, author);
+        recordPublicationSafely(saved, author);
         invalidateContentCaches();
         return mapper.toContentResponse(saved, VoteDirection.NONE, true);
     }
@@ -170,7 +173,7 @@ public class ContentServiceImpl implements ContentService {
         draft.setStatus(STATUS_PUBLISHED);
         draft.setUpdatedAt(LocalDateTime.now());
         Content saved = contentRepository.save(draft);
-        activityLogService.recordPublication(saved, author);
+        recordPublicationSafely(saved, author);
         invalidateContentCaches();
         return mapper.toContentResponse(saved, resolveUserVote(saved.getIdContent(), author), true);
     }
@@ -473,6 +476,14 @@ public class ContentServiceImpl implements ContentService {
             return;
         }
         content.setUser(userSnapshotService.snapshot(content.getUser()));
+    }
+
+    private void recordPublicationSafely(Content content, User author) {
+        try {
+            activityLogService.recordPublication(content, author);
+        } catch (RuntimeException ex) {
+            log.warn("Publication log failed for content {}. Content save remains successful.", content == null ? null : content.getIdContent(), ex);
+        }
     }
 
     private void invalidateContentCaches() {

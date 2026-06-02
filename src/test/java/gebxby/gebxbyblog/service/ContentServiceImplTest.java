@@ -130,6 +130,21 @@ class ContentServiceImplTest {
     }
 
     @Test
+    void addContentStillSucceedsWhenPublicationLogFails() {
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(activityLogService.recordPublication(any(Content.class), eq(author)))
+                .thenThrow(new RuntimeException("log storage down"));
+
+        ContentResponse response = contentService.addContent(
+                new ContentRequest("Title", null, "Body", "General"),
+                author
+        );
+
+        assertEquals("Title", response.head());
+        verify(contentRepository).save(any(Content.class));
+    }
+
+    @Test
     void addContentPreservesPlainTextParagraphBreaks() {
         when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
