@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AtSign, LogIn, RefreshCw, UserRound } from 'lucide-react';
 import api, { isRequestCanceled, oauthLoginUrl } from '../lib/api';
 import type { CurrentUser } from '../types/forum';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'onboarding';
 
 type UsernameCheckResponse = {
     username: string;
@@ -18,6 +18,7 @@ type UsernameSuggestResponse = {
 
 export default function Login({ user, setUser }: { user: CurrentUser | null; setUser: (user: CurrentUser | null) => void }) {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [mode, setMode] = useState<AuthMode>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -29,15 +30,29 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
     const [usernameStatus, setUsernameStatus] = useState<UsernameCheckResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const setupMode = mode === 'signup' || mode === 'onboarding';
 
     useEffect(() => {
+        if (user?.onboardingComplete === false) {
+            setMode('onboarding');
+            setSignupName(current => current || user.name || '');
+            setSignupEmail(user.email || '');
+            setSignupUsername(current => current || user.username || '');
+            return;
+        }
         if (user) {
             navigate('/', { replace: true });
         }
     }, [user, navigate]);
 
     useEffect(() => {
-        if (mode !== 'signup' || usernameTouched || !signupName.trim()) return;
+        if (searchParams.get('mode') === 'signup') {
+            setMode('signup');
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!setupMode || usernameTouched || !signupName.trim() || mode === 'onboarding') return;
         const controller = new AbortController();
         const timeout = window.setTimeout(() => {
             void api.get<UsernameSuggestResponse>('/api/usernames/suggest', {
@@ -58,11 +73,15 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
             window.clearTimeout(timeout);
             controller.abort();
         };
-    }, [mode, signupName, signupEmail, usernameTouched]);
+    }, [mode, setupMode, signupName, signupEmail, usernameTouched]);
 
     useEffect(() => {
-        if (mode !== 'signup' || !signupUsername.trim()) {
+        if (!setupMode || !signupUsername.trim()) {
             setUsernameStatus(null);
+            return;
+        }
+        if (mode === 'onboarding' && signupUsername.trim().toLowerCase() === (user?.username || '').toLowerCase()) {
+            setUsernameStatus({ username: signupUsername.trim(), available: true, message: 'CURRENT_USERNAME_READY' });
             return;
         }
         const controller = new AbortController();
@@ -83,7 +102,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
             window.clearTimeout(timeout);
             controller.abort();
         };
-    }, [mode, signupUsername]);
+    }, [mode, setupMode, signupUsername, user?.username]);
 
     const handleEmailLogin = async () => {
         if (!email.trim() || !password.trim()) return;
@@ -121,6 +140,26 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
         }
     };
 
+    const handleOnboarding = async () => {
+        if (!user || !signupName.trim() || !signupUsername.trim()) return;
+        if (usernameStatus && !usernameStatus.available) return;
+        setLoading(true);
+        setError('');
+        try {
+            const response = await api.put<CurrentUser>('/api/user/update', {
+                name: signupName,
+                username: signupUsername,
+                designation: user.designation || 'RECONNAISSANCE OFFICER',
+            });
+            setUser(response.data);
+            navigate('/', { replace: true });
+        } catch (requestError) {
+            setError(getAuthError(requestError, 'SETUP_REJECTED'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const suggestUsername = async (manual: boolean) => {
         if (manual) {
             setUsernameTouched(false);
@@ -142,6 +181,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
 
     const usernameOk = Boolean(signupUsername.trim() && usernameStatus?.available);
     const signupDisabled = loading || !signupName.trim() || !signupEmail.trim() || signupPassword.length < 8 || !usernameOk;
+    const onboardingDisabled = loading || !signupName.trim() || !usernameOk;
 
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-[#050505] p-5">
@@ -154,10 +194,16 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                     <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#666]">Authorization Gateway</p>
                 </div>
 
-                <div className="mb-5 grid grid-cols-2 border border-[#2a2a2a]">
-                    <ModeButton active={mode === 'login'} label="Login" onClick={() => { setMode('login'); setError(''); }} />
-                    <ModeButton active={mode === 'signup'} label="Sign Up" onClick={() => { setMode('signup'); setError(''); }} />
-                </div>
+                {mode !== 'onboarding' ? (
+                    <div className="mb-5 grid grid-cols-2 border border-[#2a2a2a]">
+                        <ModeButton active={mode === 'login'} label="Login" onClick={() => { setMode('login'); setError(''); }} />
+                        <ModeButton active={mode === 'signup'} label="Sign Up" onClick={() => { setMode('signup'); setError(''); }} />
+                    </div>
+                ) : (
+                    <div className="mb-5 border border-[#2a2a2a] bg-[#111] p-4 font-mono text-[10px] font-black uppercase tracking-widest text-[#888]">
+                        Complete Google account setup before entering the archive.
+                    </div>
+                )}
 
                 {mode === 'login' ? (
                     <div className="mb-5 space-y-3">
@@ -211,28 +257,32 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                             placeholder="Display name"
                             autoComplete="name"
                         />
-                        <input
-                            id="signup-email"
-                            name="signupEmail"
-                            aria-label="Signup email"
-                            value={signupEmail}
-                            onChange={(event) => setSignupEmail(event.target.value)}
-                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
-                            placeholder="Email"
-                            type="email"
-                            autoComplete="email"
-                        />
-                        <input
-                            id="signup-password"
-                            name="signupPassword"
-                            aria-label="Signup password"
-                            value={signupPassword}
-                            onChange={(event) => setSignupPassword(event.target.value)}
-                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
-                            placeholder="Password, minimum 8 characters"
-                            type="password"
-                            autoComplete="new-password"
-                        />
+                        {mode === 'signup' && (
+                            <>
+                                <input
+                                    id="signup-email"
+                                    name="signupEmail"
+                                    aria-label="Signup email"
+                                    value={signupEmail}
+                                    onChange={(event) => setSignupEmail(event.target.value)}
+                                    className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                                    placeholder="Email"
+                                    type="email"
+                                    autoComplete="email"
+                                />
+                                <input
+                                    id="signup-password"
+                                    name="signupPassword"
+                                    aria-label="Signup password"
+                                    value={signupPassword}
+                                    onChange={(event) => setSignupPassword(event.target.value)}
+                                    className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                                    placeholder="Password, minimum 8 characters"
+                                    type="password"
+                                    autoComplete="new-password"
+                                />
+                            </>
+                        )}
                         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                             <label className="relative block">
                                 <AtSign className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#555]" size={15} />
@@ -272,32 +322,36 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                         <AuthError error={error} />
                         <button
                             type="button"
-                            onClick={() => void handleSignup()}
-                            disabled={signupDisabled}
+                            onClick={() => void (mode === 'onboarding' ? handleOnboarding() : handleSignup())}
+                            disabled={mode === 'onboarding' ? onboardingDisabled : signupDisabled}
                             className="flex w-full items-center justify-center gap-3 border border-[#e60000] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#e60000] transition-all duration-300 hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
                         >
                             <UserRound size={18} />
-                            {loading ? 'Creating' : 'Create Account'}
+                            {loading ? (mode === 'onboarding' ? 'Saving' : 'Creating') : (mode === 'onboarding' ? 'Save Identity' : 'Create Account')}
                         </button>
                     </div>
                 )}
 
-                <button
-                    type="button"
-                    onClick={() => { window.location.href = oauthLoginUrl(); }}
-                    className="flex w-full items-center justify-center gap-3 bg-white px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-black transition-all duration-300 hover:bg-[#ccc]"
-                >
-                    <LogIn size={18} />
-                    Login via Google
-                </button>
+                {mode !== 'onboarding' && (
+                    <button
+                        type="button"
+                        onClick={() => { window.location.href = oauthLoginUrl(); }}
+                        className="flex w-full items-center justify-center gap-3 bg-white px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-black transition-all duration-300 hover:bg-[#ccc]"
+                    >
+                        <LogIn size={18} />
+                        Login via Google
+                    </button>
+                )}
 
-                <button
-                    type="button"
-                    onClick={enterAsGuest}
-                    className="mt-3 flex w-full items-center justify-center border border-[#333] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#777] transition-all duration-300 hover:border-white hover:text-white"
-                >
-                    Continue as Guest
-                </button>
+                {mode !== 'onboarding' && (
+                    <button
+                        type="button"
+                        onClick={enterAsGuest}
+                        className="mt-3 flex w-full items-center justify-center border border-[#333] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#777] transition-all duration-300 hover:border-white hover:text-white"
+                    >
+                        Continue as Guest
+                    </button>
+                )}
             </div>
         </div>
     );

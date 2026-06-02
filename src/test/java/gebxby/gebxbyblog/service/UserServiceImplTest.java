@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +44,8 @@ class UserServiceImplTest {
     private ContentRepository contentRepository;
     @Mock
     private CommentRepository commentRepository;
+    @Mock
+    private EmailDomainPolicyService emailDomainPolicyService;
 
     private UserServiceImpl userService;
     private PasswordEncoder passwordEncoder;
@@ -74,6 +77,65 @@ class UserServiceImplTest {
         assertEquals("ADMIN", user.getRole());
         assertEquals("RECONNAISSANCE OFFICER", user.getDesignation());
         assertNotNull(user.getUsername());
+        assertFalse(user.isOnboardingComplete());
+    }
+
+    @Test
+    void registerWithEmailMarksTrustedCustomEmailDomain() {
+        UserServiceImpl serviceWithDomainPolicy = new UserServiceImpl(
+                userRepository,
+                contentRepository,
+                commentRepository,
+                "",
+                "",
+                "",
+                passwordEncoder,
+                new UsernameService(userRepository),
+                new UserProfileProjectionService(contentRepository, commentRepository, new UserSnapshotService()),
+                null,
+                null,
+                emailDomainPolicyService
+        );
+        when(userRepository.findByEmail("writer@g.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameNormalized(anyString())).thenReturn(Optional.empty());
+        when(emailDomainPolicyService.isTrustedCustomDomain("writer@g.com")).thenReturn(true);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User user = serviceWithDomainPolicy.registerWithEmail(new SignupRequest(
+                "Writer",
+                "writer@g.com",
+                "safe-password",
+                "writer"
+        ));
+
+        assertTrue(user.isCustomEmailDomainTrusted());
+    }
+
+    @Test
+    void updateProfileCanCompleteGoogleOnboardingWithRequestedUsername() {
+        OAuth2User principal = principal("google-onboard", "new@example.com", "New User", "photo.png");
+        User existing = new User();
+        existing.setUserID(UUID.randomUUID());
+        existing.setGoogleId("google-onboard");
+        existing.setEmail("new@example.com");
+        existing.setName("New User");
+        existing.setOnboardingComplete(false);
+
+        when(userRepository.findByGoogleId("google-onboard")).thenReturn(Optional.of(existing));
+        when(userRepository.findByUsernameNormalized(anyString())).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User updated = userService.updateProfile(principal, new ProfileUpdateRequest(
+                "Jill Archive",
+                "jill_archive",
+                "field officer",
+                null,
+                null
+        ));
+
+        assertTrue(updated.isOnboardingComplete());
+        assertEquals("jill_archive", updated.getUsernameNormalized());
+        assertEquals("FIELD OFFICER", updated.getDesignation());
     }
 
     @Test

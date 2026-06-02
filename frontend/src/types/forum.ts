@@ -20,6 +20,7 @@ export interface Badge {
   label: string;
   description: string;
   icon: string;
+  image?: string;
   automatic: boolean;
   custom?: boolean;
 }
@@ -105,6 +106,8 @@ export interface CurrentUser extends PublicUser {
   bookmarkedContentIds?: string[];
   followingUserIds?: string[];
   profileCards?: ProfileCardItem[];
+  onboardingComplete?: boolean;
+  customEmailDomainTrusted?: boolean;
 }
 
 export interface ContentItem {

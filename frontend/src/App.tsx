@@ -35,6 +35,14 @@ function MainLayout({
     onLogout: () => void;
     children: React.ReactNode;
 }) {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (user?.onboardingComplete === false) {
+            navigate('/login?mode=onboarding', { replace: true });
+        }
+    }, [navigate, user?.onboardingComplete]);
+
     return (
         <div className="terminal-grid bg-[#0f0f0f] min-h-screen flex">
             <div className="flex-grow flex flex-col min-w-0">

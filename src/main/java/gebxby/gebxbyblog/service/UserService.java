@@ -30,6 +30,9 @@ public interface UserService {
     User followUser(UUID targetUserId, User user);
     User unfollowUser(UUID targetUserId, User user);
     List<User> getFollowingUsers(User user);
+    List<User> getFollowingUsers(UUID userId);
+    List<User> getFollowerUsers(User user);
+    List<User> getFollowerUsers(UUID userId);
     boolean isAdmin(User user);
     boolean isModerator(User user);
     void ensureActive(User user);

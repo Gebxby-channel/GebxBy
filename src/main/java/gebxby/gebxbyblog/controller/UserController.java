@@ -113,6 +113,30 @@ public class UserController {
                 .toList());
     }
 
+    @GetMapping("/api/user/followers")
+    public ResponseEntity<List<PublicUserResponse>> followers(@AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(userService.getFollowerUsers(user).stream()
+                .map(mapper::toPublicUser)
+                .toList());
+    }
+
+    @GetMapping("/api/user/{id}/following")
+    public ResponseEntity<List<PublicUserResponse>> publicFollowing(@PathVariable UUID id) {
+        userService.getUserById(id);
+        return ResponseEntity.ok(userService.getFollowingUsers(id).stream()
+                .map(mapper::toPublicUser)
+                .toList());
+    }
+
+    @GetMapping("/api/user/{id}/followers")
+    public ResponseEntity<List<PublicUserResponse>> publicFollowers(@PathVariable UUID id) {
+        userService.getUserById(id);
+        return ResponseEntity.ok(userService.getFollowerUsers(id).stream()
+                .map(mapper::toPublicUser)
+                .toList());
+    }
+
     @PostMapping("/api/user/following/{targetUserId}")
     public ResponseEntity<CurrentUserResponse> follow(
             @PathVariable UUID targetUserId,

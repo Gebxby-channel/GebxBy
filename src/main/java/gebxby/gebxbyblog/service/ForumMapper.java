@@ -70,7 +70,9 @@ public class ForumMapper {
                 copyUuidSet(user.getBookmarkedContentIds()),
                 copyUuidSet(user.getFollowingUserIds()),
                 activeCardSafely(user),
-                profileCardService == null ? List.of() : profileCardService.cardsForUser(user)
+                profileCardService == null ? List.of() : profileCardService.cardsForUser(user),
+                user.isOnboardingComplete(),
+                user.isCustomEmailDomainTrusted()
         );
     }
 

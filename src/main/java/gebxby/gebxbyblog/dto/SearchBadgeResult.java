@@ -10,6 +10,7 @@ public record SearchBadgeResult(
         String label,
         String description,
         String icon,
+        String image,
         boolean automatic,
         boolean custom,
         List<PublicUserResponse> users
@@ -20,6 +21,6 @@ public record SearchBadgeResult(
                              String icon,
                              boolean automatic,
                              List<PublicUserResponse> users) {
-        this(code.name(), code, label, description, icon, automatic, false, users);
+        this(code.name(), code, label, description, icon, null, automatic, false, users);
     }
 }

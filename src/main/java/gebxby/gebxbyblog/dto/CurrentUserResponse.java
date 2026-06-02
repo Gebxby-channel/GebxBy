@@ -20,7 +20,9 @@ public record CurrentUserResponse(
         Set<UUID> bookmarkedContentIds,
         Set<UUID> followingUserIds,
         ProfileCardResponse activeProfileCard,
-        List<ProfileCardResponse> profileCards
+        List<ProfileCardResponse> profileCards,
+        boolean onboardingComplete,
+        boolean customEmailDomainTrusted
 ) {
     public CurrentUserResponse(UUID userID,
                                String name,
@@ -35,7 +37,7 @@ public record CurrentUserResponse(
                                Set<UUID> bookmarkedContentIds,
                                Set<UUID> followingUserIds) {
         this(userID, name, null, email, picture, designation, moto, role, suspensionMarked, suspendedUntil,
-                badges, bookmarkedContentIds, followingUserIds, null, List.of());
+                badges, bookmarkedContentIds, followingUserIds, null, List.of(), true, false);
     }
 
     public CurrentUserResponse(UUID userID,
@@ -53,6 +55,6 @@ public record CurrentUserResponse(
                                ProfileCardResponse activeProfileCard,
                                List<ProfileCardResponse> profileCards) {
         this(userID, name, null, email, picture, designation, moto, role, suspensionMarked, suspendedUntil,
-                badges, bookmarkedContentIds, followingUserIds, activeProfileCard, profileCards);
+                badges, bookmarkedContentIds, followingUserIds, activeProfileCard, profileCards, true, false);
     }
 }

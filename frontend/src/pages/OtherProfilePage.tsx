@@ -19,6 +19,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const { userId } = useParams();
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [viewedUser, setViewedUser] = useState<PublicUser | null>(null);
+    const [followers, setFollowers] = useState<PublicUser[]>([]);
+    const [following, setFollowing] = useState<PublicUser[]>([]);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     const [dialog, setDialog] = useState<ProfileActionDialog | null>(null);
     const [reportMessage, setReportMessage] = useState('');
@@ -31,7 +33,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const isMyOwnProfile = String(user?.userID) === String(userId);
 
     const fetchProfileData = useCallback(async (targetUserId: string, force = false, signal?: AbortSignal) => {
-        const [profileRes, contentRes] = await Promise.all([
+        const [profileRes, contentRes, followersRes, followingRes] = await Promise.all([
             cachedGet<PublicUser>(`/api/user/${targetUserId}`, { signal }, {
                 ttlMs: 2 * 60_000,
                 force,
@@ -41,9 +43,21 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                 scope: user?.userID ?? 'guest',
                 force,
             }),
+            cachedGet<PublicUser[]>(`/api/user/${targetUserId}/followers`, { signal }, {
+                ttlMs: 60_000,
+                scope: user?.userID ?? 'guest',
+                force,
+            }),
+            cachedGet<PublicUser[]>(`/api/user/${targetUserId}/following`, { signal }, {
+                ttlMs: 60_000,
+                scope: user?.userID ?? 'guest',
+                force,
+            }),
         ]);
         setViewedUser(profileRes);
         setContents(Array.isArray(contentRes) ? contentRes : []);
+        setFollowers(Array.isArray(followersRes) ? followersRes : []);
+        setFollowing(Array.isArray(followingRes) ? followingRes : []);
     }, [user?.userID]);
 
     useEffect(() => {
@@ -53,6 +67,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
             if (!isRequestCanceled(error)) {
                 setViewedUser(null);
                 setContents([]);
+                setFollowers([]);
+                setFollowing([]);
             }
         });
         return () => controller.abort();
@@ -267,6 +283,21 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                 {isFollowing ? <UserMinus size={14} /> : <UserPlus size={14} />}
                                 {isFollowing ? 'Unfollow' : 'Follow'}
                             </button>
+                        )}
+
+                        {displayUser && (
+                            <div className="mt-5 grid gap-3 border border-[#2a2a2a] bg-[#151515] p-4">
+                                <ProfileRelationPreview
+                                    title="Followers"
+                                    users={followers}
+                                    onOpen={(target) => navigate(`/profile/${target.userID}`)}
+                                />
+                                <ProfileRelationPreview
+                                    title="Following"
+                                    users={following}
+                                    onOpen={(target) => navigate(`/profile/${target.userID}`)}
+                                />
+                            </div>
                         )}
 
                         {actionNotice && (
@@ -567,6 +598,53 @@ function ProfileField({ label, value }: { label: string; value: string }) {
         <div className="relative border-b border-[#1a3a63] pb-0.5">
             <span className="block truncate text-sm font-black uppercase">{value}</span>
             <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">{label}</span>
+        </div>
+    );
+}
+
+function ProfileRelationPreview({
+    title,
+    users,
+    onOpen,
+}: {
+    title: string;
+    users: PublicUser[];
+    onOpen: (user: PublicUser) => void;
+}) {
+    return (
+        <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">{title}</p>
+                <span className="font-mono text-[10px] font-black text-[#e60000]">{users.length}</span>
+            </div>
+            {users.length === 0 ? (
+                <p className="m-0 font-mono text-[9px] uppercase tracking-[0.25em] text-[#444]">[ empty ]</p>
+            ) : (
+                <div className="flex flex-wrap gap-2">
+                    {users.slice(0, 8).map((target) => {
+                        const avatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(target.name || 'User')}`;
+                        return (
+                            <button
+                                key={target.userID}
+                                type="button"
+                                onClick={() => onOpen(target)}
+                                title={target.username ? `@${target.username}` : target.name}
+                                className="h-8 w-8 overflow-hidden border border-[#333] bg-[#111] hover:border-[#e60000]"
+                            >
+                                <img
+                                    src={target.picture || avatar}
+                                    alt=""
+                                    width={32}
+                                    height={32}
+                                    className="h-full w-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                    onError={(event) => { event.currentTarget.src = avatar; }}
+                                />
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

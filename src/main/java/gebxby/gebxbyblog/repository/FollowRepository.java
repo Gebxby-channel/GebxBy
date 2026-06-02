@@ -14,6 +14,8 @@ public interface FollowRepository extends MongoRepository<Follow, String> {
 
     List<Follow> findByFollowerUserIdOrderByCreatedAtDesc(UUID followerUserId);
 
+    List<Follow> findByTargetUserIdOrderByCreatedAtDesc(UUID targetUserId);
+
     void deleteByFollowerUserIdAndTargetUserId(UUID followerUserId, UUID targetUserId);
 
     void deleteByFollowerUserId(UUID followerUserId);

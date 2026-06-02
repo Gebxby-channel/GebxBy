@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare } from 'lucide-react';
-import type { MouseEvent, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { getCategoryColor } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
@@ -36,10 +36,11 @@ export default function ContentCard({ art, user }: ContentCardProps) {
 
     return (
         <article
-            className="archive-card group flex min-h-[260px] cursor-pointer flex-col gap-6 border-b border-[#222] px-4 py-8 transition-all duration-300 hover:bg-[#111]/70 md:flex-row"
-            style={{ borderLeft: `3px solid ${themeColor}` }}
+            className="archive-card group flex min-h-[240px] cursor-pointer flex-col gap-6 border-b border-[#222] px-4 py-8 pl-7 transition-all duration-300 hover:bg-[#111]/70 md:flex-row"
+            style={{ '--genre-color': themeColor } as CSSProperties}
             onClick={() => navigate(`/read/${art.idContent}`)}
         >
+            <span className="archive-card__genre-line" aria-hidden="true" />
             <div className="flex flex-[2] flex-col">
                 <div className="mb-3 flex items-center gap-2">
                     <button
@@ -107,37 +108,24 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                 </div>
             </div>
 
+            {coverImage && (
             <div className="hidden max-w-[180px] flex-1 md:block">
                 <div className="relative aspect-square w-full overflow-hidden border border-[#222] bg-[#050505] transition-all duration-300 group-hover:border-[#444]">
-                    {coverImage ? (
-                        <img
-                            src={coverImage}
-                            alt=""
-                            width={coverVisual?.width ?? 180}
-                            height={coverVisual?.height ?? 180}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover opacity-85 grayscale transition-all duration-300 group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"
-                        />
-                    ) : (
-                        <>
-                            <div
-                                className="absolute inset-0 opacity-10"
-                                style={{
-                                    backgroundImage: 'linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px)',
-                                    backgroundSize: '10px 10px',
-                                }}
-                            />
-                            <div className="flex h-full w-full items-center justify-center">
-                                <span className="rotate-90 font-mono text-[8px] font-black tracking-[0.3em] text-[#252525]">DATA_VISUAL</span>
-                            </div>
-                        </>
-                    )}
+                    <img
+                        src={coverImage}
+                        alt=""
+                        width={coverVisual?.width ?? 180}
+                        height={coverVisual?.height ?? 180}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover opacity-85 grayscale transition-all duration-300 group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"
+                    />
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-transparent via-black/10 to-black/45" />
                     <div className="absolute right-0 top-0 h-3 w-3 border-r-2 border-t-2" style={{ borderColor: `${themeColor}70` }} />
                     <div className="absolute bottom-0 left-0 h-3 w-3 border-b-2 border-l-2" style={{ borderColor: `${themeColor}70` }} />
                 </div>
             </div>
+            )}
         </article>
     );
 }

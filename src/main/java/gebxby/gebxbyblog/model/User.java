@@ -33,6 +33,8 @@ public class User {
     private String role = "USER";
 
     private String googleId;
+    private Boolean onboardingComplete = true;
+    private boolean customEmailDomainTrusted;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -56,5 +58,9 @@ public class User {
 
     public String getPicture() {
         return photo;
+    }
+
+    public boolean isOnboardingComplete() {
+        return onboardingComplete == null || onboardingComplete;
     }
 }

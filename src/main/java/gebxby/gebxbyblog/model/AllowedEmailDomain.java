@@ -11,23 +11,14 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@Document(collection = "custom_badges")
-public class CustomBadgeDefinition {
+@Document(collection = "allowed_email_domains")
+public class AllowedEmailDomain {
     @Id
     private UUID id;
 
-    @Indexed
-    private String label;
+    @Indexed(unique = true)
+    private String domain;
 
-    @Indexed
-    private String code;
-
-    private String description;
-    private String icon;
-    private String image;
-    private boolean automatic;
-    private boolean systemBadge;
     private UUID createdByUserId;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

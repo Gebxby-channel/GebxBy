@@ -54,6 +54,7 @@ public class UserServiceImpl implements UserService {
     private final UserProfileProjectionService profileProjectionService;
     private final BookmarkRepository bookmarkRepository;
     private final FollowRepository followRepository;
+    private final EmailDomainPolicyService emailDomainPolicyService;
 
     @Autowired
     public UserServiceImpl(UserRepository userRepository,
@@ -66,7 +67,8 @@ public class UserServiceImpl implements UserService {
                            UsernameService usernameService,
                            UserProfileProjectionService profileProjectionService,
                            BookmarkRepository bookmarkRepository,
-                           FollowRepository followRepository) {
+                           FollowRepository followRepository,
+                           EmailDomainPolicyService emailDomainPolicyService) {
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
         this.commentRepository = commentRepository;
@@ -82,6 +84,7 @@ public class UserServiceImpl implements UserService {
         this.profileProjectionService = profileProjectionService;
         this.bookmarkRepository = bookmarkRepository;
         this.followRepository = followRepository;
+        this.emailDomainPolicyService = emailDomainPolicyService;
     }
 
     public UserServiceImpl(UserRepository userRepository,
@@ -93,7 +96,7 @@ public class UserServiceImpl implements UserService {
                            PasswordEncoder passwordEncoder) {
         this(userRepository, contentRepository, commentRepository, adminEmails, adminLoginEmail,
                 adminLoginPasswordHash, passwordEncoder, new UsernameService(userRepository),
-                new UserProfileProjectionService(contentRepository, commentRepository, new UserSnapshotService()), null, null);
+                new UserProfileProjectionService(contentRepository, commentRepository, new UserSnapshotService()), null, null, null);
     }
 
     @Override
@@ -106,6 +109,9 @@ public class UserServiceImpl implements UserService {
         if (StringUtils.hasText(request.name())) {
             user.setName(trimToLength(request.name(), 80));
         }
+        if (StringUtils.hasText(request.username())) {
+            usernameService.applyRequestedUsername(user, request.username());
+        }
         if (StringUtils.hasText(request.designation())) {
             user.setDesignation(trimToLength(request.designation(), 80).toUpperCase(Locale.ROOT));
         }
@@ -115,6 +121,7 @@ public class UserServiceImpl implements UserService {
         if (StringUtils.hasText(request.picture())) {
             user.setPhoto(validateProfilePicture(request.picture()));
         }
+        user.setOnboardingComplete(true);
         user.setUpdatedAt(LocalDateTime.now());
         return saveUserAndRefreshEmbeddedProfiles(user);
     }
@@ -143,6 +150,7 @@ public class UserServiceImpl implements UserService {
         if (newUser) {
             user.setUserID(UUID.randomUUID());
             user.setCreatedAt(now);
+            user.setOnboardingComplete(false);
         }
         user.setGoogleId(googleId);
         user.setEmail(email);
@@ -156,6 +164,7 @@ public class UserServiceImpl implements UserService {
             user.setDesignation(DEFAULT_DESIGNATION);
         }
         user.setRole(resolveRole(email, user.getRole()));
+        applyCustomEmailDomainTrust(user);
         usernameService.ensureUsername(user);
         user.setUpdatedAt(now);
 
@@ -184,6 +193,7 @@ public class UserServiceImpl implements UserService {
                     .filter(candidate -> passwordEncoder.matches(password, candidate.getPasswordHash()))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email atau password tidak valid"));
             usernameService.ensureUsername(user);
+            applyCustomEmailDomainTrust(user);
             user.setUpdatedAt(LocalDateTime.now());
             return userRepository.save(user);
         }
@@ -201,6 +211,8 @@ public class UserServiceImpl implements UserService {
                 ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
                 : "ADMINISTRATOR");
         user.setRole("ADMIN");
+        user.setOnboardingComplete(true);
+        applyCustomEmailDomainTrust(user);
         usernameService.ensureUsername(user);
         user.setUpdatedAt(now);
         return userRepository.save(user);
@@ -235,6 +247,8 @@ public class UserServiceImpl implements UserService {
         user.setName(trimToLength(request.name(), 80));
         user.setDesignation(DEFAULT_DESIGNATION);
         user.setRole(resolveRole(email, "USER"));
+        user.setOnboardingComplete(true);
+        applyCustomEmailDomainTrust(user);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         if (StringUtils.hasText(request.username())) {
             usernameService.applyRequestedUsername(user, request.username());
@@ -262,6 +276,8 @@ public class UserServiceImpl implements UserService {
                 ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
                 : DEFAULT_DESIGNATION);
         existing.setRole(resolveRole(existing.getEmail(), existing.getRole()));
+        existing.setOnboardingComplete(true);
+        applyCustomEmailDomainTrust(existing);
         if (StringUtils.hasText(user.getUsername())) {
             usernameService.applyRequestedUsername(existing, user.getUsername());
         } else {
@@ -443,18 +459,51 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<User> getFollowingUsers(User user) {
         ensureActive(user);
+        return getFollowingUsers(user.getUserID());
+    }
+
+    @Override
+    public List<User> getFollowingUsers(UUID userId) {
+        if (userId == null) {
+            return List.of();
+        }
         LinkedHashSet<UUID> following = new LinkedHashSet<>();
+        User owner = userRepository.findById(userId).orElse(null);
         if (followRepository != null) {
-            followRepository.findByFollowerUserIdOrderByCreatedAtDesc(user.getUserID()).stream()
+            followRepository.findByFollowerUserIdOrderByCreatedAtDesc(userId).stream()
                     .map(Follow::getTargetUserId)
                     .filter(java.util.Objects::nonNull)
                     .forEach(following::add);
         }
-        following.addAll(user.getFollowingUserIds() == null ? Set.of() : user.getFollowingUserIds());
+        if (owner != null) {
+            following.addAll(owner.getFollowingUserIds() == null ? Set.of() : owner.getFollowingUserIds());
+        }
         if (following.isEmpty()) {
             return List.of();
         }
         return userRepository.findByUserIDIn(following);
+    }
+
+    @Override
+    public List<User> getFollowerUsers(User user) {
+        ensureActive(user);
+        return getFollowerUsers(user.getUserID());
+    }
+
+    @Override
+    public List<User> getFollowerUsers(UUID userId) {
+        if (userId == null || followRepository == null) {
+            return List.of();
+        }
+        LinkedHashSet<UUID> followerIds = new LinkedHashSet<>();
+        followRepository.findByTargetUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(Follow::getFollowerUserId)
+                .filter(java.util.Objects::nonNull)
+                .forEach(followerIds::add);
+        if (followerIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findByUserIDIn(followerIds);
     }
 
     @Override
@@ -536,6 +585,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private User saveUserAndRefreshEmbeddedProfiles(User user) {
+        applyCustomEmailDomainTrust(user);
         usernameService.ensureUsername(user);
         User saved = userRepository.save(user);
         if (saved.getUserID() == null) {
@@ -544,5 +594,12 @@ public class UserServiceImpl implements UserService {
 
         profileProjectionService.refreshEmbeddedProfiles(saved);
         return saved;
+    }
+
+    private void applyCustomEmailDomainTrust(User user) {
+        if (user == null || emailDomainPolicyService == null) {
+            return;
+        }
+        user.setCustomEmailDomainTrusted(emailDomainPolicyService.isTrustedCustomDomain(user.getEmail()));
     }
 }

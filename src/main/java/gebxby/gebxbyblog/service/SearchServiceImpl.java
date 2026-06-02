@@ -117,6 +117,7 @@ public class SearchServiceImpl implements SearchService {
                 badge.label(),
                 badge.description(),
                 badge.icon(),
+                badge.image(),
                 badge.automatic(),
                 badge.custom(),
                 findBadgeUsers(badge).stream()

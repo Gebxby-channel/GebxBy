@@ -37,13 +37,20 @@ export default function BadgeStrip({ badges, compact = false }: { badges?: Badge
         const Icon = code ? icons[code] ?? Shield : Shield;
         const key = badge.id ?? badge.code ?? badge.label;
         const style = code ? badgeStyle[code] : 'border-[#f8fafc] text-[#f8fafc] bg-[#111827]';
+        const badgeImage = badge.image?.trim();
         return (
           <span
             key={key}
             title={`${badge.label}: ${badge.description}`}
-            className={`inline-flex items-center gap-1 border px-2 py-1 font-mono font-black uppercase ${compact ? 'text-[8px]' : 'text-[9px]'} ${style}`}
+            className={`badge-aura inline-flex items-center gap-1 border px-2 py-1 font-mono font-black uppercase ${compact ? 'text-[8px]' : 'text-[9px]'} ${style}`}
           >
-            {badge.custom ? <span className="text-[11px] leading-none">{badge.icon}</span> : <Icon size={compact ? 10 : 12} />}
+            {badgeImage ? (
+              <img src={badgeImage} alt="" width={compact ? 12 : 14} height={compact ? 12 : 14} className={`${compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} object-contain`} />
+            ) : badge.custom ? (
+              <span className="text-[11px] leading-none">{badge.icon}</span>
+            ) : (
+              <Icon size={compact ? 10 : 12} />
+            )}
             {compact ? badge.label.substring(0, 3) : badge.label}
           </span>
         );

@@ -25,7 +25,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [bookmarks, setBookmarks] = useState<ContentItem[]>([]);
     const [following, setFollowing] = useState<PublicUser[]>([]);
-    const [profileTab, setProfileTab] = useState<'about' | 'writings' | 'bookmarks' | 'following' | 'badges'>('about');
+    const [followers, setFollowers] = useState<PublicUser[]>([]);
+    const [profileTab, setProfileTab] = useState<'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges'>('about');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<EditForm>({ head: '', paragrafs: '', kategori: 'General' });
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -107,21 +108,32 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setFollowing(Array.isArray(data) ? data : []);
     }, [user.userID]);
 
+    const fetchFollowers = useCallback(async (force = false, signal?: AbortSignal) => {
+        const data = await cachedGet<PublicUser[]>('/api/user/followers', { signal }, {
+            ttlMs: 30_000,
+            scope: user.userID,
+            force,
+        });
+        setFollowers(Array.isArray(data) ? data : []);
+    }, [user.userID]);
+
     useEffect(() => {
         const controller = new AbortController();
         void Promise.all([
             fetchMyContents(false, controller.signal),
             fetchBookmarks(false, controller.signal),
             fetchFollowing(false, controller.signal),
+            fetchFollowers(false, controller.signal),
         ]).catch((error) => {
             if (!isRequestCanceled(error)) {
                 setContents([]);
                 setBookmarks([]);
                 setFollowing([]);
+                setFollowers([]);
             }
         });
         return () => controller.abort();
-    }, [fetchBookmarks, fetchFollowing, fetchMyContents]);
+    }, [fetchBookmarks, fetchFollowers, fetchFollowing, fetchMyContents]);
 
     useEffect(() => {
         setName(user.name || '');
@@ -189,6 +201,20 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         setCropSource('');
         setEditingCardPhoto(false);
         setProfileEditorOpen(false);
+    };
+
+    const handleFollowBack = async (target: PublicUser) => {
+        if (!target.userID || user.followingUserIds?.includes(target.userID)) return;
+        try {
+            const response = await api.post<CurrentUser>(`/api/user/following/${target.userID}`);
+            setUser(response.data);
+            invalidateApiCache('/api/user/following');
+            invalidateApiCache('/api/user/me');
+            await fetchFollowing(true);
+            feedback.toast(`Follow back ${target.name}.`, 'success');
+        } catch {
+            feedback.toast('Follow back gagal diproses.', 'error');
+        }
     };
 
     const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -366,7 +392,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     {profileTitle(profileTab)}
                                 </h2>
                                 <p className="font-mono text-xs text-[#888]">
-                                    {profileSubtitle(profileTab, contents.length, bookmarks.length, following.length, user.badges?.length ?? 0)}
+                                    {profileSubtitle(profileTab, contents.length, bookmarks.length, following.length, followers.length, user.badges?.length ?? 0)}
                                 </p>
                             </div>
                             <div className="flex w-full flex-wrap items-center gap-3 md:w-auto">
@@ -374,6 +400,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 <ProfileTabButton active={profileTab === 'writings'} label="Writings" icon={<FileText size={13} />} onClick={() => setProfileTab('writings')} />
                                 <ProfileTabButton active={profileTab === 'bookmarks'} label="Bookmarks" icon={<Bookmark size={13} />} onClick={() => setProfileTab('bookmarks')} />
                                 <ProfileTabButton active={profileTab === 'following'} label="Following" icon={<Users size={13} />} onClick={() => setProfileTab('following')} />
+                                <ProfileTabButton active={profileTab === 'followers'} label="Followers" icon={<Users size={13} />} onClick={() => setProfileTab('followers')} />
                                 <ProfileTabButton active={profileTab === 'badges'} label="Badges" icon={<Award size={13} />} onClick={() => setProfileTab('badges')} />
                                 <select
                                     id="profile-writing-sort"
@@ -423,11 +450,24 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 bookmarks.map(item => (
                                     <BookmarkItem key={item.idContent} item={item} viewerUserId={user.userID} onOpen={() => navigate(`/read/${item.idContent}`)} />
                                 ))
-                            ) : following.length === 0 ? (
+                            ) : profileTab === 'following' && following.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWING DATA ]</div>
-                            ) : (
+                            ) : profileTab === 'following' ? (
                                 following.map(target => (
                                     <FollowingItem key={target.userID} target={target} onOpen={() => navigate(`/profile/${target.userID}`)} />
+                                ))
+                            ) : followers.length === 0 ? (
+                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWER DATA ]</div>
+                            ) : (
+                                followers.map(target => (
+                                    <FollowingItem
+                                        key={target.userID}
+                                        target={target}
+                                        onOpen={() => navigate(`/profile/${target.userID}`)}
+                                        actionLabel={user.followingUserIds?.includes(target.userID) ? 'Following' : 'Follow Back'}
+                                        actionDisabled={user.followingUserIds?.includes(target.userID)}
+                                        onAction={() => void handleFollowBack(target)}
+                                    />
                                 ))
                             )}
                         </div>
@@ -687,22 +727,24 @@ function ProfileTabButton({ active, label, icon, onClick }: { active: boolean; l
     );
 }
 
-function profileTitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'badges') {
+function profileTitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges') {
     return {
         about: 'Profile Overview',
         writings: 'Personal Archives',
         bookmarks: 'Bookmarks',
         following: 'Following',
+        followers: 'Followers',
         badges: 'Badge Cabinet',
     }[tab];
 }
 
-function profileSubtitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'badges', writings: number, bookmarks: number, following: number, badges: number) {
+function profileSubtitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges', writings: number, bookmarks: number, following: number, followers: number, badges: number) {
     return {
         about: 'Identity, stats, and recent signal activity.',
         writings: `Managing ${writings} secure data entries within this sector.`,
         bookmarks: `${bookmarks} saved entries for later reading.`,
         following: `${following} followed archive officers.`,
+        followers: `${followers} officers following this account.`,
         badges: `${badges} visible badge records.`,
     }[tab];
 }
@@ -776,7 +818,11 @@ function BadgesPanel({ badges, onOpen }: { badges: Badge[]; onOpen: (badge: Badg
                     className="border border-[#2a2a2a] bg-[#181818] p-4 text-left transition-all hover:border-[#e60000]"
                 >
                     <div className="mb-3 flex items-center gap-3">
-                        <span className="text-2xl">{badge.custom ? badge.icon : '▣'}</span>
+                        {badge.image ? (
+                            <img src={badge.image} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
+                        ) : (
+                            <span className="text-2xl">{badge.custom ? badge.icon : '▣'}</span>
+                        )}
                         <div className="min-w-0">
                             <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{badge.label}</p>
                             <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{badge.custom ? 'Custom' : 'Core'} // {badge.automatic ? 'Auto' : 'Manual'}</p>
@@ -835,14 +881,23 @@ function BookmarkItem({ item, viewerUserId, onOpen }: { item: ContentItem; viewe
     );
 }
 
-function FollowingItem({ target, onOpen }: { target: PublicUser; onOpen: () => void }) {
+function FollowingItem({
+    target,
+    onOpen,
+    actionLabel,
+    actionDisabled = false,
+    onAction,
+}: {
+    target: PublicUser;
+    onOpen: () => void;
+    actionLabel?: string;
+    actionDisabled?: boolean;
+    onAction?: () => void;
+}) {
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(target.name || 'User')}`;
     return (
-        <button
-            type="button"
-            onClick={onOpen}
-            className="flex items-center gap-4 border border-[#2a2a2a] bg-[#181818] p-4 text-left transition-all hover:border-[#e60000]"
-        >
+        <div className="flex flex-col gap-3 border border-[#2a2a2a] bg-[#181818] p-4 transition-all hover:border-[#e60000] sm:flex-row sm:items-center">
+            <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-4 text-left">
             <div className="h-14 w-14 overflow-hidden border border-[#333] bg-[#111]">
                 <img
                     src={target.picture || defaultAvatar}
@@ -861,7 +916,21 @@ function FollowingItem({ target, onOpen }: { target: PublicUser; onOpen: () => v
                     <BadgeStrip badges={target.badges} compact />
                 </div>
             </div>
-        </button>
+            </button>
+            {actionLabel && onAction && (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onAction();
+                    }}
+                    disabled={actionDisabled}
+                    className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    {actionLabel}
+                </button>
+            )}
+        </div>
     );
 }
 

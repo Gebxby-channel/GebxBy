@@ -5,6 +5,8 @@ import gebxby.gebxbyblog.dto.AdminNotificationRequest;
 import gebxby.gebxbyblog.dto.AnnouncementResponse;
 import gebxby.gebxbyblog.dto.BadgeResponse;
 import gebxby.gebxbyblog.dto.CustomBadgeRequest;
+import gebxby.gebxbyblog.dto.EmailDomainRequest;
+import gebxby.gebxbyblog.dto.EmailDomainResponse;
 import gebxby.gebxbyblog.dto.GenreRequest;
 import gebxby.gebxbyblog.dto.GenreResponse;
 import gebxby.gebxbyblog.dto.MediaSmokeTestResponse;
@@ -19,6 +21,7 @@ import gebxby.gebxbyblog.service.ActivityLogService;
 import gebxby.gebxbyblog.service.AnnouncementService;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
+import gebxby.gebxbyblog.service.EmailDomainPolicyService;
 import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.GenreService;
 import gebxby.gebxbyblog.service.MediaPipelineService;
@@ -55,6 +58,7 @@ public class AdminController {
     private final MediaPipelineService mediaPipelineService;
     private final GenreService genreService;
     private final ProfileCardService profileCardService;
+    private final EmailDomainPolicyService emailDomainPolicyService;
     private final ForumMapper mapper;
 
     public AdminController(UserService userService,
@@ -67,6 +71,7 @@ public class AdminController {
                            MediaPipelineService mediaPipelineService,
                            GenreService genreService,
                            ProfileCardService profileCardService,
+                           EmailDomainPolicyService emailDomainPolicyService,
                            ForumMapper mapper) {
         this.userService = userService;
         this.contentService = contentService;
@@ -78,6 +83,7 @@ public class AdminController {
         this.mediaPipelineService = mediaPipelineService;
         this.genreService = genreService;
         this.profileCardService = profileCardService;
+        this.emailDomainPolicyService = emailDomainPolicyService;
         this.mapper = mapper;
     }
 
@@ -202,9 +208,7 @@ public class AdminController {
         if (!userService.isAdmin(admin)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
         }
-        return ResponseEntity.ok(badgeService.definitions().stream()
-                .filter(BadgeResponse::custom)
-                .toList());
+        return ResponseEntity.ok(badgeService.definitions());
     }
 
     @PostMapping("/custom-badges")
@@ -213,6 +217,15 @@ public class AdminController {
             @AuthenticationPrincipal OAuth2User principal) {
         User admin = userService.getCurrentUser(principal);
         return ResponseEntity.status(HttpStatus.CREATED).body(badgeService.createCustomBadge(request, admin));
+    }
+
+    @PostMapping("/custom-badges/{badgeId}")
+    public ResponseEntity<BadgeResponse> updateCustomBadge(
+            @PathVariable UUID badgeId,
+            @RequestBody CustomBadgeRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(badgeService.updateCustomBadge(badgeId, request, admin));
     }
 
     @DeleteMapping("/custom-badges/{badgeId}")
@@ -250,11 +263,33 @@ public class AdminController {
 
     private String customBadgeLabel(UUID badgeId) {
         return badgeService.definitions().stream()
-                .filter(BadgeResponse::custom)
                 .filter(badge -> badge.id().equals(badgeId.toString()))
                 .map(BadgeResponse::label)
                 .findFirst()
                 .orElse(badgeId.toString());
+    }
+
+    @GetMapping("/email-domains")
+    public ResponseEntity<List<EmailDomainResponse>> listEmailDomains(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(emailDomainPolicyService.findAll(admin));
+    }
+
+    @PostMapping("/email-domains")
+    public ResponseEntity<EmailDomainResponse> createEmailDomain(
+            @RequestBody EmailDomainRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(emailDomainPolicyService.create(request, admin));
+    }
+
+    @DeleteMapping("/email-domains/{domainId}")
+    public ResponseEntity<Void> deleteEmailDomain(
+            @PathVariable UUID domainId,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        emailDomainPolicyService.delete(domainId, admin);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/genres")

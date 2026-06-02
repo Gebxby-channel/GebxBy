@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class ContentAnalyticsService {
-    private static final Duration ANALYTICS_CACHE_TTL = Duration.ofSeconds(45);
+    private static final Duration ANALYTICS_CACHE_TTL = Duration.ofHours(1);
 
     private final ContentRepository contentRepository;
     private final ContentVoteRepository voteRepository;

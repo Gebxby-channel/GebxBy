@@ -60,7 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/", "/error", "/api/csrf", "/oauth2/**", "/login/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/search", "/api/announcements/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/user/me", "/api/user/{id}", "/content/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/user/me", "/api/user/{id}", "/api/user/*/following", "/api/user/*/followers", "/content/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/usernames/check", "/api/usernames/suggest").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/email-login", "/api/auth/signup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/user/create").permitAll()

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Award, Ban, CheckCircle2, HardDrive, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertTriangle, Award, Ban, CheckCircle2, HardDrive, ImagePlus, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import api, { invalidateApiCache, isRequestCanceled } from '../lib/api';
 import type { ActivityLogItem, Badge, BadgeCode, ContentItem, CurrentUser, MediaSmokeTestResult } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
@@ -19,13 +19,12 @@ const genrePalette = [
     '#f8fafc', '#fde047', '#fb7185', '#c084fc', '#60a5fa', '#34d399', '#facc15', '#fb923c',
     '#991b1b', '#1d4ed8', '#166534', '#854d0e', '#581c87', '#0f172a',
 ];
-const customBadgeIcons = [
-    '⭐', '🌟', '✨', '🔥', '⚡', '💎', '🎖️', '🏅', '🥇', '👑',
-    '🛡️', '🗡️', '🧭', '🕯️', '🔦', '🔮', '🧪', '🧬', '🧠', '👁️',
-    '📝', '📚', '📌', '🧷', '🗝️', '🔐', '📡', '🎙️', '🎧', '📷',
-    '🎬', '🎨', '🧩', '🕹️', '🎲', '🎯', '🚀', '🛰️', '🌙', '☀️',
-    '🌊', '🌋', '🌹', '🥀', '🍀', '🕊️', '💀', '👻', '😊', '🪽',
-];
+
+type EmailDomainItem = {
+    id: string;
+    domain: string;
+    createdAt?: string;
+};
 
 export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const navigate = useNavigate();
@@ -34,6 +33,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [contents, setContents] = useState<ContentItem[]>([]);
     const [reports, setReports] = useState<ActivityLogItem[]>([]);
     const [customBadges, setCustomBadges] = useState<Badge[]>([]);
+    const [emailDomains, setEmailDomains] = useState<EmailDomainItem[]>([]);
+    const [emailDomainInput, setEmailDomainInput] = useState('');
     const [genres, setGenres] = useState<GenreItem[]>([]);
     const [genreForm, setGenreForm] = useState({ name: '', color: '#e60000', editingId: '' });
     const [profileCardTemplates, setProfileCardTemplates] = useState<ProfileCardItem[]>([]);
@@ -42,7 +43,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [suspendHours, setSuspendHours] = useState(24);
     const [selectedBadge, setSelectedBadge] = useState<BadgeCode>('WRITERS');
     const [selectedCustomBadge, setSelectedCustomBadge] = useState('');
-    const [customBadgeForm, setCustomBadgeForm] = useState({ label: '', description: '', icon: customBadgeIcons[0] });
+    const [customBadgeForm, setCustomBadgeForm] = useState({ editingId: '', label: '', description: '', image: '' });
     const [userQuery, setUserQuery] = useState('');
     const [drawerUser, setDrawerUser] = useState<CurrentUser | null>(null);
     const [mediaSmoke, setMediaSmoke] = useState<MediaSmokeTestResult | null>(null);
@@ -52,24 +53,27 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const fetchUsers = useCallback(async (signal?: AbortSignal) => {
         setLoading(true);
         try {
-            const [userResponse, contentResponse, reportResponse, customBadgeResponse, genreResponse, cardTemplateResponse] = await Promise.all([
+            const [userResponse, contentResponse, reportResponse, customBadgeResponse, genreResponse, cardTemplateResponse, emailDomainResponse] = await Promise.all([
                 api.get<CurrentUser[]>('/api/admin/users', { signal }),
                 api.get<ContentItem[]>('/content/all-content', { signal }),
                 api.get<ActivityLogItem[]>('/api/logs/reports', { signal, params: { limit: 50 } }),
                 api.get<Badge[]>('/api/admin/custom-badges', { signal }),
                 api.get<GenreItem[]>('/api/admin/genres', { signal }),
                 api.get<ProfileCardItem[]>('/api/admin/profile-card-templates', { signal }),
+                api.get<EmailDomainItem[]>('/api/admin/email-domains', { signal }),
             ]);
             setUsers(Array.isArray(userResponse.data) ? userResponse.data : []);
             setContents(Array.isArray(contentResponse.data) ? contentResponse.data : []);
             setReports(Array.isArray(reportResponse.data) ? reportResponse.data : []);
             const custom = Array.isArray(customBadgeResponse.data) ? customBadgeResponse.data : [];
             setCustomBadges(custom);
-            setSelectedCustomBadge(current => current || custom[0]?.id || '');
+            const grantableCustom = custom.filter(badge => badge.custom && badge.id);
+            setSelectedCustomBadge(current => current || grantableCustom[0]?.id || '');
             setGenres(Array.isArray(genreResponse.data) ? genreResponse.data : []);
             const templates = Array.isArray(cardTemplateResponse.data) ? cardTemplateResponse.data : [];
             setProfileCardTemplates(templates);
             setSelectedProfileCardTemplate(current => current || templates[0]?.id || '');
+            setEmailDomains(Array.isArray(emailDomainResponse.data) ? emailDomainResponse.data : []);
         } catch (error) {
             if (!isRequestCanceled(error)) {
                 setUsers([]);
@@ -78,6 +82,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 setCustomBadges([]);
                 setGenres([]);
                 setProfileCardTemplates([]);
+                setEmailDomains([]);
             }
         } finally {
             if (!signal?.aborted) {
@@ -126,20 +131,49 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         await fetchUsers();
     };
 
-    const createCustomBadge = async () => {
+    const saveCustomBadge = async () => {
         if (!customBadgeForm.label.trim()) {
-            feedback.toast('Nama custom badge wajib diisi.', 'error');
+            feedback.toast('Nama badge wajib diisi.', 'error');
             return;
         }
-        const response = await api.post<Badge>('/api/admin/custom-badges', customBadgeForm);
-        setCustomBadges(current => [response.data, ...current]);
-        setSelectedCustomBadge(response.data.id || '');
-        setCustomBadgeForm({ label: '', description: '', icon: customBadgeIcons[0] });
-        feedback.toast('Custom badge berhasil dibuat.', 'success');
+        if (!customBadgeForm.editingId && !customBadgeForm.image) {
+            feedback.toast('Upload PNG transparan 1:1 untuk badge baru.', 'error');
+            return;
+        }
+        const payload = {
+            label: customBadgeForm.label,
+            description: customBadgeForm.description,
+            image: customBadgeForm.image || undefined,
+        };
+        const response = customBadgeForm.editingId
+            ? await api.post<Badge>(`/api/admin/custom-badges/${customBadgeForm.editingId}`, payload)
+            : await api.post<Badge>('/api/admin/custom-badges', payload);
+        setCustomBadges(current => {
+            const without = current.filter(item => item.id !== response.data.id);
+            return [response.data, ...without];
+        });
+        if (response.data.custom) {
+            setSelectedCustomBadge(response.data.id || '');
+        }
+        setCustomBadgeForm({ editingId: '', label: '', description: '', image: '' });
+        feedback.toast(customBadgeForm.editingId ? 'Badge berhasil diupdate.' : 'Custom badge berhasil dibuat.', 'success');
+    };
+
+    const editCustomBadge = (badge: Badge) => {
+        setCustomBadgeForm({
+            editingId: badge.id || '',
+            label: badge.label,
+            description: badge.description || '',
+            image: badge.image || '',
+        });
     };
 
     const deleteCustomBadge = async (badge: Badge) => {
         if (!badge.id) return;
+        if (!badge.custom || badge.code) {
+            feedback.toast('Core badge hanya bisa diedit, bukan dihapus.', 'info');
+            return;
+        }
         const accepted = await feedback.confirm({
             title: 'Delete Custom Badge',
             message: `Hapus badge "${badge.label}" dari database dan semua user?`,
@@ -171,6 +205,29 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         await api.delete(`/api/admin/users/${target.userID}/custom-badges/${selectedCustomBadge}`);
         invalidateApiCache(`/api/user/${target.userID}`);
         await fetchUsers();
+    };
+
+    const createEmailDomain = async () => {
+        if (!emailDomainInput.trim()) {
+            feedback.toast('Domain email wajib diisi.', 'error');
+            return;
+        }
+        const response = await api.post<EmailDomainItem>('/api/admin/email-domains', { domain: emailDomainInput });
+        setEmailDomains(current => [...current, response.data].sort((a, b) => a.domain.localeCompare(b.domain)));
+        setEmailDomainInput('');
+        feedback.toast('Domain email custom tersimpan.', 'success');
+    };
+
+    const deleteEmailDomain = async (domain: EmailDomainItem) => {
+        const accepted = await feedback.confirm({
+            title: 'Delete Email Domain',
+            message: `Hapus domain ${domain.domain} dari registry?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!accepted) return;
+        await api.delete(`/api/admin/email-domains/${domain.id}`);
+        setEmailDomains(current => current.filter(item => item.id !== domain.id));
     };
 
     const saveGenre = async () => {
@@ -389,6 +446,43 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 )}
             </Panel>
 
+            <Panel
+                title="Email Domain Registry"
+                subtitle="Trusted custom domains // does not lock existing users"
+                className="mb-8"
+                action={<UiButton onClick={() => void createEmailDomain()} variant="danger">Add Domain</UiButton>}
+            >
+                <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+                    <div className="space-y-3">
+                        <Input
+                            id="admin-email-domain"
+                            name="adminEmailDomain"
+                            aria-label="Custom email domain"
+                            value={emailDomainInput}
+                            onChange={(event) => setEmailDomainInput(event.target.value)}
+                            placeholder="example.com"
+                            maxLength={120}
+                        />
+                        <p className="m-0 font-mono text-[9px] uppercase leading-5 text-[#666]">
+                            Domain disimpan sebagai registry trusted. Aku tidak membuatnya jadi whitelist pemblokir agar akun lama dan Google login tidak terkunci.
+                        </p>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                        {emailDomains.length === 0 ? (
+                            <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444] md:col-span-2">[ No Custom Domain ]</div>
+                        ) : emailDomains.map((domain) => (
+                            <div key={domain.id} className="flex items-center justify-between gap-3 border border-[#242424] bg-[#101010] p-3">
+                                <div className="min-w-0">
+                                    <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">@{domain.domain}</p>
+                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{domain.createdAt ? formatDate(domain.createdAt) : 'NO_DATE'}</p>
+                                </div>
+                                <UiButton onClick={() => void deleteEmailDomain(domain)} variant="danger">Delete</UiButton>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </Panel>
+
             <section className="mb-8 border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-5 flex flex-col gap-4 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
@@ -472,13 +566,13 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             </section>
 
             <Panel
-                title="Custom Badge Forge"
-                subtitle="Badge kosmetik admin-only // tanpa efek fungsional"
+                title="Badge Library"
+                subtitle="Core badge kosmetik + custom badge upload PNG transparan"
                 className="mb-8"
                 action={(
-                    <UiButton onClick={() => void createCustomBadge()} variant="danger">
+                    <UiButton onClick={() => void saveCustomBadge()} variant="danger">
                         <Plus size={13} />
-                        Create Badge
+                        {customBadgeForm.editingId ? 'Save Badge' : 'Create Badge'}
                     </UiButton>
                 )}
             >
@@ -496,19 +590,39 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             placeholder="Badge description..."
                             maxLength={180}
                         />
-                        <div className="grid max-h-44 grid-cols-10 gap-1 overflow-y-auto border border-[#242424] bg-[#101010] p-2">
-                            {customBadgeIcons.map((icon) => (
-                                <button
-                                    key={icon}
-                                    type="button"
-                                    onClick={() => setCustomBadgeForm(current => ({ ...current, icon }))}
-                                    className={`h-8 border font-mono text-base transition-all ${customBadgeForm.icon === icon ? 'border-[#e60000] bg-[#e60000]' : 'border-[#333] hover:border-white'}`}
-                                    title={icon}
-                                >
-                                    {icon}
-                                </button>
-                            ))}
-                        </div>
+                        <input
+                            id="admin-custom-badge-image"
+                            name="customBadgeImage"
+                            aria-label="Custom badge transparent PNG"
+                            type="file"
+                            accept="image/png"
+                            className="hidden"
+                            onChange={(event) => {
+                                void readBadgeImage(event.target.files?.[0])
+                                    .then((image) => {
+                                        if (image) {
+                                            setCustomBadgeForm(current => ({ ...current, image }));
+                                        }
+                                    })
+                                    .catch((error) => feedback.toast(error instanceof Error ? error.message : 'Badge image rejected.', 'error'));
+                                event.currentTarget.value = '';
+                            }}
+                        />
+                        <label htmlFor="admin-custom-badge-image" className="flex h-11 cursor-pointer items-center justify-center gap-2 border border-[#333] font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                            <ImagePlus size={14} />
+                            Upload 1:1 Transparent PNG
+                        </label>
+                        {customBadgeForm.image && (
+                            <div className="flex items-center gap-3 border border-[#242424] bg-[#101010] p-3">
+                                <img src={customBadgeForm.image} alt="" width={40} height={40} className="h-10 w-10 object-contain" />
+                                <p className="m-0 font-mono text-[10px] uppercase text-[#777]">Compressed badge preview</p>
+                            </div>
+                        )}
+                        {customBadgeForm.editingId && (
+                            <UiButton onClick={() => setCustomBadgeForm({ editingId: '', label: '', description: '', image: '' })}>
+                                Cancel Edit
+                            </UiButton>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         {customBadges.length === 0 ? (
@@ -518,15 +632,19 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 <div key={badge.id ?? badge.label} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-3 md:flex-row md:items-center md:justify-between">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-lg">{badge.icon}</span>
+                                            {badge.image ? <img src={badge.image} alt="" width={24} height={24} className="h-6 w-6 object-contain" /> : <span className="text-lg">{badge.icon}</span>}
                                             <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{badge.label}</p>
+                                            {badge.code && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] uppercase text-[#777]">Core</span>}
                                         </div>
                                         <p className="m-0 mt-1 line-clamp-2 text-sm text-[#888]">{badge.description || 'No description'}</p>
                                     </div>
-                                    <UiButton onClick={() => void deleteCustomBadge(badge)} variant="danger">
-                                        <Trash2 size={13} />
-                                        Delete
-                                    </UiButton>
+                                    <div className="flex flex-wrap gap-2">
+                                        <UiButton onClick={() => editCustomBadge(badge)}>Edit</UiButton>
+                                        <UiButton onClick={() => void deleteCustomBadge(badge)} disabled={!badge.custom || Boolean(badge.code)} variant="danger">
+                                            <Trash2 size={13} />
+                                            Delete
+                                        </UiButton>
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -705,8 +823,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             title="Custom badge target"
                         >
                             <option value="">CUSTOM_BADGE</option>
-                            {customBadges.map((badge) => (
-                                <option key={badge.id ?? badge.label} value={badge.id}>{badge.icon} {badge.label}</option>
+                            {customBadges.filter(badge => badge.custom && badge.id).map((badge) => (
+                                <option key={badge.id ?? badge.label} value={badge.id}>{badge.label}</option>
                             ))}
                         </Select>
                         <input
@@ -1107,6 +1225,47 @@ async function readCardImage(file?: File) {
         if (!context) return '';
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/webp', 0.76);
+    } finally {
+        URL.revokeObjectURL(source);
+    }
+}
+
+async function readBadgeImage(file?: File) {
+    if (!file) return '';
+    if (file.type !== 'image/png') {
+        throw new Error('Badge harus PNG transparan.');
+    }
+    const source = URL.createObjectURL(file);
+    try {
+        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = source;
+        });
+        if (image.naturalWidth !== image.naturalHeight) {
+            throw new Error('Badge harus rasio 1:1.');
+        }
+        const size = 96;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        if (!context) return '';
+        context.clearRect(0, 0, size, size);
+        context.drawImage(image, 0, 0, size, size);
+        const pixels = context.getImageData(0, 0, size, size).data;
+        let hasTransparentPixel = false;
+        for (let index = 3; index < pixels.length; index += 4) {
+            if (pixels[index] < 245) {
+                hasTransparentPixel = true;
+                break;
+            }
+        }
+        if (!hasTransparentPixel) {
+            throw new Error('Badge harus punya background transparan.');
+        }
+        return canvas.toDataURL('image/png');
     } finally {
         URL.revokeObjectURL(source);
     }

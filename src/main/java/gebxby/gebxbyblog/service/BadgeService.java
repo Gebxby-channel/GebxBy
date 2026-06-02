@@ -14,6 +14,7 @@ public interface BadgeService {
     User grantBadge(UUID userId, BadgeCode badge, User admin);
     User revokeBadge(UUID userId, BadgeCode badge, User admin);
     BadgeResponse createCustomBadge(CustomBadgeRequest request, User admin);
+    BadgeResponse updateCustomBadge(UUID badgeId, CustomBadgeRequest request, User admin);
     void deleteCustomBadge(UUID badgeId, User admin);
     User grantCustomBadge(UUID userId, UUID badgeId, User admin);
     User revokeCustomBadge(UUID userId, UUID badgeId, User admin);

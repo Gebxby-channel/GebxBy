@@ -13,6 +13,8 @@ import gebxby.gebxbyblog.repository.ContentVoteRepository;
 import gebxby.gebxbyblog.repository.CustomBadgeRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -64,22 +66,25 @@ public class BadgeServiceImpl implements BadgeService {
     private final ContentVoteRepository voteRepository;
     private final ContentRepository contentRepository;
     private final CustomBadgeRepository customBadgeRepository;
+    private final BadgeImagePolicy badgeImagePolicy;
 
     @Autowired
     public BadgeServiceImpl(UserRepository userRepository,
                             ContentVoteRepository voteRepository,
                             ContentRepository contentRepository,
-                            CustomBadgeRepository customBadgeRepository) {
+                            CustomBadgeRepository customBadgeRepository,
+                            BadgeImagePolicy badgeImagePolicy) {
         this.userRepository = userRepository;
         this.voteRepository = voteRepository;
         this.contentRepository = contentRepository;
         this.customBadgeRepository = customBadgeRepository;
+        this.badgeImagePolicy = badgeImagePolicy;
     }
 
     public BadgeServiceImpl(UserRepository userRepository,
                             ContentVoteRepository voteRepository,
                             ContentRepository contentRepository) {
-        this(userRepository, voteRepository, contentRepository, null);
+        this(userRepository, voteRepository, contentRepository, null, new BadgeImagePolicy());
     }
 
     @Override
@@ -167,21 +172,42 @@ public class BadgeServiceImpl implements BadgeService {
         String label = trim(request == null ? null : request.label(), 32);
         String icon = trim(request == null ? null : request.icon(), 12);
         String description = trim(request == null ? null : request.description(), 180);
+        String image = badgeImagePolicy.normalizeBadgeImage(request == null ? null : request.image());
         if (!StringUtils.hasText(label)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nama badge wajib diisi");
-        }
-        if (!StringUtils.hasText(icon)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Simbol badge wajib dipilih");
         }
         LocalDateTime now = LocalDateTime.now();
         CustomBadgeDefinition badge = new CustomBadgeDefinition();
         badge.setId(UUID.randomUUID());
         badge.setLabel(label);
-        badge.setIcon(icon);
+        badge.setIcon(StringUtils.hasText(icon) ? icon : "custom");
+        badge.setImage(image);
         badge.setDescription(description);
         badge.setCreatedByUserId(admin.getUserID());
         badge.setCreatedAt(now);
         badge.setUpdatedAt(now);
+        return toCustomResponse(customBadgeRepository.save(badge));
+    }
+
+    @Override
+    public BadgeResponse updateCustomBadge(UUID badgeId, CustomBadgeRequest request, User admin) {
+        requireAdmin(admin);
+        CustomBadgeDefinition badge = getCustomBadge(badgeId);
+        String label = trim(request == null ? null : request.label(), 32);
+        String icon = trim(request == null ? null : request.icon(), 12);
+        String description = trim(request == null ? null : request.description(), 180);
+        if (!StringUtils.hasText(label)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nama badge wajib diisi");
+        }
+        badge.setLabel(label);
+        badge.setDescription(description);
+        if (StringUtils.hasText(icon)) {
+            badge.setIcon(icon);
+        }
+        if (request != null && StringUtils.hasText(request.image())) {
+            badge.setImage(badgeImagePolicy.normalizeBadgeImage(request.image()));
+        }
+        badge.setUpdatedAt(LocalDateTime.now());
         return toCustomResponse(customBadgeRepository.save(badge));
     }
 
@@ -192,6 +218,9 @@ public class BadgeServiceImpl implements BadgeService {
             return;
         }
         CustomBadgeDefinition badge = getCustomBadge(badgeId);
+        if (StringUtils.hasText(badge.getCode()) || badge.isSystemBadge()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Core badge hanya bisa diedit, tidak bisa dihapus");
+        }
         userRepository.findAll().stream()
                 .filter(user -> user.getCustomBadgeIds() != null && user.getCustomBadgeIds().contains(badge.getId()))
                 .forEach(user -> {
@@ -231,16 +260,56 @@ public class BadgeServiceImpl implements BadgeService {
     @Override
     public List<BadgeResponse> definitions() {
         List<BadgeResponse> response = new ArrayList<>();
+        Map<BadgeCode, CustomBadgeDefinition> storedCoreBadges = customBadgeRepository == null
+                ? Map.of()
+                : customBadgeRepository.findAllByOrderByCreatedAtDesc().stream()
+                        .filter(definition -> StringUtils.hasText(definition.getCode()))
+                        .map(definition -> new BadgeDefinitionEntry(parseCode(definition.getCode()), definition))
+                        .filter(entry -> entry.code() != null)
+                        .collect(Collectors.toMap(BadgeDefinitionEntry::code, BadgeDefinitionEntry::definition, (left, right) -> left));
         for (BadgeCode code : BadgeCode.values()) {
             BadgeMeta meta = META.get(code);
-            response.add(new BadgeResponse(code, meta.label(), meta.description(), meta.icon(), meta.automatic()));
+            CustomBadgeDefinition stored = storedCoreBadges.get(code);
+            response.add(stored == null
+                    ? new BadgeResponse(code, meta.label(), meta.description(), meta.icon(), meta.automatic())
+                    : toCoreResponse(stored, code, meta));
         }
         if (customBadgeRepository != null) {
             customBadgeRepository.findAllByOrderByCreatedAtDesc().stream()
+                    .filter(definition -> !StringUtils.hasText(definition.getCode()))
                     .map(this::toCustomResponse)
                     .forEach(response::add);
         }
         return response;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void seedCoreBadgeDefinitions() {
+        if (customBadgeRepository == null) {
+            return;
+        }
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            for (BadgeCode code : BadgeCode.values()) {
+                if (customBadgeRepository.findByCode(code.name()).isPresent()) {
+                    continue;
+                }
+                BadgeMeta meta = META.get(code);
+                CustomBadgeDefinition badge = new CustomBadgeDefinition();
+                badge.setId(UUID.randomUUID());
+                badge.setCode(code.name());
+                badge.setLabel(meta.label());
+                badge.setDescription(meta.description());
+                badge.setIcon(meta.icon());
+                badge.setAutomatic(meta.automatic());
+                badge.setSystemBadge(true);
+                badge.setCreatedAt(now);
+                badge.setUpdatedAt(now);
+                customBadgeRepository.save(badge);
+            }
+        } catch (RuntimeException ignored) {
+            // Cosmetic badge seeding must not block app startup when storage is temporarily unreachable.
+        }
     }
 
     private boolean hasRequiemPrerequisites(Set<BadgeCode> badges) {
@@ -297,7 +366,36 @@ public class BadgeServiceImpl implements BadgeService {
     }
 
     private BadgeResponse toCustomResponse(CustomBadgeDefinition badge) {
-        return BadgeResponse.custom(badge.getId(), badge.getLabel(), badge.getDescription(), badge.getIcon());
+        BadgeCode code = parseCode(badge.getCode());
+        if (code != null) {
+            BadgeMeta meta = META.get(code);
+            return toCoreResponse(badge, code, meta);
+        }
+        return BadgeResponse.custom(badge.getId(), badge.getLabel(), badge.getDescription(), badge.getIcon(), badge.getImage());
+    }
+
+    private BadgeResponse toCoreResponse(CustomBadgeDefinition badge, BadgeCode code, BadgeMeta fallback) {
+        return new BadgeResponse(
+                badge.getId().toString(),
+                code,
+                StringUtils.hasText(badge.getLabel()) ? badge.getLabel() : fallback.label(),
+                StringUtils.hasText(badge.getDescription()) ? badge.getDescription() : fallback.description(),
+                StringUtils.hasText(badge.getIcon()) ? badge.getIcon() : fallback.icon(),
+                badge.getImage(),
+                badge.isAutomatic(),
+                false
+        );
+    }
+
+    private BadgeCode parseCode(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return BadgeCode.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     private User getUser(UUID userId) {
@@ -317,5 +415,8 @@ public class BadgeServiceImpl implements BadgeService {
     }
 
     private record BadgeMeta(String label, String description, String icon, boolean automatic) {
+    }
+
+    private record BadgeDefinitionEntry(BadgeCode code, CustomBadgeDefinition definition) {
     }
 }

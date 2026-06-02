@@ -10,14 +10,15 @@ public record BadgeResponse(
         String label,
         String description,
         String icon,
+        String image,
         boolean automatic,
         boolean custom
 ) {
     public BadgeResponse(BadgeCode code, String label, String description, String icon, boolean automatic) {
-        this(code.name(), code, label, description, icon, automatic, false);
+        this(code.name(), code, label, description, icon, null, automatic, false);
     }
 
-    public static BadgeResponse custom(UUID id, String label, String description, String icon) {
-        return new BadgeResponse(id.toString(), null, label, description, icon, false, true);
+    public static BadgeResponse custom(UUID id, String label, String description, String icon, String image) {
+        return new BadgeResponse(id.toString(), null, label, description, icon, image, false, true);
     }
 }
