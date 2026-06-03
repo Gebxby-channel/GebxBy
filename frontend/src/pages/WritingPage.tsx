@@ -381,9 +381,9 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] p-4 font-mono text-[#eee] lg:p-8">
-            <div className="mx-auto max-w-4xl border border-[#333] bg-[#111] p-6 shadow-2xl">
-                <div className="mb-8 flex flex-col gap-4 border-b border-[#e60000] pb-4 md:flex-row md:items-center md:justify-between">
+        <div className="min-h-screen bg-[#0a0a0a] px-3 py-4 font-mono text-[#eee] sm:px-5 lg:px-8 lg:py-7">
+            <div className="mx-auto w-full max-w-[1040px] border border-[#333] bg-[#111] p-4 shadow-2xl sm:p-5 lg:p-6">
+                <div className="mb-6 flex flex-col gap-3 border-b border-[#e60000] pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">Writer Studio</h2>
                         <p className="m-0 mt-1 font-mono text-[10px] uppercase tracking-widest text-[#666]">
@@ -394,7 +394,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         <button
                             type="button"
                             onClick={resetDraft}
-                            className="flex items-center justify-center gap-2 border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] transition-all hover:border-white hover:text-white"
+                            className="flex h-9 items-center justify-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] transition-all hover:border-white hover:text-white"
                         >
                             <RotateCcw size={14} />
                             Clear
@@ -403,7 +403,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             type="button"
                             onClick={submit}
                             disabled={actionDisabled}
-                            className="flex items-center justify-center gap-2 bg-[#e60000] px-8 py-2 font-black text-white shadow-[4px_4px_0px_#444] transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60"
+                            className="flex h-9 items-center justify-center gap-2 bg-[#e60000] px-4 text-xs font-black uppercase text-white shadow-[3px_3px_0px_#444] transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60 sm:px-5"
                         >
                             {activeTab === 'manual' ? <Send size={16} /> : <Upload size={16} />}
                             {actionDisabled ? 'PROCESSING' : activeTab === 'manual' ? 'UPLOAD DATA' : 'DECRYPT FILE'}
@@ -411,18 +411,18 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                     </div>
                 </div>
 
-                <div className="mb-6 grid gap-3 md:grid-cols-2">
-                    <div className="flex gap-3">
+                <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap gap-2">
                         <ModeButton active={activeTab === 'manual'} onClick={() => setActiveTab('manual')} icon={<FileText size={15} />} label="MANUAL INPUT" />
                         <ModeButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<Upload size={15} />} label="DOCX FILE UPLOAD" />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-2">
                         <ModeButton active={studioMode === 'edit'} onClick={() => setStudioMode('edit')} icon={<Pencil size={15} />} label="EDIT" />
                         <ModeButton active={studioMode === 'preview'} onClick={() => setStudioMode('preview')} icon={<Eye size={15} />} label="PREVIEW" />
                     </div>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-5">
                     <input
                         id="writing-title"
                         name="writingTitle"
@@ -661,7 +661,7 @@ function ArticlePreview({
                 </h1>
             </header>
             <div
-                className="min-h-[360px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"
+                className="min-h-[520px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"
                 dangerouslySetInnerHTML={{ __html: sanitizeArticle(content || '<p>No decrypted data.</p>') }}
             />
             {images.length > 0 && (
@@ -711,7 +711,7 @@ function RichTextEditor({
         immediatelyRender: false,
         editorProps: {
             attributes: {
-                class: 'min-h-[460px] w-full overflow-y-auto p-5 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:bg-[#0d0d0d]',
+                class: 'min-h-[520px] w-full overflow-y-auto px-5 py-4 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:bg-[#0d0d0d] sm:px-6',
             },
         },
         onUpdate: ({ editor: currentEditor }) => onChange(currentEditor.getHTML()),
@@ -753,7 +753,7 @@ function RichTextEditor({
 
     return (
         <section className="border border-[#333] bg-[#0f0f0f]">
-            <div className="flex flex-wrap gap-1 border-b border-[#252525] bg-[#111] p-2">
+            <div className="flex flex-wrap gap-1.5 border-b border-[#252525] bg-[#111] p-2">
                 <EditorButton active={editor?.isActive('bold')} icon={<Bold size={14} />} label="Bold" onClick={() => editor?.chain().focus().toggleBold().run()} />
                 <EditorButton active={editor?.isActive('italic')} icon={<Italic size={14} />} label="Italic" onClick={() => editor?.chain().focus().toggleItalic().run()} />
                 <EditorButton active={editor?.isActive('underline')} icon={<UnderlineIcon size={14} />} label="Underline" onClick={() => editor?.chain().focus().toggleUnderline().run()} />
@@ -771,7 +771,7 @@ function RichTextEditor({
             </div>
             <EditorContent
                 editor={editor}
-                className="writer-prose [&_.ProseMirror]:min-h-[460px] [&_.ProseMirror]:w-full [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:p-5 [&_.ProseMirror]:font-sans [&_.ProseMirror]:text-base [&_.ProseMirror]:leading-8 [&_.ProseMirror]:text-[#ddd] [&_.ProseMirror]:outline-none [&_.ProseMirror:focus]:bg-[#0d0d0d] [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
+                className="writer-prose [&_.ProseMirror]:min-h-[520px] [&_.ProseMirror]:w-full [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:px-5 [&_.ProseMirror]:py-4 [&_.ProseMirror]:font-sans [&_.ProseMirror]:text-base [&_.ProseMirror]:leading-8 [&_.ProseMirror]:text-[#ddd] [&_.ProseMirror]:outline-none [&_.ProseMirror:focus]:bg-[#0d0d0d] sm:[&_.ProseMirror]:px-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
             />
             <div className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#555]">
                 ProseMirror protocol // headings, bold, italic, underline, link, quote, lists, undo, redo
@@ -890,7 +890,7 @@ function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick
         <button
             type="button"
             onClick={onClick}
-            className={`flex flex-1 items-center justify-center gap-2 border py-2 text-xs font-bold transition-all ${
+            className={`flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap border px-3 text-[11px] font-bold uppercase transition-all sm:w-auto sm:min-w-[140px] ${
                 active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#666] hover:border-[#e60000]/60 hover:text-white'
             }`}
         >
