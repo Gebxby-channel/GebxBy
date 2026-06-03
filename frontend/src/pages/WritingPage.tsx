@@ -382,7 +382,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] px-3 py-4 font-mono text-[#eee] sm:px-5 lg:px-8 lg:py-7">
-            <div className="mx-auto w-full max-w-[1040px] border border-[#333] bg-[#111] p-4 shadow-2xl sm:p-5 lg:p-6">
+            <div className="mx-auto w-full max-w-[1220px] border border-[#333] bg-[#111] p-4 shadow-2xl sm:p-5 lg:p-6">
                 <div className="mb-6 flex flex-col gap-3 border-b border-[#e60000] pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">Writer Studio</h2>
@@ -461,7 +461,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             onChange={setContent}
                         />
                     ) : (
-                        <div className="border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#e60000]">
+                        <div className="mx-auto w-full max-w-[1080px] border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#e60000]">
                             <input
                                 name="docxFile"
                                 aria-label="Upload DOCX file"
@@ -651,7 +651,7 @@ function ArticlePreview({
     images: AttachedImage[];
 }) {
     return (
-        <section className="border border-[#333] bg-[#0f0f0f]">
+        <section className="mx-auto w-full max-w-[1080px] border border-[#333] bg-[#0f0f0f]">
             <header className="border-b border-[#252525] p-5">
                 <span className="inline-flex border border-[#e60000] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest text-[#e60000]">
                     {kategori || 'General'}
@@ -752,7 +752,7 @@ function RichTextEditor({
     };
 
     return (
-        <section className="border border-[#333] bg-[#0f0f0f]">
+        <section className="mx-auto w-full max-w-[1080px] border border-[#333] bg-[#0f0f0f]">
             <div className="flex flex-wrap gap-1.5 border-b border-[#252525] bg-[#111] p-2">
                 <EditorButton active={editor?.isActive('bold')} icon={<Bold size={14} />} label="Bold" onClick={() => editor?.chain().focus().toggleBold().run()} />
                 <EditorButton active={editor?.isActive('italic')} icon={<Italic size={14} />} label="Italic" onClick={() => editor?.chain().focus().toggleItalic().run()} />
