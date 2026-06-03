@@ -19,8 +19,10 @@ import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.BadgeService;
 import gebxby.gebxbyblog.service.ActivityLogService;
 import gebxby.gebxbyblog.service.AnnouncementService;
+import gebxby.gebxbyblog.service.BackupArchive;
 import gebxby.gebxbyblog.service.CommentService;
 import gebxby.gebxbyblog.service.ContentService;
+import gebxby.gebxbyblog.service.DataBackupService;
 import gebxby.gebxbyblog.service.EmailDomainPolicyService;
 import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.GenreService;
@@ -32,6 +34,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -59,6 +63,7 @@ public class AdminController {
     private final GenreService genreService;
     private final ProfileCardService profileCardService;
     private final EmailDomainPolicyService emailDomainPolicyService;
+    private final DataBackupService dataBackupService;
     private final ForumMapper mapper;
 
     public AdminController(UserService userService,
@@ -72,6 +77,7 @@ public class AdminController {
                            GenreService genreService,
                            ProfileCardService profileCardService,
                            EmailDomainPolicyService emailDomainPolicyService,
+                           DataBackupService dataBackupService,
                            ForumMapper mapper) {
         this.userService = userService;
         this.contentService = contentService;
@@ -84,6 +90,7 @@ public class AdminController {
         this.genreService = genreService;
         this.profileCardService = profileCardService;
         this.emailDomainPolicyService = emailDomainPolicyService;
+        this.dataBackupService = dataBackupService;
         this.mapper = mapper;
     }
 
@@ -102,6 +109,17 @@ public class AdminController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
         }
         return ResponseEntity.ok(mediaPipelineService.smokeTest());
+    }
+
+    @GetMapping(value = "/backup/export", produces = "application/zip")
+    public ResponseEntity<byte[]> exportBackup(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        BackupArchive archive = dataBackupService.createBackup(admin);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"%s\"".formatted(archive.filename()))
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .contentLength(archive.bytes().length)
+                .body(archive.bytes());
     }
 
     @PostMapping("/users/{userId}/suspend")

@@ -87,7 +87,7 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With", "Accept", "X-CSRF-TOKEN", "X-XSRF-TOKEN"));
-        config.setExposedHeaders(List.of("X-CSRF-TOKEN", "X-XSRF-TOKEN"));
+        config.setExposedHeaders(List.of("X-CSRF-TOKEN", "X-XSRF-TOKEN", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

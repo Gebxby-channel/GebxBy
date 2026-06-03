@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Award, Ban, Check, CheckCircle2, ChevronDown, HardDrive, ImagePlus, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertTriangle, Award, Ban, Check, CheckCircle2, ChevronDown, Download, HardDrive, ImagePlus, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import api, { invalidateApiCache, isRequestCanceled } from '../lib/api';
 import type { ActivityLogItem, Badge, BadgeCode, ContentItem, CurrentUser, MediaSmokeTestResult } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
@@ -48,6 +48,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [drawerUser, setDrawerUser] = useState<CurrentUser | null>(null);
     const [mediaSmoke, setMediaSmoke] = useState<MediaSmokeTestResult | null>(null);
     const [mediaSmokeBusy, setMediaSmokeBusy] = useState(false);
+    const [backupBusy, setBackupBusy] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const fetchUsers = useCallback(async (signal?: AbortSignal) => {
@@ -344,6 +345,27 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         }
     };
 
+    const downloadLocalBackup = async () => {
+        setBackupBusy(true);
+        try {
+            const response = await api.get<Blob>('/api/admin/backup/export', { responseType: 'blob' });
+            const filename = backupFilenameFromHeader(response.headers['content-disposition']);
+            const url = URL.createObjectURL(response.data);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            feedback.toast('Backup lokal berhasil dibuat.', 'success');
+        } catch (error) {
+            feedback.toast(getAdminError(error), 'error');
+        } finally {
+            setBackupBusy(false);
+        }
+    };
+
     const resolveReport = async (report: ActivityLogItem) => {
         const response = await api.post<ActivityLogItem>(`/api/logs/reports/${report.id}/resolve`);
         setReports(current => current.map(item => item.id === report.id ? response.data : item));
@@ -485,6 +507,27 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 <StatChip label="Total Views" value={totalViews} />
                 <StatChip label="Total UP" value={totalUp} />
             </div>
+
+            <Panel
+                title="Local Data Backup"
+                subtitle="ZIP archive // JSON per collection // admin only"
+                action={(
+                    <UiButton onClick={() => void downloadLocalBackup()} disabled={backupBusy} variant="danger">
+                        <Download size={13} />
+                        {backupBusy ? 'Building' : 'Download ZIP'}
+                    </UiButton>
+                )}
+                className="mb-8"
+            >
+                <div className="grid gap-2 font-mono text-[10px] uppercase leading-5 text-[#777]">
+                    <p className="m-0">
+                        Backup menyimpan semua collection MongoDB sebagai JSON di dalam file ZIP lokal.
+                    </p>
+                    <p className="m-0 text-[#555]">
+                        Media R2 tidak diunduh ulang sebagai binary; yang ikut adalah metadata, storage key, thumbnail, dan URL yang tersimpan di database.
+                    </p>
+                </div>
+            </Panel>
 
             <Panel
                 title="Media Storage Status"
@@ -1382,6 +1425,19 @@ async function readBadgeImage(file?: File) {
     } finally {
         URL.revokeObjectURL(source);
     }
+}
+
+function backupFilenameFromHeader(contentDisposition?: string) {
+    const fallback = `codexavernico-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+    if (!contentDisposition) {
+        return fallback;
+    }
+    const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
+    if (utf8Match?.[1]) {
+        return decodeURIComponent(utf8Match[1].replace(/"/g, ''));
+    }
+    const plainMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
+    return plainMatch?.[1] ?? fallback;
 }
 
 function getAdminError(error: unknown) {
