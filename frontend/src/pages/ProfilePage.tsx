@@ -35,6 +35,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [savingProfile, setSavingProfile] = useState(false);
     const [profileEditorOpen, setProfileEditorOpen] = useState(false);
     const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
+    const [publishingDraftId, setPublishingDraftId] = useState<string | null>(null);
 
     const navigate = useNavigate();
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(user.name || 'User')}`;
@@ -262,6 +263,39 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         await fetchMyContents(true);
     };
 
+    const handlePublishDraft = async (item: ContentItem) => {
+        if (item.status !== 'DRAFT' || publishingDraftId) {
+            return;
+        }
+        if (!item.head?.trim() || !stripHtml(item.paragrafs).trim()) {
+            feedback.toast('Draft butuh judul dan isi sebelum dipublish.', 'error');
+            return;
+        }
+        const accepted = await feedback.confirm({
+            title: 'Publish Draft',
+            message: `Draft "${item.head}" akan masuk ke database publik.`,
+            confirmLabel: 'Publish',
+        });
+        if (!accepted) return;
+
+        setPublishingDraftId(item.idContent);
+        try {
+            const response = await api.post<ContentItem>(`/content/drafts/${item.idContent}/publish`, buildDraftPublishPayload(item));
+            discardLocalWriterDraft(user.userID, item.idContent);
+            invalidateContentCaches(user.userID, item.idContent);
+            setContents(current => [
+                response.data,
+                ...current.filter(existing => existing.idContent !== item.idContent && existing.idContent !== response.data.idContent),
+            ]);
+            await fetchMyContents(true);
+            feedback.toast('Draft berhasil dipublish.', 'success');
+        } catch {
+            feedback.toast('Draft gagal dipublish. Draft tetap aman di profil.', 'error');
+        } finally {
+            setPublishingDraftId(null);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
             <div className="mx-auto max-w-[1600px]">
@@ -392,6 +426,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <ArchiveItem
                                         key={item.idContent}
                                         item={item}
+                                        publishing={publishingDraftId === item.idContent}
+                                        onPublish={() => void handlePublishDraft(item)}
                                         onEdit={() => navigate(`/write?edit=${item.idContent}`)}
                                         onDelete={() => void handleDelete(item.idContent)}
                                     />
@@ -600,14 +636,19 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
 
 function ArchiveItem({
     item,
+    publishing,
+    onPublish,
     onEdit,
     onDelete,
 }: {
     item: ContentItem;
+    publishing: boolean;
+    onPublish: () => void;
     onEdit: () => void;
     onDelete: () => void;
 }) {
     const themeColor = getCategoryColor(item.kategori);
+    const isDraft = item.status === 'DRAFT';
     return (
         <div className="bg-[#181818] p-6 shadow-inner transition-all duration-300" style={{ border: `1px solid #2a2a2a`, borderLeft: `3px solid ${themeColor}` }}>
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
@@ -616,7 +657,7 @@ function ArchiveItem({
                         <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
                         <span className="font-mono text-[9px] font-bold uppercase text-[#444]">FILE DATE: {formatDate(item.createdAt)}</span>
                         <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
-                        {item.status === 'DRAFT' && (
+                        {isDraft && (
                             <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">Draft</span>
                         )}
                     </div>
@@ -624,8 +665,18 @@ function ArchiveItem({
                     <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                 </div>
                 <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
-                    <button type="button" onClick={onEdit} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-white md:w-28">Edit File</button>
-                    <button type="button" onClick={onDelete} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-[#e60000] hover:bg-[#e60000] md:w-28">Delete</button>
+                    {isDraft && (
+                        <button
+                            type="button"
+                            onClick={onPublish}
+                            disabled={publishing}
+                            className="flex-1 border border-[#e60000] bg-[#e60000] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60 md:w-28"
+                        >
+                            {publishing ? 'Publishing' : 'Publish'}
+                        </button>
+                    )}
+                    <button type="button" onClick={onEdit} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-white disabled:cursor-wait disabled:opacity-50 md:w-28">Edit File</button>
+                    <button type="button" onClick={onDelete} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-[#e60000] hover:bg-[#e60000] disabled:cursor-wait disabled:opacity-50 md:w-28">Delete</button>
                 </div>
             </div>
         </div>
@@ -857,10 +908,42 @@ function FollowingItem({
 function invalidateContentCaches(userId: string, contentId?: string) {
     invalidateApiCache('/content/all-content');
     invalidateApiCache(`/content/by-user/${userId}`);
+    invalidateApiCache('/content/feed');
+    invalidateApiCache('/content/feed-page');
+    invalidateApiCache('/content/latest');
     invalidateApiCache('/content/categories');
     invalidateApiCache('/content/analytics');
     if (contentId) {
         invalidateApiCache(`/content/${contentId}`);
+    }
+}
+
+function buildDraftPublishPayload(item: ContentItem) {
+    return {
+        head: item.head,
+        subtitle: item.subtitle,
+        paragrafs: item.paragrafs,
+        kategori: item.kategori || 'General',
+    };
+}
+
+function discardLocalWriterDraft(userId: string, draftId: string) {
+    const prefix = `gebxby:writer-draft:${userId}:`;
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (!key?.startsWith(prefix)) {
+            continue;
+        }
+        try {
+            const draft = JSON.parse(localStorage.getItem(key) || '{}') as { draftId?: string };
+            if (key === `${prefix}${draftId}` || draft.draftId === draftId) {
+                localStorage.removeItem(key);
+            }
+        } catch {
+            if (key === `${prefix}${draftId}`) {
+                localStorage.removeItem(key);
+            }
+        }
     }
 }
 

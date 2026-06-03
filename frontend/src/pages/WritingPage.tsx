@@ -41,6 +41,9 @@ type WriterDraft = {
     activeTab: 'manual' | 'upload';
     content: string;
     images: AttachedImage[];
+    fileName?: string;
+    emergency?: boolean;
+    emergencyReason?: string;
     savedAt: string;
 };
 
@@ -65,6 +68,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const [editContentId, setEditContentId] = useState<string | undefined>(undefined);
     const [exitPrompt, setExitPrompt] = useState<{ nextPath: string } | null>(null);
     const [savingExitDraft, setSavingExitDraft] = useState(false);
+    const [emergencyDraftPending, setEmergencyDraftPending] = useState(false);
     const lastServerImageSignature = useRef('');
     const allowExitRef = useRef(false);
     const draftKey = useMemo(() => `gebxby:writer-draft:${user?.userID ?? 'guest'}:${editId || 'new'}`, [editId, user?.userID]);
@@ -80,7 +84,10 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             .catch(() => setCategoryOptions(DEFAULT_CATEGORIES));
     }, [user]);
 
-    const buildLocalDraft = useCallback((nextDraftId = draftId): WriterDraft => ({
+    const buildLocalDraft = useCallback((
+        nextDraftId = draftId,
+        options?: { emergency?: boolean; reason?: string },
+    ): WriterDraft => ({
         version: DRAFT_SCHEMA_VERSION,
         draftId: nextDraftId,
         title,
@@ -88,8 +95,31 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         activeTab,
         content,
         images,
+        fileName: file?.name,
+        emergency: Boolean(options?.emergency),
+        emergencyReason: options?.reason,
         savedAt: new Date().toISOString(),
-    }), [activeTab, content, draftId, images, selectedKategori, title]);
+    }), [activeTab, content, draftId, file?.name, images, selectedKategori, title]);
+
+    const persistLocalDraft = useCallback((
+        notice = 'Local draft autosaved',
+        options?: { nextDraftId?: string; emergency?: boolean; reason?: string },
+    ) => {
+        if (!user || !hasWritableDraft) {
+            return false;
+        }
+        try {
+            localStorage.setItem(draftKey, JSON.stringify(buildLocalDraft(options?.nextDraftId, options)));
+            if (options?.emergency) {
+                setEmergencyDraftPending(true);
+            }
+            setDraftNotice(notice);
+            return true;
+        } catch {
+            setDraftNotice('Local draft save failed');
+            return false;
+        }
+    }, [buildLocalDraft, draftKey, hasWritableDraft, user]);
 
     const applyLocalDraft = useCallback((draft: WriterDraft) => {
         if (draft.version !== DRAFT_SCHEMA_VERSION) return false;
@@ -98,8 +128,10 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setSelectedKategori(draft.kategori ?? 'General');
         setActiveTab(draft.activeTab ?? 'manual');
         setContent(draft.content ?? '');
+        setFile(null);
         setImages(Array.isArray(draft.images) ? draft.images : []);
-        setDraftNotice('Local draft restored');
+        setEmergencyDraftPending(Boolean(draft.emergency));
+        setDraftNotice(draft.emergency ? 'Emergency draft restored' : draft.fileName ? 'Local draft restored; reattach DOCX file' : 'Local draft restored');
         return true;
     }, []);
 
@@ -168,11 +200,10 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                 localStorage.removeItem(draftKey);
                 return;
             }
-            localStorage.setItem(draftKey, JSON.stringify(buildLocalDraft()));
-            setDraftNotice('Local draft autosaved');
+            persistLocalDraft('Local draft autosaved');
         }, 900);
         return () => window.clearTimeout(timer);
-    }, [buildLocalDraft, draftKey, hasWritableDraft, user]);
+    }, [draftKey, hasWritableDraft, persistLocalDraft, user]);
 
     const persistServerDraft = useCallback(async () => {
         if (!user || !hasWritableDraft) {
@@ -193,21 +224,55 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                     lastServerImageSignature.current = imageSignature;
                 }
                 setDraftId(savedDraft.idContent);
-                localStorage.setItem(draftKey, JSON.stringify(buildLocalDraft(savedDraft.idContent)));
-                setDraftNotice('Server draft saved');
+                persistLocalDraft('Server draft saved', { nextDraftId: savedDraft.idContent });
+                setEmergencyDraftPending(false);
             },
         });
-    }, [activeTab, buildLocalDraft, content, draftId, draftKey, hasWritableDraft, images, selectedKategori, title, user]);
+    }, [activeTab, content, draftId, hasWritableDraft, images, persistLocalDraft, selectedKategori, title, user]);
+
+    const saveEmergencyDraft = useCallback(async (reason: string, error?: unknown) => {
+        const localSaved = persistLocalDraft('Emergency draft saved locally', { emergency: true, reason });
+        if (!localSaved || isAuthExpired(error)) {
+            return localSaved;
+        }
+        try {
+            await persistServerDraft();
+            return true;
+        } catch {
+            setDraftNotice('Emergency local draft safe');
+            return localSaved;
+        }
+    }, [persistLocalDraft, persistServerDraft]);
+
+    useEffect(() => {
+        if (!user || !emergencyDraftPending || !hasWritableDraft) {
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            persistServerDraft()
+                .then((savedDraft) => {
+                    if (savedDraft) {
+                        feedback.toast('Draft darurat dipulihkan ke database.', 'success');
+                    }
+                })
+                .catch(() => {
+                    setDraftNotice('Emergency local draft safe');
+                });
+        }, 1200);
+        return () => window.clearTimeout(timer);
+    }, [emergencyDraftPending, feedback, hasWritableDraft, persistServerDraft, user]);
 
     useEffect(() => {
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
             if (allowExitRef.current || !hasWritableDraft) return;
+            persistLocalDraft('Emergency draft saved locally', { emergency: true, reason: 'PAGE_UNLOAD' });
             void persistServerDraft();
             event.preventDefault();
             event.returnValue = '';
         };
         const handlePageHide = () => {
             if (allowExitRef.current || !hasWritableDraft) return;
+            persistLocalDraft('Emergency draft saved locally', { emergency: true, reason: 'PAGE_HIDE' });
             void persistServerDraft();
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -216,7 +281,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             window.removeEventListener('beforeunload', handleBeforeUnload);
             window.removeEventListener('pagehide', handlePageHide);
         };
-    }, [hasWritableDraft, persistServerDraft]);
+    }, [hasWritableDraft, persistLocalDraft, persistServerDraft]);
 
     useEffect(() => {
         const interceptInternalNavigation = (event: MouseEvent) => {
@@ -254,6 +319,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             return;
         }
         setSubmitting(true);
+        persistLocalDraft('Upload checkpoint saved');
         try {
             const payload = {
                 head: title,
@@ -272,7 +338,8 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
-            handleSubmitError(error, feedback.toast, navigate);
+            const emergencySaved = await saveEmergencyDraft('MANUAL_PUBLISH_FAILED', error);
+            handleSubmitError(error, feedback.toast, navigate, emergencySaved);
         } finally {
             setSubmitting(false);
         }
@@ -291,6 +358,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         formData.append('imagesJson', JSON.stringify(buildImagePayload(images)));
 
         setSubmitting(true);
+        persistLocalDraft('Upload checkpoint saved');
         try {
             const response = await api.post<ContentItem>('/content/upload', formData);
             allowExitRef.current = true;
@@ -302,7 +370,8 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             invalidatePublishedContentCaches(user.userID);
             navigate(`/read/${response.data.idContent}`);
         } catch (error: unknown) {
-            handleSubmitError(error, feedback.toast, navigate);
+            const emergencySaved = await saveEmergencyDraft('DOCX_UPLOAD_FAILED', error);
+            handleSubmitError(error, feedback.toast, navigate, emergencySaved);
         } finally {
             setSubmitting(false);
         }
@@ -319,6 +388,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setActiveTab('manual');
         setStudioMode('edit');
         setDraftNotice('Draft cleared');
+        setEmergencyDraftPending(false);
         localStorage.removeItem(draftKey);
         lastServerImageSignature.current = '';
         if (draftId) {
@@ -359,6 +429,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
             const saved = await persistServerDraft();
             if (saved) {
                 localStorage.removeItem(draftKey);
+                setEmergencyDraftPending(false);
                 invalidateApiCache(`/content/by-user/${user.userID}`);
                 feedback.toast('Draft disimpan ke database.', 'success');
             }
@@ -376,6 +447,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         if (!exitPrompt) return;
         allowExitRef.current = true;
         localStorage.removeItem(draftKey);
+        setEmergencyDraftPending(false);
         setExitPrompt(null);
         navigate(exitPrompt.nextPath);
     };
@@ -514,6 +586,8 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
 function invalidatePublishedContentCaches(userId: string) {
     invalidateApiCache('/content/all-content');
     invalidateApiCache('/content/feed');
+    invalidateApiCache('/content/feed-page');
+    invalidateApiCache('/content/latest');
     invalidateApiCache(`/content/by-user/${userId}`);
     invalidateApiCache('/content/categories');
     invalidateApiCache('/content/analytics');
@@ -602,7 +676,7 @@ function shouldRecoverStaleDraft(error: unknown) {
         return false;
     }
     const status = error.response?.status;
-    return !status || status === 404 || status === 410 || status === 500 || status === 502 || status === 503;
+    return status === 404 || status === 410;
 }
 
 async function deleteServerDraft(draftId: string) {
@@ -1022,15 +1096,29 @@ function hasReadableText(html: string) {
     return Boolean(element.textContent?.trim());
 }
 
-function handleSubmitError(error: unknown, toast: (message: string, tone?: 'success' | 'error' | 'info') => void, navigate: (path: string) => void) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-        toast('Sesi akses berakhir. Silakan login ulang.', 'error');
+function isAuthExpired(error: unknown) {
+    if (!axios.isAxiosError(error)) {
+        return false;
+    }
+    const status = error.response?.status;
+    return status === 401 || status === 403;
+}
+
+function handleSubmitError(
+    error: unknown,
+    toast: (message: string, tone?: 'success' | 'error' | 'info') => void,
+    navigate: (path: string) => void,
+    draftSaved = false,
+) {
+    const draftSuffix = draftSaved ? ' Draft darurat sudah aman.' : '';
+    if (isAuthExpired(error)) {
+        toast(`Sesi akses berakhir. Silakan login ulang.${draftSuffix}`, 'error');
         navigate('/login');
         return;
     }
     if (axios.isAxiosError(error) && error.response?.status === 423) {
-        toast('Akun sedang disuspend sementara. Publikasi ditahan.', 'error');
+        toast(`Akun sedang disuspend sementara. Publikasi ditahan.${draftSuffix}`, 'error');
         return;
     }
-    toast('Critical Error: Gagal sinkronisasi dengan database.', 'error');
+    toast(`Critical Error: Gagal sinkronisasi dengan database.${draftSuffix}`, 'error');
 }
