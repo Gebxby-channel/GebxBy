@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, FileText, Inbox, Radio, ShieldAlert, UserRound, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileText, Inbox, Radio, ShieldAlert, Trash2, UserRound, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api, { isRequestCanceled } from '../lib/api';
 import type { ActivityLogItem, CurrentUser } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { profilePathForUser } from '../utils/profilePath';
 import { formatIndonesiaDateTime } from '../utils/time';
+import { useFeedback } from '../components/feedback';
+import { LazyRenderList } from '../components/LazyRender';
 
 type Tab = 'basis' | 'reports';
 
 export default function LogPage({ user }: { user: CurrentUser }) {
     const navigate = useNavigate();
+    const feedback = useFeedback();
     const [searchParams, setSearchParams] = useSearchParams();
     const canReviewReports = user.role === 'ADMIN' || Boolean(user.badges?.some((badge) => badge.code === 'MODERATOR'));
     const [activeTab, setActiveTab] = useState<Tab>('basis');
@@ -20,6 +23,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
     const [selected, setSelected] = useState<ActivityLogItem | null>(null);
     const [reportFilter, setReportFilter] = useState<'open' | 'resolved' | 'all'>('open');
     const [loading, setLoading] = useState(true);
+    const [clearingBasis, setClearingBasis] = useState(false);
 
     const fetchLogs = useCallback(async (signal?: AbortSignal) => {
         setLoading(true);
@@ -89,6 +93,28 @@ export default function LogPage({ user }: { user: CurrentUser }) {
         }
     };
 
+    const clearBasis = async () => {
+        const accepted = await feedback.confirm({
+            title: 'Clear Activity Log',
+            message: 'Basis log akun ini akan dihapus permanen. Report queue yang masih open tetap disimpan sampai moderator/admin selesai meninjau.',
+            confirmLabel: 'Clear',
+            danger: true,
+        });
+        if (!accepted) return;
+        setClearingBasis(true);
+        try {
+            const response = await api.delete<{ deleted: number }>('/api/logs');
+            setSelected(null);
+            setSearchParams({});
+            await fetchLogs();
+            feedback.toast(`${response.data.deleted ?? 0} log dihapus permanen.`, 'success');
+        } catch {
+            feedback.toast('Log gagal dibersihkan.', 'error');
+        } finally {
+            setClearingBasis(false);
+        }
+    };
+
     return (
         <div className="w-full">
             <div className="mb-10 border-l-4 border-[#e60000] pl-6">
@@ -111,6 +137,17 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                 {canReviewReports && (
                     <TabButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<ShieldAlert size={14} />} label="Report Queue" />
                 )}
+                {activeTab === 'basis' && (
+                    <button
+                        type="button"
+                        onClick={() => void clearBasis()}
+                        disabled={clearingBasis || basis.length === 0}
+                        className="ml-auto flex h-9 items-center gap-2 border border-[#333] px-4 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        <Trash2 size={14} />
+                        {clearingBasis ? 'Clearing' : 'Clear Basis'}
+                    </button>
+                )}
             </div>
 
             {activeTab === 'reports' && (
@@ -127,41 +164,15 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                 ) : items.length === 0 ? (
                     <div className="py-24 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Records ]</div>
                 ) : (
-                    items.map((item) => (
-                        <article
-                            key={item.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setSelected(item)}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    setSelected(item);
-                                }
-                            }}
-                            className="group relative flex w-full gap-4 border-b border-[#202020] px-5 py-4 text-left transition-all hover:bg-[#171717]"
-                        >
-                            <LogIcon item={item} />
-                            <div className="min-w-0 flex-1">
-                                <div className="mb-1 flex flex-wrap items-center gap-2">
-                                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">{item.type}</span>
-                                    <span className="font-mono text-[9px] uppercase text-[#555]">{item.direction}</span>
-                                    {item.reportCategory && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#777]">{item.reportCategory}</span>}
-                                    {item.reportQueue && <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">Queue</span>}
-                                    {item.resolved && <span className="border border-[#166534] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#4ade80]">Resolved</span>}
-                                </div>
-                                <h2 className="m-0 truncate font-mono text-sm font-black uppercase text-white group-hover:text-[#e60000]">{item.title}</h2>
-                                <p className="m-0 mt-1 line-clamp-2 font-sans text-sm leading-6 text-[#999]">{item.message || item.reason}</p>
-                                <div className="mt-3 flex flex-wrap gap-3 font-mono text-[9px] uppercase text-[#555]">
-                                    <span>{formatDate(item.createdAt)}</span>
-                                    <InlineProfileLink label={item.actorName || 'System'} userId={item.actorUserId} viewerUserId={user.userID} />
-                                    {item.contentTitle && <span className="truncate">File: {item.contentTitle}</span>}
-                                    {item.targetUserName && <InlineProfileLink label={`Target: ${item.targetUserName}`} userId={item.targetUserId} viewerUserId={user.userID} />}
-                                </div>
-                            </div>
-                            <div className="absolute right-0 top-0 h-3 w-3 border-r border-t border-[#e60000]/0 transition-colors group-hover:border-[#e60000]" />
-                        </article>
-                    ))
+                    <LazyRenderList
+                        items={items}
+                        getKey={(item) => item.id}
+                        estimateSize={120}
+                        className="flex flex-col"
+                        renderItem={(item) => (
+                            <LogRow item={item} viewerUserId={user.userID} onSelect={() => setSelected(item)} />
+                        )}
+                    />
                 )}
             </div>
 
@@ -184,6 +195,43 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                 />
             )}
         </div>
+    );
+}
+
+function LogRow({ item, viewerUserId, onSelect }: { item: ActivityLogItem; viewerUserId: string; onSelect: () => void }) {
+    return (
+        <article
+            role="button"
+            tabIndex={0}
+            onClick={onSelect}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelect();
+                }
+            }}
+            className="group relative flex w-full gap-4 border-b border-[#202020] px-5 py-4 text-left transition-all hover:bg-[#171717]"
+        >
+            <LogIcon item={item} />
+            <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">{item.type}</span>
+                    <span className="font-mono text-[9px] uppercase text-[#555]">{item.direction}</span>
+                    {item.reportCategory && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#777]">{item.reportCategory}</span>}
+                    {item.reportQueue && <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">Queue</span>}
+                    {item.resolved && <span className="border border-[#166534] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#4ade80]">Resolved</span>}
+                </div>
+                <h2 className="m-0 truncate font-mono text-sm font-black uppercase text-white group-hover:text-[#e60000]">{item.title}</h2>
+                <p className="m-0 mt-1 line-clamp-2 font-sans text-sm leading-6 text-[#999]">{item.message || item.reason}</p>
+                <div className="mt-3 flex flex-wrap gap-3 font-mono text-[9px] uppercase text-[#555]">
+                    <span>{formatDate(item.createdAt)}</span>
+                    <InlineProfileLink label={item.actorName || 'System'} userId={item.actorUserId} viewerUserId={viewerUserId} />
+                    {item.contentTitle && <span className="truncate">File: {item.contentTitle}</span>}
+                    {item.targetUserName && <InlineProfileLink label={`Target: ${item.targetUserName}`} userId={item.targetUserId} viewerUserId={viewerUserId} />}
+                </div>
+            </div>
+            <div className="absolute right-0 top-0 h-3 w-3 border-r border-t border-[#e60000]/0 transition-colors group-hover:border-[#e60000]" />
+        </article>
     );
 }
 

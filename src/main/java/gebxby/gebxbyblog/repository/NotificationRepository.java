@@ -16,5 +16,7 @@ public interface NotificationRepository extends MongoRepository<Notification, UU
 
     Optional<Notification> findByIdAndRecipientUserId(UUID id, UUID recipientUserId);
 
+    long deleteByRecipientUserId(UUID recipientUserId);
+
     void deleteByExpiresAtBefore(LocalDateTime cutoff);
 }

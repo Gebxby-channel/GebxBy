@@ -11,6 +11,7 @@ import { profilePathForUser } from '../utils/profilePath';
 import { formatIndonesiaDateTime } from '../utils/time';
 import { Button as UiButton, Input, Modal, Panel, Select, StatChip } from '../components/ui';
 import type { GenreItem, ProfileCardItem, ProfileCardLayout } from '../types/forum';
+import { LazyRenderList } from '../components/LazyRender';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 const genrePalette = [
@@ -736,25 +737,31 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                         {customBadges.length === 0 ? (
                             <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Custom Badge ]</div>
                         ) : (
-                            customBadges.map((badge) => (
-                                <div key={badge.id ?? badge.label} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-3 md:flex-row md:items-center md:justify-between">
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            {badge.image ? <img src={badge.image} alt="" width={24} height={24} className="h-6 w-6 object-contain" /> : <span className="text-lg">{badge.icon}</span>}
-                                            <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{badge.label}</p>
-                                            {badge.code && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] uppercase text-[#777]">Core</span>}
+                            <LazyRenderList
+                                items={customBadges}
+                                getKey={(badge) => badge.id ?? badge.label}
+                                estimateSize={92}
+                                className="grid gap-2"
+                                renderItem={(badge) => (
+                                    <div className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-3 md:flex-row md:items-center md:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                {badge.image ? <img src={badge.image} alt="" width={24} height={24} className="h-6 w-6 object-contain" /> : <span className="text-lg">{badge.icon}</span>}
+                                                <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{badge.label}</p>
+                                                {badge.code && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] uppercase text-[#777]">Core</span>}
+                                            </div>
+                                            <p className="m-0 mt-1 line-clamp-2 text-sm text-[#888]">{badge.description || 'No description'}</p>
                                         </div>
-                                        <p className="m-0 mt-1 line-clamp-2 text-sm text-[#888]">{badge.description || 'No description'}</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            <UiButton onClick={() => editCustomBadge(badge)}>Edit</UiButton>
+                                            <UiButton onClick={() => void deleteCustomBadge(badge)} disabled={!badge.custom || Boolean(badge.code)} variant="danger">
+                                                <Trash2 size={13} />
+                                                Delete
+                                            </UiButton>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <UiButton onClick={() => editCustomBadge(badge)}>Edit</UiButton>
-                                        <UiButton onClick={() => void deleteCustomBadge(badge)} disabled={!badge.custom || Boolean(badge.code)} variant="danger">
-                                            <Trash2 size={13} />
-                                            Delete
-                                        </UiButton>
-                                    </div>
-                                </div>
-                            ))
+                                )}
+                            />
                         )}
                     </div>
                 </div>
@@ -813,21 +820,29 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                     <div className="grid gap-2 md:grid-cols-2">
                         {genres.length === 0 ? (
                             <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444] md:col-span-2">[ No Custom Genre ]</div>
-                        ) : genres.map((genre) => (
-                            <div key={genre.id} className="flex items-center justify-between gap-3 border border-[#242424] bg-[#101010] p-3">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="h-4 w-4 border border-[#333]" style={{ backgroundColor: genre.color }} />
-                                        <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{genre.name}</p>
+                        ) : (
+                            <LazyRenderList
+                                items={genres}
+                                getKey={(genre) => genre.id}
+                                estimateSize={76}
+                                className="contents"
+                                renderItem={(genre) => (
+                                    <div className="flex items-center justify-between gap-3 border border-[#242424] bg-[#101010] p-3">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-4 w-4 border border-[#333]" style={{ backgroundColor: genre.color }} />
+                                                <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{genre.name}</p>
+                                            </div>
+                                            <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{genre.color}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <UiButton onClick={() => setGenreForm({ name: genre.name, color: genre.color, editingId: genre.id })}>Edit</UiButton>
+                                            <UiButton onClick={() => void deleteGenre(genre)} variant="danger">Delete</UiButton>
+                                        </div>
                                     </div>
-                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{genre.color}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <UiButton onClick={() => setGenreForm({ name: genre.name, color: genre.color, editingId: genre.id })}>Edit</UiButton>
-                                    <UiButton onClick={() => void deleteGenre(genre)} variant="danger">Delete</UiButton>
-                                </div>
-                            </div>
-                        ))}
+                                )}
+                            />
+                        )}
                     </div>
                 </div>
             </Panel>
@@ -873,18 +888,26 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                         <div className="grid gap-2">
                             {profileCardTemplates.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Template ]</div>
-                            ) : profileCardTemplates.map(template => (
-                                <div key={template.id} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-3 md:flex-row md:items-center md:justify-between">
-                                    <div className="min-w-0">
-                                        <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{template.name}</p>
-                                        <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{template.orientation} // {template.description || 'No description'}</p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <UiButton onClick={() => editProfileCardTemplate(template)}>Edit</UiButton>
-                                        <UiButton onClick={() => void deleteProfileCardTemplate(template)} variant="danger">Delete</UiButton>
-                                    </div>
-                                </div>
-                            ))}
+                            ) : (
+                                <LazyRenderList
+                                    items={profileCardTemplates}
+                                    getKey={(template) => template.id}
+                                    estimateSize={86}
+                                    className="grid gap-2"
+                                    renderItem={(template) => (
+                                        <div className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-3 md:flex-row md:items-center md:justify-between">
+                                            <div className="min-w-0">
+                                                <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{template.name}</p>
+                                                <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{template.orientation} // {template.description || 'No description'}</p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <UiButton onClick={() => editProfileCardTemplate(template)}>Edit</UiButton>
+                                                <UiButton onClick={() => void deleteProfileCardTemplate(template)} variant="danger">Delete</UiButton>
+                                            </div>
+                                        </div>
+                                    )}
+                                />
+                            )}
                         </div>
                     </div>
                 </div>
@@ -937,12 +960,16 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 ) : filteredUsers.length === 0 ? (
                     <div className="py-16 text-center font-mono text-[10px] uppercase tracking-[0.35em] text-[#444]">[ No Users ]</div>
                 ) : (
-                    <div className="grid gap-3">
-                        {filteredUsers.map((target) => {
+                    <LazyRenderList
+                        items={filteredUsers}
+                        getKey={(target) => target.userID}
+                        estimateSize={150}
+                        className="grid gap-3"
+                        renderItem={(target) => {
                             const isSelf = target.userID === user.userID;
                             const isAdmin = target.role === 'ADMIN';
                             return (
-                                <div key={target.userID} className="flex flex-col gap-4 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
+                                <div className="flex flex-col gap-4 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
                                     <div className="min-w-0">
                                         <div className="mb-1 flex flex-wrap items-center gap-2">
                                             <button
@@ -1000,8 +1027,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                     </div>
                                 </div>
                             );
-                        })}
-                    </div>
+                        }}
+                    />
                 )}
             </section>
 
@@ -1010,9 +1037,13 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                     <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Writing Control</h2>
                     <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#666]">Delete user writing or publish red-highlight admin comment</p>
                 </div>
-                <div className="grid gap-3">
-                    {contents.map((content) => (
-                        <div key={content.idContent} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
+                <LazyRenderList
+                    items={contents}
+                    getKey={(content) => content.idContent}
+                    estimateSize={115}
+                    className="grid gap-3"
+                    renderItem={(content) => (
+                        <div className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
                             <div className="min-w-0">
                                 <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{content.head}</p>
                                 <p className="m-0 mt-1 flex flex-wrap gap-2 font-mono text-[10px] text-[#666]">
@@ -1043,8 +1074,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 </button>
                             </div>
                         </div>
-                    ))}
-                </div>
+                    )}
+                />
             </section>
 
             {drawerUser && (

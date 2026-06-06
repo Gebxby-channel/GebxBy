@@ -7,6 +7,7 @@ import gebxby.gebxbyblog.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -56,5 +57,11 @@ public class NotificationController {
         User user = userService.getCurrentUser(principal);
         notificationService.markAllRead(user);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Map<String, Long>> clearNotifications(@AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(Map.of("deleted", notificationService.clearForUser(user)));
     }
 }

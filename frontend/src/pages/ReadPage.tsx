@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, CalendarDays, Eye, Flag, MessageSquare, Trash2, UserRound } from 'lucide-react';
+import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, CalendarDays, Eye, Flag, MessageSquare, Share2, Trash2, UserRound } from 'lucide-react';
 import axios from 'axios';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { invalidateApiCache } from '../lib/api';
-import { sanitizeArticle } from '../utils/sanitize';
+import { sanitizeArticle, stripHtml } from '../utils/sanitize';
 import type { CommentItem, CommentPagePayload, ContentImage, ContentItem, ContentStats, CurrentUser, PublicUser, VoteDirection } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useFeedback } from '../components/feedback';
 import { useRealtimeContentSubscription } from '../hooks/useRealtimeContentSubscription';
 import { profilePathForUser } from '../utils/profilePath';
 import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
+import { LazyRenderList } from '../components/LazyRender';
+import ShareDialog from '../components/ShareDialog';
 
 type ReportTarget = { type: 'content' } | { type: 'comment'; commentId: string };
 
@@ -28,6 +30,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const [rootCommentPosting, setRootCommentPosting] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [commentNotice, setCommentNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [shareOpen, setShareOpen] = useState(false);
     const commentSubmissionLocks = useRef(new Set<string>());
     const readCompletionRef = useRef<HTMLDivElement | null>(null);
     const viewRecordedRef = useRef<string | null>(null);
@@ -317,6 +320,10 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         return <LoadingSpinner label="Decrypting File" />;
     }
 
+    const shareUrl = buildArticleShareUrl(content.idContent);
+    const shareText = stripHtml(content.paragrafs).slice(0, 180);
+    const shareMediaUrl = getShareMediaUrl(content);
+
     return (
         <div className="relative min-h-screen overflow-hidden bg-[#111] p-4 font-mono text-[#eee] md:p-10">
             <div className="pointer-events-none fixed inset-0 z-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,3px_100%]" />
@@ -330,6 +337,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     onVote={handleVote}
                     onBookmark={handleBookmark}
                     onReport={handleReportContent}
+                    onShare={() => setShareOpen(true)}
                 />
 
                 <div className="mb-6 flex items-center justify-between gap-4 border-b border-[#222] pb-4">
@@ -424,17 +432,23 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                                 [ Thread_Empty ]
                             </div>
                         ) : (
-                            comments.map(comment => (
-                                <CommentNode
-                                    key={comment.id}
-                                    comment={comment}
-                                    user={user}
-                                    depth={0}
-                                    onReply={handleComment}
-                                    onDelete={handleDeleteComment}
-                                    onReport={handleReportComment}
-                                />
-                            ))
+                            <LazyRenderList
+                                items={comments}
+                                getKey={(comment) => comment.id}
+                                estimateSize={230}
+                                eagerCount={3}
+                                className="space-y-4"
+                                renderItem={(comment) => (
+                                    <CommentNode
+                                        comment={comment}
+                                        user={user}
+                                        depth={0}
+                                        onReply={handleComment}
+                                        onDelete={handleDeleteComment}
+                                        onReport={handleReportComment}
+                                    />
+                                )}
+                            />
                         )}
                         {commentsQuery.hasNextPage && (
                             <button
@@ -455,6 +469,14 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                         onSubmit={submitReport}
                     />
                 )}
+                <ShareDialog
+                    open={shareOpen}
+                    title={content.head || 'CodexAvernico Archive'}
+                    text={shareText}
+                    url={shareUrl}
+                    mediaUrl={shareMediaUrl}
+                    onClose={() => setShareOpen(false)}
+                />
             </div>
         </div>
     );
@@ -564,6 +586,7 @@ function ArticleActionRail({
     onVote,
     onBookmark,
     onReport,
+    onShare,
 }: {
     stats: ContentStats | null;
     content: ContentItem;
@@ -572,6 +595,7 @@ function ArticleActionRail({
     onVote: (vote: VoteDirection) => Promise<void>;
     onBookmark: () => Promise<void>;
     onReport: () => Promise<void>;
+    onShare: () => void;
 }) {
     return (
         <aside className="fixed bottom-4 left-4 right-4 z-40 flex justify-center md:left-auto md:right-6 md:top-32 md:bottom-auto md:w-14">
@@ -581,6 +605,7 @@ function ArticleActionRail({
                 <RailButton active={stats?.userVote === 'DOWN'} disabled={busy} icon={<ArrowBigDown size={17} />} label="DOWN" value={stats?.downCount ?? content.downCount} onClick={() => void onVote('DOWN')} />
                 <RailButton icon={<MessageSquare size={15} />} label="Comments" value={stats?.commentCount ?? content.commentCount} />
                 <RailButton active={bookmarked} icon={bookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />} label={bookmarked ? 'Saved' : 'Save'} onClick={() => void onBookmark()} />
+                <RailButton icon={<Share2 size={15} />} label="Share" onClick={onShare} />
                 <RailButton icon={<Flag size={15} />} label="Report" danger onClick={() => void onReport()} />
             </div>
         </aside>
@@ -628,6 +653,19 @@ function RailButton({
             {content}
         </button>
     );
+}
+
+function buildArticleShareUrl(contentId: string) {
+    if (typeof window === 'undefined') {
+        return `/read/${contentId}`;
+    }
+    return `${window.location.origin}/read/${contentId}`;
+}
+
+function getShareMediaUrl(content: ContentItem) {
+    const image = content.coverImage ?? content.images?.[0];
+    const source = image?.thumbnail || image?.data;
+    return source?.startsWith('http') ? source : undefined;
 }
 
 function ArticleAuthorBox({
@@ -869,10 +907,14 @@ function CommentNode({
                 )}
             </div>
             {comment.replies?.length > 0 && (
-                <div className="mt-3 space-y-3">
-                    {comment.replies.map(reply => (
+                <LazyRenderList
+                    items={comment.replies}
+                    getKey={(reply) => reply.id}
+                    estimateSize={190}
+                    eagerCount={depth < 1 ? 2 : 1}
+                    className="mt-3 space-y-3"
+                    renderItem={(reply) => (
                         <CommentNode
-                            key={reply.id}
                             comment={reply}
                             user={user}
                             depth={Math.min(depth + 1, 5)}
@@ -880,8 +922,8 @@ function CommentNode({
                             onDelete={onDelete}
                             onReport={onReport}
                         />
-                    ))}
-                </div>
+                    )}
+                />
             )}
         </div>
     );

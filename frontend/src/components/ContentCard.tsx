@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare } from 'lucide-react';
+import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare, Share2 } from 'lucide-react';
+import { useState } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { getCategoryColor } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
@@ -7,6 +8,7 @@ import { stripHtml } from '../utils/sanitize';
 import { formatIndonesiaDate } from '../utils/time';
 import type { ContentItem, CurrentUser } from '../types/forum';
 import BadgeStrip from './BadgeStrip';
+import ShareDialog from './ShareDialog';
 
 interface ContentCardProps {
     art: ContentItem;
@@ -16,6 +18,7 @@ interface ContentCardProps {
 export default function ContentCard({ art, user }: ContentCardProps) {
     const navigate = useNavigate();
     const themeColor = getCategoryColor(art.kategori);
+    const [shareOpen, setShareOpen] = useState(false);
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'NO DATA';
@@ -33,6 +36,8 @@ export default function ContentCard({ art, user }: ContentCardProps) {
     const preview = stripHtml(art.paragrafs) || 'No encrypted data preview available for this terminal entry...';
     const coverVisual = art.coverImage ?? art.images?.[0];
     const coverImage = coverVisual?.thumbnail || coverVisual?.data;
+    const shareUrl = buildArticleShareUrl(art.idContent);
+    const shareMediaUrl = coverImage?.startsWith('http') ? coverImage : undefined;
 
     return (
         <article
@@ -105,6 +110,18 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                         <Stat icon={<ArrowBigDown size={15} />} value={art.downCount} label="DOWN" />
                         <Stat icon={<MessageSquare size={14} />} value={art.commentCount} label="COM" />
                     </div>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            setShareOpen(true);
+                        }}
+                        className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-white"
+                        title="Share"
+                    >
+                        <Share2 size={13} />
+                        Share
+                    </button>
                 </div>
             </div>
 
@@ -126,8 +143,23 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                 </div>
             </div>
             )}
+            <ShareDialog
+                open={shareOpen}
+                title={art.head || 'CodexAvernico Archive'}
+                text={preview.slice(0, 180)}
+                url={shareUrl}
+                mediaUrl={shareMediaUrl}
+                onClose={() => setShareOpen(false)}
+            />
         </article>
     );
+}
+
+function buildArticleShareUrl(contentId: string) {
+    if (typeof window === 'undefined') {
+        return `/read/${contentId}`;
+    }
+    return `${window.location.origin}/read/${contentId}`;
 }
 
 function Stat({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {

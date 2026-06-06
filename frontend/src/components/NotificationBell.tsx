@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCheck, MessageSquare, ShieldAlert } from 'lucide-react';
+import { Bell, CheckCheck, MessageSquare, ShieldAlert, Trash2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import type { NotificationItem } from '../types/forum';
 import LoadingSpinner from './LoadingSpinner';
+import { useFeedback } from './feedback';
+import { LazyRenderList } from './LazyRender';
 
 export default function NotificationBell() {
     const navigate = useNavigate();
+    const feedback = useFeedback();
     const queryClient = useQueryClient();
     const panelRef = useRef<HTMLDivElement | null>(null);
     const [open, setOpen] = useState(false);
+    const [clearing, setClearing] = useState(false);
     const unreadQuery = useQuery({
         queryKey: ['notifications', 'unread-count'],
         queryFn: async ({ signal }) => {
@@ -55,6 +59,28 @@ export default function NotificationBell() {
         queryClient.setQueryData(['notifications', 'unread-count'], 0);
     };
 
+    const clearNotifications = async () => {
+        const accepted = await feedback.confirm({
+            title: 'Clear Notifications',
+            message: 'Semua notifikasi akun ini akan dihapus permanen dari database.',
+            confirmLabel: 'Clear',
+            danger: true,
+        });
+        if (!accepted) return;
+        setClearing(true);
+        try {
+            const response = await api.delete<{ deleted: number }>('/api/notifications');
+            queryClient.setQueryData<NotificationItem[]>(['notifications', 'panel'], []);
+            queryClient.setQueryData(['notifications', 'unread-count'], 0);
+            await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            feedback.toast(`${response.data.deleted ?? 0} notifikasi dihapus permanen.`, 'success');
+        } catch {
+            feedback.toast('Notifikasi gagal dibersihkan.', 'error');
+        } finally {
+            setClearing(false);
+        }
+    };
+
     const openNotification = async (notification: NotificationItem) => {
         if (!notification.read) {
             await api.put(`/api/notifications/${notification.id}/read`);
@@ -96,14 +122,26 @@ export default function NotificationBell() {
                             <h2 className="m-0 font-mono text-xs font-black uppercase tracking-widest text-white">Notifications</h2>
                             <p className="m-0 font-mono text-[9px] uppercase text-[#555]">Auto purge after 7 days</p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => void markAllRead()}
-                            className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white"
-                        >
-                            <CheckCheck size={12} />
-                            Read
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => void markAllRead()}
+                                disabled={clearing}
+                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white disabled:cursor-wait disabled:opacity-50"
+                            >
+                                <CheckCheck size={12} />
+                                Read
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void clearNotifications()}
+                                disabled={clearing || items.length === 0}
+                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <Trash2 size={12} />
+                                Clear
+                            </button>
+                        </div>
                     </div>
 
                     <div className="max-h-[420px] overflow-y-auto">
@@ -114,52 +152,58 @@ export default function NotificationBell() {
                         ) : items.length === 0 ? (
                             <div className="min-h-[160px] px-4 py-10 text-center font-mono text-[10px] uppercase tracking-widest text-[#444]">[ No Signal ]</div>
                         ) : (
-                            items.map((item) => (
-                                <article
-                                    key={item.id}
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => void openNotification(item)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            void openNotification(item);
-                                        }
-                                    }}
-                                    className={`flex w-full gap-3 border-b border-[#1e1e1e] px-4 py-3 text-left transition-all hover:bg-[#151515] ${
-                                        item.read ? 'opacity-65' : 'bg-[#160909]'
-                                    }`}
-                                >
-                                    <NotificationIcon type={item.type} />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="mb-1 flex items-center justify-between gap-3">
-                                            <p className="m-0 truncate font-mono text-[11px] font-black uppercase text-white">
-                                                {item.title || (item.type === 'COMMENT' ? 'Komentar baru' : 'Pesan admin')}
-                                            </p>
-                                            {!item.read && <span className="h-2 w-2 flex-shrink-0 bg-[#e60000]" />}
+                            <LazyRenderList
+                                items={items}
+                                getKey={(item) => item.id}
+                                estimateSize={96}
+                                eagerCount={5}
+                                className="contents"
+                                renderItem={(item) => (
+                                    <article
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => void openNotification(item)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                void openNotification(item);
+                                            }
+                                        }}
+                                        className={`flex w-full gap-3 border-b border-[#1e1e1e] px-4 py-3 text-left transition-all hover:bg-[#151515] ${
+                                            item.read ? 'opacity-65' : 'bg-[#160909]'
+                                        }`}
+                                    >
+                                        <NotificationIcon type={item.type} />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="mb-1 flex items-center justify-between gap-3">
+                                                <p className="m-0 truncate font-mono text-[11px] font-black uppercase text-white">
+                                                    {item.title || (item.type === 'COMMENT' ? 'Komentar baru' : 'Pesan admin')}
+                                                </p>
+                                                {!item.read && <span className="h-2 w-2 flex-shrink-0 bg-[#e60000]" />}
+                                            </div>
+                                            <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#aaa]">{item.message}</p>
+                                            <div className="mt-2 flex items-center justify-between gap-3 font-mono text-[9px] uppercase text-[#555]">
+                                                {item.actorUserId && item.actorName ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            navigate(`/profile/${item.actorUserId}`);
+                                                            setOpen(false);
+                                                        }}
+                                                        className="truncate font-mono uppercase text-[#777] hover:text-[#e60000]"
+                                                    >
+                                                        {item.actorName}
+                                                    </button>
+                                                ) : (
+                                                    <span className="truncate">{item.contentTitle || item.actorName || 'System'}</span>
+                                                )}
+                                                <span className="flex-shrink-0">{formatAge(item.createdAt)}</span>
+                                            </div>
                                         </div>
-                                        <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#aaa]">{item.message}</p>
-                                        <div className="mt-2 flex items-center justify-between gap-3 font-mono text-[9px] uppercase text-[#555]">
-                                            {item.actorUserId && item.actorName ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        navigate(`/profile/${item.actorUserId}`);
-                                                        setOpen(false);
-                                                    }}
-                                                    className="truncate font-mono uppercase text-[#777] hover:text-[#e60000]"
-                                                >
-                                                    {item.actorName}
-                                                </button>
-                                            ) : (
-                                                <span className="truncate">{item.contentTitle || item.actorName || 'System'}</span>
-                                            )}
-                                            <span className="flex-shrink-0">{formatAge(item.createdAt)}</span>
-                                        </div>
-                                    </div>
-                                </article>
-                            ))
+                                    </article>
+                                )}
+                            />
                         )}
                     </div>
                 </div>

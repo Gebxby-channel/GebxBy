@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -70,6 +71,12 @@ public class ActivityLogController {
         User user = userService.getCurrentUser(principal);
         activityLogService.rejectReport(id, user, userService.isAdmin(user));
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Map<String, Long>> clearBasis(@AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getCurrentUser(principal);
+        return ResponseEntity.ok(Map.of("deleted", activityLogService.clearUserBasis(user)));
     }
 
     @PostMapping("/reports/content/{contentId}")

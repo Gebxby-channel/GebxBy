@@ -10,6 +10,7 @@ import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.repository.ActivityLogRepository;
 import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
+import gebxby.gebxbyblog.repository.ReportRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,8 @@ class ActivityLogServiceImplTest {
     private ContentRepository contentRepository;
     @Mock
     private CommentRepository commentRepository;
+    @Mock
+    private ReportRepository reportRepository;
 
     private ActivityLogServiceImpl activityLogService;
     private User reporter;
@@ -45,7 +48,7 @@ class ActivityLogServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        activityLogService = new ActivityLogServiceImpl(logRepository, contentRepository, commentRepository);
+        activityLogService = new ActivityLogServiceImpl(logRepository, contentRepository, commentRepository, reportRepository);
         reporter = new User();
         reporter.setUserID(UUID.randomUUID());
         reporter.setName("Reporter");
@@ -134,5 +137,27 @@ class ActivityLogServiceImplTest {
         activityLogService.rejectReport(log.getId(), reporter, true);
 
         verify(logRepository).delete(log);
+    }
+
+    @Test
+    void clearUserBasisDeletesOwnedBasisAndResolvedQueueOnly() {
+        ActivityLog publication = new ActivityLog();
+        publication.setId(UUID.randomUUID());
+        publication.setOwnerUserId(reporter.getUserID());
+        publication.setReportQueue(false);
+        ActivityLog resolvedReport = new ActivityLog();
+        resolvedReport.setId(UUID.randomUUID());
+        resolvedReport.setOwnerUserId(reporter.getUserID());
+        resolvedReport.setReportQueue(true);
+        resolvedReport.setResolved(true);
+
+        when(logRepository.findByOwnerUserIdAndReportQueueFalse(reporter.getUserID())).thenReturn(List.of(publication));
+        when(logRepository.findByOwnerUserIdAndReportQueueTrueAndResolvedTrue(reporter.getUserID())).thenReturn(List.of(resolvedReport));
+
+        long deleted = activityLogService.clearUserBasis(reporter);
+
+        assertEquals(2L, deleted);
+        verify(reportRepository).deleteByActivityLogId(resolvedReport.getId());
+        verify(logRepository).deleteAll(List.of(publication, resolvedReport));
     }
 }

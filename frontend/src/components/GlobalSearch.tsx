@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { cachedGet, isRequestCanceled } from '../lib/api';
 import type { SearchPayload } from '../types/forum';
 import LoadingSpinner from './LoadingSpinner';
+import { LazyRenderList } from './LazyRender';
 
 type SearchTab = 'all' | 'users' | 'contents' | 'badges';
 
@@ -150,95 +151,114 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                             <div className="space-y-3">
                                 {(activeTab === 'all' || activeTab === 'users') && results?.users.length ? (
                                     <SearchSection title="Users" icon={<UserRound size={13} />}>
-                                        {results.users.map((item) => (
-                                            <button
-                                                key={item.userID}
-                                                type="button"
-                                                onClick={() => goTo(`/profile/${item.userID}`)}
-                                                className="flex w-full items-center gap-3 border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
-                                            >
-                                                <img
-                                                    src={item.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(item.name)}`}
-                                                    alt=""
-                                                    width={36}
-                                                    height={36}
-                                                    className="h-9 w-9 border border-[#333] object-cover"
-                                                    referrerPolicy="no-referrer"
-                                                />
-                                                <span className="min-w-0">
-                                                    <span className="block truncate font-mono text-[11px] font-black uppercase text-white">{item.name}</span>
-                                                    <span className="block truncate font-mono text-[9px] uppercase text-[#666]">{item.designation || 'NO DESIGNATION'}</span>
-                                                </span>
-                                            </button>
-                                        ))}
+                                        <LazyRenderList
+                                            items={results.users}
+                                            getKey={(item) => item.userID}
+                                            estimateSize={64}
+                                            eagerCount={5}
+                                            className="space-y-1.5"
+                                            renderItem={(item) => (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => goTo(`/profile/${item.userID}`)}
+                                                    className="flex w-full items-center gap-3 border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
+                                                >
+                                                    <img
+                                                        src={item.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(item.name)}`}
+                                                        alt=""
+                                                        width={36}
+                                                        height={36}
+                                                        className="h-9 w-9 border border-[#333] object-cover"
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                    <span className="min-w-0">
+                                                        <span className="block truncate font-mono text-[11px] font-black uppercase text-white">{item.name}</span>
+                                                        <span className="block truncate font-mono text-[9px] uppercase text-[#666]">{item.designation || 'NO DESIGNATION'}</span>
+                                                    </span>
+                                                </button>
+                                            )}
+                                        />
                                     </SearchSection>
                                 ) : null}
 
                                 {(activeTab === 'all' || activeTab === 'contents') && results?.contents.length ? (
                                     <SearchSection title="Writings" icon={<FileText size={13} />}>
-                                        {results.contents.map((item) => (
-                                            <article
-                                                key={item.idContent}
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => goTo(`/read/${item.idContent}`)}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                        event.preventDefault();
-                                                        goTo(`/read/${item.idContent}`);
-                                                    }
-                                                }}
-                                                className="w-full border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
-                                            >
-                                                <span className="mb-1 block truncate font-mono text-[11px] font-black uppercase text-white">{item.head}</span>
-                                                <span className="block truncate font-mono text-[9px] uppercase text-[#666]">
-                                                    {item.kategori} //{' '}
-                                                    {item.user?.userID ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                goTo(`/profile/${item.user?.userID}`);
-                                                            }}
-                                                            className="font-mono uppercase text-[#777] hover:text-[#e60000]"
-                                                        >
-                                                            {item.user?.name || 'Unknown'}
-                                                        </button>
-                                                    ) : (
-                                                        item.user?.name || 'Unknown'
-                                                    )}
-                                                    {' '}// UP {item.upCount}
-                                                </span>
-                                            </article>
-                                        ))}
+                                        <LazyRenderList
+                                            items={results.contents}
+                                            getKey={(item) => item.idContent}
+                                            estimateSize={82}
+                                            eagerCount={5}
+                                            className="space-y-1.5"
+                                            renderItem={(item) => (
+                                                <article
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => goTo(`/read/${item.idContent}`)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault();
+                                                            goTo(`/read/${item.idContent}`);
+                                                        }
+                                                    }}
+                                                    className="w-full border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
+                                                >
+                                                    <span className="mb-1 block truncate font-mono text-[11px] font-black uppercase text-white">{item.head}</span>
+                                                    <span className="block truncate font-mono text-[9px] uppercase text-[#666]">
+                                                        {item.kategori} //{' '}
+                                                        {item.user?.userID ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    goTo(`/profile/${item.user?.userID}`);
+                                                                }}
+                                                                className="font-mono uppercase text-[#777] hover:text-[#e60000]"
+                                                            >
+                                                                {item.user?.name || 'Unknown'}
+                                                            </button>
+                                                        ) : (
+                                                            item.user?.name || 'Unknown'
+                                                        )}
+                                                        {' '}// UP {item.upCount}
+                                                    </span>
+                                                </article>
+                                            )}
+                                        />
                                     </SearchSection>
                                 ) : null}
 
                                 {(activeTab === 'all' || activeTab === 'badges') && results?.badges.length ? (
                                     <SearchSection title="Badges" icon={<BadgeCheck size={13} />}>
-                                        {results.badges.map((item) => (
-                                            <div key={item.code} className="border border-[#181818] bg-[#101010] p-3">
-                                                <div className="mb-1 flex items-center justify-between gap-3">
-                                                    <span className="font-mono text-[11px] font-black uppercase text-white">{item.label}</span>
-                                                    <span className="border border-[#e60000]/40 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">{item.code}</span>
-                                                </div>
-                                                <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#999]">{item.description}</p>
-                                                {item.users.length > 0 && (
-                                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                                        {item.users.map((badgeUser) => (
-                                                            <button
-                                                                key={badgeUser.userID}
-                                                                type="button"
-                                                                onClick={() => goTo(`/profile/${badgeUser.userID}`)}
-                                                                className="border border-[#333] px-2 py-1 font-mono text-[8px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white"
-                                                            >
-                                                                {badgeUser.name}
-                                                            </button>
-                                                        ))}
+                                        <LazyRenderList
+                                            items={results.badges}
+                                            getKey={(item, index) => item.code ?? item.label ?? `badge-${index}`}
+                                            estimateSize={110}
+                                            eagerCount={4}
+                                            className="space-y-1.5"
+                                            renderItem={(item) => (
+                                                <div className="border border-[#181818] bg-[#101010] p-3">
+                                                    <div className="mb-1 flex items-center justify-between gap-3">
+                                                        <span className="font-mono text-[11px] font-black uppercase text-white">{item.label}</span>
+                                                        <span className="border border-[#e60000]/40 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">{item.code}</span>
                                                     </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                                    <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#999]">{item.description}</p>
+                                                    {item.users.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                                            {item.users.map((badgeUser) => (
+                                                                <button
+                                                                    key={badgeUser.userID}
+                                                                    type="button"
+                                                                    onClick={() => goTo(`/profile/${badgeUser.userID}`)}
+                                                                    className="border border-[#333] px-2 py-1 font-mono text-[8px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white"
+                                                                >
+                                                                    {badgeUser.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        />
                                     </SearchSection>
                                 ) : null}
                             </div>

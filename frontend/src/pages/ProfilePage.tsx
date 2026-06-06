@@ -13,6 +13,7 @@ import { useFeedback } from '../components/feedback';
 import { formatIndonesiaDate } from '../utils/time';
 import ProfileCardRenderer from '../components/ProfileCardRenderer';
 import { Modal, Button as UiButton } from '../components/ui';
+import { LazyRenderList } from '../components/LazyRender';
 
 export default function ProfilePage({ user, setUser }: { user: CurrentUser; setUser: (user: CurrentUser) => void }) {
     const feedback = useFeedback();
@@ -422,43 +423,65 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             ) : profileTab === 'writings' && contents.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO DATA RECORDED ]</div>
                             ) : profileTab === 'writings' ? (
-                                contents.map(item => (
-                                    <ArchiveItem
-                                        key={item.idContent}
-                                        item={item}
-                                        publishing={publishingDraftId === item.idContent}
-                                        onPublish={() => void handlePublishDraft(item)}
-                                        onEdit={() => navigate(`/write?edit=${item.idContent}`)}
-                                        onDelete={() => void handleDelete(item.idContent)}
-                                    />
-                                ))
+                                <LazyRenderList
+                                    items={contents}
+                                    getKey={(item) => item.idContent}
+                                    estimateSize={190}
+                                    className="grid gap-6"
+                                    renderItem={(item) => (
+                                        <ArchiveItem
+                                            item={item}
+                                            publishing={publishingDraftId === item.idContent}
+                                            onPublish={() => void handlePublishDraft(item)}
+                                            onEdit={() => navigate(`/write?edit=${item.idContent}`)}
+                                            onDelete={() => void handleDelete(item.idContent)}
+                                        />
+                                    )}
+                                />
                             ) : profileTab === 'badges' ? (
                                 <BadgesPanel badges={user.badges ?? []} onOpen={setSelectedBadge} />
                             ) : profileTab === 'bookmarks' && bookmarks.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BOOKMARKS SAVED ]</div>
                             ) : profileTab === 'bookmarks' ? (
-                                bookmarks.map(item => (
-                                    <BookmarkItem key={item.idContent} item={item} viewerUserId={user.userID} onOpen={() => navigate(`/read/${item.idContent}`)} />
-                                ))
+                                <LazyRenderList
+                                    items={bookmarks}
+                                    getKey={(item) => item.idContent}
+                                    estimateSize={130}
+                                    className="grid gap-6"
+                                    renderItem={(item) => (
+                                        <BookmarkItem item={item} viewerUserId={user.userID} onOpen={() => navigate(`/read/${item.idContent}`)} />
+                                    )}
+                                />
                             ) : profileTab === 'following' && following.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWING DATA ]</div>
                             ) : profileTab === 'following' ? (
-                                following.map(target => (
-                                    <FollowingItem key={target.userID} target={target} onOpen={() => navigate(`/profile/${target.userID}`)} />
-                                ))
+                                <LazyRenderList
+                                    items={following}
+                                    getKey={(target) => target.userID}
+                                    estimateSize={110}
+                                    className="grid gap-6"
+                                    renderItem={(target) => (
+                                        <FollowingItem target={target} onOpen={() => navigate(`/profile/${target.userID}`)} />
+                                    )}
+                                />
                             ) : followers.length === 0 ? (
                                 <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWER DATA ]</div>
                             ) : (
-                                followers.map(target => (
-                                    <FollowingItem
-                                        key={target.userID}
-                                        target={target}
-                                        onOpen={() => navigate(`/profile/${target.userID}`)}
-                                        actionLabel={user.followingUserIds?.includes(target.userID) ? 'Following' : 'Follow Back'}
-                                        actionDisabled={user.followingUserIds?.includes(target.userID)}
-                                        onAction={() => void handleFollowBack(target)}
-                                    />
-                                ))
+                                <LazyRenderList
+                                    items={followers}
+                                    getKey={(target) => target.userID}
+                                    estimateSize={110}
+                                    className="grid gap-6"
+                                    renderItem={(target) => (
+                                        <FollowingItem
+                                            target={target}
+                                            onOpen={() => navigate(`/profile/${target.userID}`)}
+                                            actionLabel={user.followingUserIds?.includes(target.userID) ? 'Following' : 'Follow Back'}
+                                            actionDisabled={user.followingUserIds?.includes(target.userID)}
+                                            onAction={() => void handleFollowBack(target)}
+                                        />
+                                    )}
+                                />
                             )}
                         </div>
                     </div>
@@ -780,10 +803,13 @@ function BadgesPanel({ badges, onOpen }: { badges: Badge[]; onOpen: (badge: Badg
         return <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BADGES ]</div>;
     }
     return (
-        <div className="grid gap-3 md:grid-cols-2">
-            {badges.map((badge) => (
+        <LazyRenderList
+            items={badges}
+            getKey={(badge) => badge.id ?? badge.code ?? badge.label}
+            estimateSize={126}
+            className="grid gap-3 md:grid-cols-2"
+            renderItem={(badge) => (
                 <button
-                    key={badge.id ?? badge.code ?? badge.label}
                     type="button"
                     onClick={() => onOpen(badge)}
                     className="border border-[#2a2a2a] bg-[#181818] p-4 text-left transition-all hover:border-[#e60000]"
@@ -801,8 +827,8 @@ function BadgesPanel({ badges, onOpen }: { badges: Badge[]; onOpen: (badge: Badg
                     </div>
                     <p className="m-0 line-clamp-2 font-sans text-sm leading-6 text-[#aaa]">{badge.description}</p>
                 </button>
-            ))}
-        </div>
+            )}
+        />
     );
 }
 

@@ -9,6 +9,7 @@ import type { BadgeCode, ContentItem, CurrentUser, PublicUser } from '../types/f
 import BadgeStrip from '../components/BadgeStrip';
 import { useFeedback } from '../components/feedback';
 import ProfileCardRenderer from '../components/ProfileCardRenderer';
+import { LazyRenderList } from '../components/LazyRender';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 
@@ -328,23 +329,13 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                         </div>
 
                         <div className="grid gap-6">
-                            {contents.map(item => {
-                                const color = getCategoryColor(item.kategori);
-                                return (
-                                    <div key={item.idContent} onClick={() => navigate(`/read/${item.idContent}`)} className="group cursor-pointer border border-[#2a2a2a] bg-[#181818] p-6 transition-all hover:border-[#e60000]">
-                                        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-                                            <div className="flex-1">
-                                                <div className="mb-2 flex flex-wrap items-center gap-4">
-                                                    <span className="text-[10px] font-bold text-[#e60000]">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
-                                                    <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: color, color, backgroundColor: `${color}15` }}>{item.kategori}</span>
-                                                </div>
-                                                <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
-                                                <p className="line-clamp-2 text-sm text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            <LazyRenderList
+                                items={contents}
+                                getKey={(item) => item.idContent}
+                                estimateSize={170}
+                                className="grid gap-6"
+                                renderItem={(item) => <RemoteArchiveItem item={item} onOpen={() => navigate(`/read/${item.idContent}`)} />}
+                            />
                         </div>
                     </div>
                 </div>
@@ -543,6 +534,24 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function RemoteArchiveItem({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
+    const color = getCategoryColor(item.kategori);
+    return (
+        <div onClick={onOpen} className="group cursor-pointer border border-[#2a2a2a] bg-[#181818] p-6 transition-all hover:border-[#e60000]">
+            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+                <div className="flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-4">
+                        <span className="text-[10px] font-bold text-[#e60000]">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
+                        <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: color, color, backgroundColor: `${color}15` }}>{item.kategori}</span>
+                    </div>
+                    <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
+                    <p className="line-clamp-2 text-sm text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
+                </div>
+            </div>
         </div>
     );
 }

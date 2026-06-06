@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -118,6 +119,26 @@ public class ActivityLogServiceImpl implements ActivityLogService {
             reportRepository.deleteByActivityLogId(log.getId());
         }
         logRepository.delete(log);
+    }
+
+    @Override
+    public long clearUserBasis(User user) {
+        requireUser(user);
+        List<ActivityLog> clearable = new ArrayList<>(
+                logRepository.findByOwnerUserIdAndReportQueueFalse(user.getUserID())
+        );
+        clearable.addAll(logRepository.findByOwnerUserIdAndReportQueueTrueAndResolvedTrue(user.getUserID()));
+        if (clearable.isEmpty()) {
+            return 0;
+        }
+        if (reportRepository != null) {
+            clearable.stream()
+                    .filter(ActivityLog::isReportQueue)
+                    .map(ActivityLog::getId)
+                    .forEach(reportRepository::deleteByActivityLogId);
+        }
+        logRepository.deleteAll(clearable);
+        return clearable.size();
     }
 
     @Override

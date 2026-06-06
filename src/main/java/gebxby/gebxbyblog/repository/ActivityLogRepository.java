@@ -11,6 +11,10 @@ import java.util.UUID;
 public interface ActivityLogRepository extends MongoRepository<ActivityLog, UUID> {
     List<ActivityLog> findByOwnerUserIdOrderByCreatedAtDesc(UUID ownerUserId, Pageable pageable);
 
+    List<ActivityLog> findByOwnerUserIdAndReportQueueFalse(UUID ownerUserId);
+
+    List<ActivityLog> findByOwnerUserIdAndReportQueueTrueAndResolvedTrue(UUID ownerUserId);
+
     List<ActivityLog> findByReportQueueTrueOrderByCreatedAtDesc(Pageable pageable);
 
     Optional<ActivityLog> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);

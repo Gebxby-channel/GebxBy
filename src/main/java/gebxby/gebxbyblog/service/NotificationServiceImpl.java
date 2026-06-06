@@ -101,6 +101,14 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public long clearForUser(User user) {
+        userService.ensureActive(user);
+        long deleted = notificationRepository.deleteByRecipientUserId(user.getUserID());
+        realtimeGateway.notificationsRead(user.getUserID(), 0);
+        return deleted;
+    }
+
+    @Override
     public void notifyCommentOnContent(Content content, Comment comment) {
         if (content == null || comment == null || content.getUser() == null || comment.getUser() == null) {
             return;

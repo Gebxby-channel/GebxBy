@@ -1,15 +1,35 @@
-import { useEffect, useState } from 'react';
-import { cachedGet, isRequestCanceled } from '../lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import api, { cachedGet, isRequestCanceled } from '../lib/api';
 import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { DEFAULT_CATEGORIES, getCategoryColor, setRuntimeCategoryColors } from '../utils/categoryColors';
-import type { ContentItem, CurrentUser, GenreItem } from '../types/forum';
+import type { CurrentUser, FeedPayload, GenreItem } from '../types/forum';
+import { LazyRenderList } from '../components/LazyRender';
 
 export default function CategoryPage({ user }: { user: CurrentUser | null }) {
     const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
-    const [articles, setArticles] = useState<ContentItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
-    const [loading, setLoading] = useState(true);
+    const feedQuery = useInfiniteQuery({
+        queryKey: ['category-feed-page', user?.userID ?? 'guest', selectedCategory],
+        initialPageParam: 0,
+        queryFn: async ({ pageParam, signal }) => {
+            const response = await api.get<FeedPayload>('/content/feed-page', {
+                signal,
+                params: {
+                    mode: selectedCategory === 'All' ? 'all' : 'category',
+                    category: selectedCategory === 'All' ? undefined : selectedCategory,
+                    page: pageParam,
+                    limit: 12,
+                },
+            });
+            return response.data;
+        },
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
+        placeholderData: (previous) => previous,
+        staleTime: 45_000,
+    });
+    const articles = useMemo(() => mergePages(feedQuery.data?.pages ?? []), [feedQuery.data?.pages]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -33,31 +53,7 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
         return () => controller.abort();
     }, []);
 
-    useEffect(() => {
-        const controller = new AbortController();
-        cachedGet<ContentItem[]>('/content/all-content', {
-            signal: controller.signal,
-            params: selectedCategory === 'All' ? undefined : { category: selectedCategory },
-        }, {
-            ttlMs: 45_000,
-            scope: user?.userID ?? 'guest',
-        })
-            .then(data => setArticles(Array.isArray(data) ? data : []))
-            .catch((error) => {
-                if (!isRequestCanceled(error)) {
-                    setArticles([]);
-                }
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                }
-            });
-        return () => controller.abort();
-    }, [selectedCategory, user?.userID]);
-
     const selectCategory = (category: string) => {
-        setLoading(true);
         setSelectedCategory(category);
     };
 
@@ -92,18 +88,45 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
             </div>
 
             <div className="flex min-h-[400px] flex-col">
-                {loading ? (
+                {feedQuery.isLoading ? (
                     <LoadingSpinner label="Scanning Database" />
                 ) : articles.length === 0 ? (
                     <div className="border border-dashed border-[#222] py-20 text-center font-mono tracking-widest text-[#444]">
                         [ NO_FILES_FOUND_IN_{selectedCategory.toUpperCase().replace(/\s/g, '_')} ]
                     </div>
                 ) : (
-                    articles.map((art) => (
-                        <ContentCard key={art.idContent} art={art} user={user} />
-                    ))
+                    <>
+                        <LazyRenderList
+                            items={articles}
+                            getKey={(art) => art.idContent}
+                            estimateSize={260}
+                            className="flex flex-col"
+                            renderItem={(art) => <ContentCard art={art} user={user} />}
+                        />
+                        {feedQuery.hasNextPage && (
+                            <button
+                                type="button"
+                                onClick={() => void feedQuery.fetchNextPage()}
+                                disabled={feedQuery.isFetchingNextPage}
+                                className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
+                            >
+                                {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load More'}
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
         </div>
     );
+}
+
+function mergePages(pages: FeedPayload[]) {
+    const known = new Set<string>();
+    return pages.flatMap((page) => page.items).filter((item) => {
+        if (known.has(item.idContent)) {
+            return false;
+        }
+        known.add(item.idContent);
+        return true;
+    });
 }

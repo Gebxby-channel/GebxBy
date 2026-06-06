@@ -14,6 +14,7 @@ public interface NotificationService {
     long countUnread(User user);
     NotificationResponse markRead(UUID notificationId, User user);
     void markAllRead(User user);
+    long clearForUser(User user);
     void notifyCommentOnContent(Content content, Comment comment);
     NotificationResponse sendAdminMessage(UUID recipientUserId, AdminNotificationRequest request, User admin);
     List<NotificationResponse> sendAdminBroadcast(AdminNotificationRequest request, User admin);

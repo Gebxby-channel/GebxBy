@@ -205,6 +205,18 @@ class NotificationServiceImplTest {
     }
 
     @Test
+    void clearForUserDeletesRecipientNotificationsAndResetsUnreadCount() {
+        when(notificationRepository.deleteByRecipientUserId(owner.getUserID())).thenReturn(4L);
+
+        long deleted = notificationService.clearForUser(owner);
+
+        assertEquals(4L, deleted);
+        verify(userService).ensureActive(owner);
+        verify(notificationRepository).deleteByRecipientUserId(owner.getUserID());
+        verify(realtimeGateway).notificationsRead(owner.getUserID(), 0);
+    }
+
+    @Test
     void findForUserLimitsToMaxAndDeletesExpiredBeforeRead() {
         when(notificationRepository.findByRecipientUserIdAndExpiresAtAfterOrderByCreatedAtDesc(eq(owner.getUserID()), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of());

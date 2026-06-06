@@ -9,6 +9,7 @@ import type { AnnouncementItem, ContentItem, CurrentUser, FeedPayload, GenreItem
 import { useFeedback } from '../components/feedback';
 import { profilePathForUser } from '../utils/profilePath';
 import { setRuntimeCategoryColors } from '../utils/categoryColors';
+import { LazyRenderList } from '../components/LazyRender';
 
 type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
 
@@ -209,9 +210,13 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 </div>
             ) : (
                 <div className="flex min-h-[640px] flex-col">
-                    {sortedArticles.map((art) => (
-                        <ContentCard key={art.idContent} art={art} user={user} />
-                    ))}
+                    <LazyRenderList
+                        items={sortedArticles}
+                        getKey={(art) => art.idContent}
+                        estimateSize={260}
+                        className="flex flex-col"
+                        renderItem={(art) => <ContentCard art={art} user={user} />}
+                    />
                     {feedQuery.hasNextPage && (
                         <button
                             type="button"

@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -81,6 +82,18 @@ class NotificationControllerTest {
         mockMvc.perform(put("/api/notifications/read-all").with(oauth2Login()))
                 .andExpect(status().isNoContent());
         verify(notificationService).markAllRead(user);
+    }
+
+    @Test
+    void clearNotificationsDeletesCurrentUserNotifications() throws Exception {
+        User user = user();
+        when(userService.getCurrentUser(any())).thenReturn(user);
+        when(notificationService.clearForUser(user)).thenReturn(5L);
+
+        mockMvc.perform(delete("/api/notifications").with(oauth2Login()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted").value(5));
+        verify(notificationService).clearForUser(user);
     }
 
     private User user() {

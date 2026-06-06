@@ -7,6 +7,7 @@ import ContentCard from '../components/ContentCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import type { AnalyticsPayload, CurrentUser } from '../types/forum';
 import { profilePathForUser } from '../utils/profilePath';
+import { LazyRenderList } from '../components/LazyRender';
 
 export default function AnalyticsPage({ user }: { user: CurrentUser }) {
     const navigate = useNavigate();
@@ -50,28 +51,34 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
                             {analytics.weeklyLeaderboard.length === 0 ? (
                                 <Empty label="NO_WEEKLY_UP_SIGNAL" />
                             ) : (
-                                analytics.weeklyLeaderboard.map((entry, index) => (
-                                    <div key={entry.user.userID} className="flex items-center justify-between border border-[#2a2a2a] bg-[#151515] p-4">
-                                        <div className="flex items-center gap-4">
-                                            <span className="flex h-8 w-8 items-center justify-center bg-[#e60000] font-mono text-xs font-black text-white">{index + 1}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const path = profilePathForUser(entry.user.userID, user.userID);
-                                                    if (path) navigate(path);
-                                                }}
-                                                className="min-w-0 text-left"
-                                            >
-                                                <p className="m-0 font-mono text-sm font-black uppercase text-white hover:text-[#e60000]">{entry.user.name}</p>
-                                                <p className="m-0 font-mono text-[10px] uppercase text-[#666]">{entry.user.designation || 'NO DESIGNATION'}</p>
-                                            </button>
+                                <LazyRenderList
+                                    items={analytics.weeklyLeaderboard}
+                                    getKey={(entry) => entry.user.userID}
+                                    estimateSize={76}
+                                    className="grid gap-3"
+                                    renderItem={(entry, index) => (
+                                        <div className="flex items-center justify-between border border-[#2a2a2a] bg-[#151515] p-4">
+                                            <div className="flex items-center gap-4">
+                                                <span className="flex h-8 w-8 items-center justify-center bg-[#e60000] font-mono text-xs font-black text-white">{index + 1}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const path = profilePathForUser(entry.user.userID, user.userID);
+                                                        if (path) navigate(path);
+                                                    }}
+                                                    className="min-w-0 text-left"
+                                                >
+                                                    <p className="m-0 font-mono text-sm font-black uppercase text-white hover:text-[#e60000]">{entry.user.name}</p>
+                                                    <p className="m-0 font-mono text-[10px] uppercase text-[#666]">{entry.user.designation || 'NO DESIGNATION'}</p>
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center gap-2 font-mono text-sm font-black text-[#e60000]">
+                                                <ArrowBigUp size={18} />
+                                                {entry.upCount}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2 font-mono text-sm font-black text-[#e60000]">
-                                            <ArrowBigUp size={18} />
-                                            {entry.upCount}
-                                        </div>
-                                    </div>
-                                ))
+                                    )}
+                                />
                             )}
                         </div>
                     </section>
@@ -81,9 +88,13 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
                         {analytics.mostRead.length === 0 ? (
                             <Empty label="NO_READ_DATA" />
                         ) : (
-                            <div className="flex flex-col">
-                                {analytics.mostRead.map(item => <ContentCard key={item.idContent} art={item} user={user} />)}
-                            </div>
+                            <LazyRenderList
+                                items={analytics.mostRead}
+                                getKey={(item) => item.idContent}
+                                estimateSize={260}
+                                className="flex flex-col"
+                                renderItem={(item) => <ContentCard art={item} user={user} />}
+                            />
                         )}
                     </section>
 
@@ -92,9 +103,13 @@ export default function AnalyticsPage({ user }: { user: CurrentUser }) {
                         {analytics.mostUpvoted.length === 0 ? (
                             <Empty label="NO_UP_DATA" />
                         ) : (
-                            <div className="flex flex-col">
-                                {analytics.mostUpvoted.map(item => <ContentCard key={item.idContent} art={item} user={user} />)}
-                            </div>
+                            <LazyRenderList
+                                items={analytics.mostUpvoted}
+                                getKey={(item) => item.idContent}
+                                estimateSize={260}
+                                className="flex flex-col"
+                                renderItem={(item) => <ContentCard art={item} user={user} />}
+                            />
                         )}
                     </section>
                 </div>
