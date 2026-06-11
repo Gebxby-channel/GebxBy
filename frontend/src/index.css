@@ -92,6 +92,14 @@ textarea {
     text-underline-offset: 3px;
 }
 
+.writer-prose .writer-spell-error {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: #ff2b2b;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+}
+
 @keyframes pulse-red {
     0%, 100% {
         opacity: 1;

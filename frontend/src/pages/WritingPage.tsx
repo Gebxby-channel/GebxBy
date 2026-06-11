@@ -500,6 +500,10 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         placeholder="SUBJECT TITLE..."
                         value={title}
                         onChange={(event) => setTitle(event.target.value)}
+                        autoCapitalize="sentences"
+                        autoCorrect="on"
+                        lang="id-ID"
+                        spellCheck
                         maxLength={180}
                     />
 

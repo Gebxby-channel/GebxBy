@@ -1,10 +1,14 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { Extension } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import {
     Bold,
     Heading1,
@@ -20,6 +24,50 @@ import {
     Undo2,
 } from 'lucide-react';
 import { useFeedback } from './feedback';
+import { getAutoCorrection, getSpellTokens, isMisspelledWord } from '../lib/writerSpellcheck';
+
+const bilingualSpellcheckKey = new PluginKey<DecorationSet>('bilingualSpellcheck');
+const BOUNDARY_PATTERN = /^[\s.,!?;:)\]}]+$/;
+
+const BilingualSpellcheck = Extension.create({
+    name: 'bilingualSpellcheck',
+
+    addProseMirrorPlugins() {
+        return [
+            new Plugin<DecorationSet>({
+                key: bilingualSpellcheckKey,
+                state: {
+                    init: (_, state) => buildSpellcheckDecorations(state.doc),
+                    apply(transaction, decorationSet, _oldState, newState) {
+                        if (transaction.docChanged) {
+                            return buildSpellcheckDecorations(newState.doc);
+                        }
+                        return decorationSet.map(transaction.mapping, transaction.doc);
+                    },
+                },
+                props: {
+                    decorations(state) {
+                        return bilingualSpellcheckKey.getState(state);
+                    },
+                },
+                appendTransaction(transactions, _oldState, newState) {
+                    if (!transactions.some(transaction => transaction.docChanged) || transactions.some(transaction => transaction.getMeta(bilingualSpellcheckKey))) {
+                        return null;
+                    }
+
+                    const correction = findAutoCorrectionBeforeCursor(newState);
+                    if (!correction) {
+                        return null;
+                    }
+
+                    return newState.tr
+                        .insertText(correction.replacement, correction.from, correction.to)
+                        .setMeta(bilingualSpellcheckKey, 'autocorrect');
+                },
+            }),
+        ];
+    },
+});
 
 export default function RichTextEditor({
     content,
@@ -47,12 +95,18 @@ export default function RichTextEditor({
             Placeholder.configure({
                 placeholder: 'Input decrypted data here...',
             }),
+            BilingualSpellcheck,
         ],
         content,
         immediatelyRender: false,
         editorProps: {
             attributes: {
                 class: 'min-h-[520px] w-full overflow-y-auto px-5 py-4 font-sans text-base leading-8 text-[#ddd] outline-none transition-colors focus:bg-[#0d0d0d] sm:px-6',
+                autocapitalize: 'sentences',
+                autocorrect: 'on',
+                'aria-label': 'Writing content',
+                lang: 'id-ID',
+                spellcheck: 'false',
             },
         },
         onUpdate: ({ editor: currentEditor }) => onChange(currentEditor.getHTML()),
@@ -115,10 +169,68 @@ export default function RichTextEditor({
                 className="writer-prose [&_.ProseMirror]:min-h-[520px] [&_.ProseMirror]:w-full [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:px-5 [&_.ProseMirror]:py-4 [&_.ProseMirror]:font-sans [&_.ProseMirror]:text-base [&_.ProseMirror]:leading-8 [&_.ProseMirror]:text-[#ddd] [&_.ProseMirror]:outline-none [&_.ProseMirror:focus]:bg-[#0d0d0d] sm:[&_.ProseMirror]:px-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
             />
             <div className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#555]">
-                ProseMirror protocol // headings, bold, italic, underline, link, quote, lists, undo, redo
+                ProseMirror protocol // bilingual ID+EN spellcheck // autocorrect // headings, bold, italic, underline, link, quote, lists, undo, redo
             </div>
         </section>
     );
+}
+
+function buildSpellcheckDecorations(doc: ProseMirrorNode) {
+    const decorations: Decoration[] = [];
+
+    doc.descendants((node, position) => {
+        if (!node.isText || !node.text) {
+            return;
+        }
+
+        for (const token of getSpellTokens(node.text)) {
+            if (!isMisspelledWord(token.word)) {
+                continue;
+            }
+
+            decorations.push(Decoration.inline(
+                position + token.index,
+                position + token.index + token.word.length,
+                {
+                    class: 'writer-spell-error',
+                    title: 'Possible typo',
+                },
+            ));
+        }
+    });
+
+    return DecorationSet.create(doc, decorations);
+}
+
+function findAutoCorrectionBeforeCursor(state: Parameters<NonNullable<Plugin['spec']['appendTransaction']>>[2]) {
+    const { selection } = state;
+    if (!selection.empty || selection.from <= 1) {
+        return null;
+    }
+
+    const cursor = selection.from;
+    const boundary = state.doc.textBetween(cursor - 1, cursor, '\n', '\n');
+    if (!BOUNDARY_PATTERN.test(boundary)) {
+        return null;
+    }
+
+    const $cursor = state.doc.resolve(cursor - 1);
+    const textBefore = $cursor.parent.textBetween(0, $cursor.parentOffset, '\n', '\n');
+    const match = textBefore.match(/([\p{L}]+(?:['\u2018\u2019-][\p{L}]+)*)$/u);
+    if (!match?.[1]) {
+        return null;
+    }
+
+    const replacement = getAutoCorrection(match[1]);
+    if (!replacement || replacement === match[1]) {
+        return null;
+    }
+
+    return {
+        from: cursor - 1 - match[1].length,
+        replacement,
+        to: cursor - 1,
+    };
 }
 
 function EditorButton({ icon, text, label, active = false, onClick }: { icon?: ReactNode; text?: string; label: string; active?: boolean; onClick: () => void }) {
