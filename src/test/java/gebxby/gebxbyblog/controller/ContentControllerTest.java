@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -92,6 +93,26 @@ class ContentControllerTest {
                         .header("X-Guest-Reader-Key", "guest-reader-123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.viewCount").value(3));
+    }
+
+    @Test
+    void viewFallbackReaderKeyIgnoresSpoofedForwardedFor() throws Exception {
+        UUID contentId = UUID.randomUUID();
+        when(contentService.recordView(
+                eq(contentId),
+                isNull(),
+                argThat(key -> key != null && key.contains("10.0.0.6") && !key.contains("203.0.113.10"))
+        )).thenReturn(new ContentStatsResponse(contentId, 4, 0, 0, 0, VoteDirection.NONE));
+
+        mockMvc.perform(post("/content/{id}/view", contentId)
+                        .with(request -> {
+                            request.setRemoteAddr("10.0.0.6");
+                            return request;
+                        })
+                        .header("X-Forwarded-For", "203.0.113.10")
+                        .header("User-Agent", "reader"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.viewCount").value(4));
     }
 
     @Test

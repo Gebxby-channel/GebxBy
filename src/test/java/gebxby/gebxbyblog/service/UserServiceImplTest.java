@@ -288,6 +288,20 @@ class UserServiceImplTest {
     }
 
     @Test
+    void publicSignupRejectsConfiguredAdminEmail() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () ->
+                userService.registerWithEmail(new SignupRequest(
+                        "Public Admin",
+                        "admin@example.com",
+                        "supersecret",
+                        "public_admin"
+                ))
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
     void checkUsernameRejectsReservedAndTakenNames() {
         when(userRepository.existsByUsernameNormalized("jill")).thenReturn(true);
 

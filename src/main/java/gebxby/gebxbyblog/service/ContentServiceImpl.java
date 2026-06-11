@@ -170,8 +170,10 @@ public class ContentServiceImpl implements ContentService {
         }
         refreshAuthorSnapshot(draft, author);
         articlePolicy.applyPublishedFields(draft, request);
+        LocalDateTime publishedAt = LocalDateTime.now();
         draft.setStatus(STATUS_PUBLISHED);
-        draft.setUpdatedAt(LocalDateTime.now());
+        draft.setCreatedAt(publishedAt);
+        draft.setUpdatedAt(publishedAt);
         Content saved = contentRepository.save(draft);
         recordPublicationSafely(saved, author);
         invalidateContentCaches();

@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -63,9 +64,16 @@ class AuthControllerTest {
         ));
 
         mockMvc.perform(post("/api/auth/email-login")
+                        .with(request -> {
+                            request.setRemoteAddr("10.0.0.5");
+                            return request;
+                        })
+                        .header("X-Forwarded-For", "203.0.113.99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"admin@example.com\",\"password\":\"secret\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("ADMIN"));
+
+        verify(loginRateLimiter).check("admin@example.com", "10.0.0.5");
     }
 }

@@ -160,6 +160,30 @@ class ContentServiceImplTest {
     }
 
     @Test
+    void publishDraftRefreshesCreatedAtToPublicationTime() {
+        LocalDateTime originalDraftDate = LocalDateTime.now().minusDays(4);
+        content.setStatus("DRAFT");
+        content.setCreatedAt(originalDraftDate);
+        content.setUpdatedAt(originalDraftDate.plusHours(1));
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+        when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LocalDateTime beforePublish = LocalDateTime.now();
+        ContentResponse response = contentService.publishDraft(
+                content.getIdContent(),
+                new ContentRequest("Published Draft", null, "Ready now", "General"),
+                author
+        );
+        LocalDateTime afterPublish = LocalDateTime.now();
+
+        assertEquals("PUBLISHED", response.status());
+        assertTrue(!response.createdAt().isBefore(beforePublish));
+        assertTrue(!response.createdAt().isAfter(afterPublish));
+        assertEquals(response.createdAt(), response.updatedAt());
+        assertTrue(response.createdAt().isAfter(originalDraftDate));
+    }
+
+    @Test
     void addContentStoresValidatedImageAttachments() {
         when(contentRepository.save(any(Content.class))).thenAnswer(invocation -> invocation.getArgument(0));
         String dataUrl = "data:image/webp;base64,"

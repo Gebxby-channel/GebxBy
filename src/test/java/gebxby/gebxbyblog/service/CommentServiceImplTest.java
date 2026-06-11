@@ -156,6 +156,19 @@ class CommentServiceImplTest {
     }
 
     @Test
+    void addCommentRejectsDraftContent() {
+        content.setStatus("DRAFT");
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () ->
+                commentService.addComment(content.getIdContent(), new CommentRequest("Not yet", null), author)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
     void addReplyRequiresParentOnSameContent() {
         when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(commentRepository.findByIdAndContentId(parent.getId(), content.getIdContent())).thenReturn(Optional.of(parent));
@@ -227,12 +240,26 @@ class CommentServiceImplTest {
         reply.setBody("Reply");
         reply.setCreatedAt(LocalDateTime.now().plusMinutes(1));
 
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(commentRepository.findByContentIdOrderByCreatedAtAsc(content.getIdContent())).thenReturn(List.of(parent, reply));
 
         List<CommentResponse> thread = commentService.findThread(content.getIdContent());
 
         assertEquals(1, thread.size());
         assertEquals(1, thread.getFirst().replies().size());
+    }
+
+    @Test
+    void findThreadRejectsDraftContent() {
+        content.setStatus("DRAFT");
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () ->
+                commentService.findThread(content.getIdContent())
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(commentRepository, never()).findByContentIdOrderByCreatedAtAsc(any());
     }
 
     @Test
@@ -245,6 +272,7 @@ class CommentServiceImplTest {
         reply.setBody("Reply");
         reply.setCreatedAt(LocalDateTime.now().plusMinutes(1));
 
+        when(contentRepository.findById(content.getIdContent())).thenReturn(Optional.of(content));
         when(commentRepository.findByContentIdAndParentIdIsNullOrderByCreatedAtAsc(eq(content.getIdContent()), any(Pageable.class)))
                 .thenReturn(List.of(parent));
         when(commentRepository.findByContentIdAndParentIdInOrderByCreatedAtAsc(eq(content.getIdContent()), any()))

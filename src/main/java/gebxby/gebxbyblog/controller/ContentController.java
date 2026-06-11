@@ -272,8 +272,7 @@ public class ContentController {
         if (StringUtils.hasText(guestReaderKey)) {
             return guestReaderKey;
         }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        String ip = StringUtils.hasText(forwarded) ? forwarded.split(",")[0].trim() : request.getRemoteAddr();
+        String ip = request.getRemoteAddr();
         String sessionId = request.getSession(true).getId();
         return sessionId + ":" + ip + ":" + request.getHeader("User-Agent");
     }

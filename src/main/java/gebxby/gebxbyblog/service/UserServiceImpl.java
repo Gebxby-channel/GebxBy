@@ -230,6 +230,9 @@ public class UserServiceImpl implements UserService {
         if (!StringUtils.hasText(email) || !email.contains("@")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Format email tidak valid");
         }
+        if (adminEmails.contains(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email admin harus memakai jalur login admin");
+        }
         if (request.password().length() < MIN_PASSWORD_LENGTH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password minimal 8 karakter");
         }
@@ -246,7 +249,7 @@ public class UserServiceImpl implements UserService {
         user.setGoogleId(MANUAL_SUB_PREFIX + email);
         user.setName(trimToLength(request.name(), 80));
         user.setDesignation(DEFAULT_DESIGNATION);
-        user.setRole(resolveRole(email, "USER"));
+        user.setRole("USER");
         user.setOnboardingComplete(true);
         applyCustomEmailDomainTrust(user);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
@@ -275,7 +278,7 @@ public class UserServiceImpl implements UserService {
         existing.setDesignation(StringUtils.hasText(user.getDesignation())
                 ? trimToLength(user.getDesignation(), 80).toUpperCase(Locale.ROOT)
                 : DEFAULT_DESIGNATION);
-        existing.setRole(resolveRole(existing.getEmail(), existing.getRole()));
+        existing.setRole(StringUtils.hasText(existing.getRole()) ? existing.getRole() : "USER");
         existing.setOnboardingComplete(true);
         applyCustomEmailDomainTrust(existing);
         if (StringUtils.hasText(user.getUsername())) {

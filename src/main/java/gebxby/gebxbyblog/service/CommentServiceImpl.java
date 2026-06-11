@@ -33,6 +33,7 @@ public class CommentServiceImpl implements CommentService {
     private static final Duration RATE_LIMIT_WINDOW = Duration.ofSeconds(30);
     private static final Duration DUPLICATE_WINDOW = Duration.ofSeconds(10);
     private static final int MAX_PAGE_LIMIT = 50;
+    private static final String STATUS_PUBLISHED = "PUBLISHED";
 
     private final CommentRepository commentRepository;
     private final ContentRepository contentRepository;
@@ -78,12 +79,14 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public List<CommentResponse> findThread(UUID contentId) {
+        requirePublishedContent(contentId);
         List<Comment> comments = commentRepository.findByContentIdOrderByCreatedAtAsc(contentId);
         return buildReplies(comments, null);
     }
 
     @Override
     public CommentPageResponse findThreadPage(UUID contentId, int page, int limit) {
+        requirePublishedContent(contentId);
         int pageNumber = Math.max(0, page);
         int pageSize = Math.max(1, Math.min(limit <= 0 ? 20 : limit, MAX_PAGE_LIMIT));
         List<Comment> roots = commentRepository.findByContentIdAndParentIdIsNullOrderByCreatedAtAsc(
@@ -111,8 +114,7 @@ public class CommentServiceImpl implements CommentService {
         if (author.getUserID() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User belum login");
         }
-        Content content = contentRepository.findById(contentId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan"));
+        Content content = requirePublishedContent(contentId);
         String body = sanitizeBody(request == null ? null : request.body());
         if (!StringUtils.hasText(body)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Komentar wajib diisi");
@@ -212,6 +214,19 @@ public class CommentServiceImpl implements CommentService {
     private String sanitizeBody(String body) {
         String clean = Jsoup.clean(body == null ? "" : body, Safelist.none()).trim();
         return clean.length() <= MAX_COMMENT_LENGTH ? clean : clean.substring(0, MAX_COMMENT_LENGTH);
+    }
+
+    private Content requirePublishedContent(UUID contentId) {
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan"));
+        if (!isPublished(content)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tulisan tidak ditemukan");
+        }
+        return content;
+    }
+
+    private boolean isPublished(Content content) {
+        return content == null || content.getStatus() == null || STATUS_PUBLISHED.equalsIgnoreCase(content.getStatus());
     }
 
     private void enforceCommentRateLimit(User author, LocalDateTime now) {
