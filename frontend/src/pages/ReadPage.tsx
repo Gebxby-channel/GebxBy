@@ -373,7 +373,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     </header>
 
                     <div
-                        className="p-8 text-justify font-sans text-lg leading-relaxed text-[#ccc] selection:bg-[#e60000] selection:text-white md:p-12 [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_br]:block [&_div]:mb-4 [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
+                        className="p-5 text-left font-sans text-base leading-8 text-[#ccc] selection:bg-[#e60000] selection:text-white sm:p-8 sm:text-lg md:p-12 md:text-justify [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_br]:block [&_div]:mb-4 [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
                         dangerouslySetInnerHTML={{ __html: safeBody }}
                     />
 
