@@ -41,10 +41,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/content")
 public class ContentController {
+    private static final String GUEST_READER_HEADER = "X-Guest-Reader-Key";
+    private static final Pattern SAFE_GUEST_READER_KEY = Pattern.compile("[A-Za-z0-9_-]{8,80}");
+
     private final ContentService contentService;
     private final CommentService commentService;
     private final UserService userService;
@@ -264,9 +268,21 @@ public class ContentController {
     }
 
     private String readerKey(HttpServletRequest request) {
+        String guestReaderKey = sanitizeGuestReaderKey(request.getHeader(GUEST_READER_HEADER));
+        if (StringUtils.hasText(guestReaderKey)) {
+            return guestReaderKey;
+        }
         String forwarded = request.getHeader("X-Forwarded-For");
         String ip = StringUtils.hasText(forwarded) ? forwarded.split(",")[0].trim() : request.getRemoteAddr();
         String sessionId = request.getSession(true).getId();
         return sessionId + ":" + ip + ":" + request.getHeader("User-Agent");
+    }
+
+    private String sanitizeGuestReaderKey(String candidate) {
+        if (!StringUtils.hasText(candidate)) {
+            return "";
+        }
+        String trimmed = candidate.trim();
+        return SAFE_GUEST_READER_KEY.matcher(trimmed).matches() ? trimmed : "";
     }
 }

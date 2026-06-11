@@ -86,7 +86,7 @@ public class ApiOriginFilter extends OncePerRequestFilter {
         response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
         response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,PATCH,DELETE,OPTIONS");
         response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
-                "Content-Type,Authorization,X-Requested-With,Accept,X-CSRF-TOKEN,X-XSRF-TOKEN");
+                "Content-Type,Authorization,X-Requested-With,Accept,X-CSRF-TOKEN,X-XSRF-TOKEN,X-Guest-Reader-Key");
         response.setHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-CSRF-TOKEN,X-XSRF-TOKEN");
         response.addHeader(HttpHeaders.VARY, "Origin");
     }

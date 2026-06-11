@@ -25,6 +25,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -94,6 +95,18 @@ class ContentControllerSecurityTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"body\":\"hello\"}"))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void viewAllowsGuestReaderWithCsrfToken() throws Exception {
+        when(contentService.recordView(eq(contentId), isNull(), eq("guest-reader-123")))
+                .thenReturn(new ContentStatsResponse(contentId, 1, 0, 0, 0, VoteDirection.NONE));
+
+        mockMvc.perform(post("/content/{id}/view", contentId)
+                        .with(csrf())
+                        .header("Origin", "http://localhost:5173")
+                        .header("X-Guest-Reader-Key", "guest-reader-123"))
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -56,4 +56,25 @@ class ValidReadTrackingServiceTest {
         assertFalse(service.claimRead(contentId, null, "guest-session"));
         verify(receiptRepository, never()).save(any(ContentReadReceipt.class));
     }
+
+    @Test
+    void claimReadAllowsDifferentGuestReaderKeys() {
+        UUID contentId = UUID.randomUUID();
+        ValidReadTrackingService service = new ValidReadTrackingService(receiptRepository);
+
+        when(receiptRepository.findFirstByContentIdAndReaderKeyAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+                eq(contentId),
+                eq("g:guest-reader-a"),
+                any(LocalDateTime.class)
+        )).thenReturn(Optional.of(new ContentReadReceipt()));
+        when(receiptRepository.findFirstByContentIdAndReaderKeyAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+                eq(contentId),
+                eq("g:guest-reader-b"),
+                any(LocalDateTime.class)
+        )).thenReturn(Optional.empty());
+
+        assertFalse(service.claimRead(contentId, null, "guest-reader-a"));
+        assertTrue(service.claimRead(contentId, null, "guest-reader-b"));
+        verify(receiptRepository).save(any(ContentReadReceipt.class));
+    }
 }

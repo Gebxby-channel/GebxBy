@@ -24,6 +24,10 @@ class ApiOriginFilterTest {
         assertEquals(200, response.getStatus());
         assertEquals("https://gebxby.vercel.app", response.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
         assertEquals("true", response.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS));
+        assertEquals(
+                "Content-Type,Authorization,X-Requested-With,Accept,X-CSRF-TOKEN,X-XSRF-TOKEN,X-Guest-Reader-Key",
+                response.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS)
+        );
     }
 
     @Test

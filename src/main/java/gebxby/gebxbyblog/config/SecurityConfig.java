@@ -64,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/usernames/check", "/api/usernames/suggest").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/email-login", "/api/auth/signup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/user/create").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/content/*/view").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -86,7 +87,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With", "Accept", "X-CSRF-TOKEN", "X-XSRF-TOKEN"));
+        config.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With", "Accept", "X-CSRF-TOKEN", "X-XSRF-TOKEN", "X-Guest-Reader-Key"));
         config.setExposedHeaders(List.of("X-CSRF-TOKEN", "X-XSRF-TOKEN", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);

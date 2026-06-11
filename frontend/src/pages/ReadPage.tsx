@@ -14,6 +14,7 @@ import { profilePathForUser } from '../utils/profilePath';
 import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
 import { LazyRenderList } from '../components/LazyRender';
 import ShareDialog from '../components/ShareDialog';
+import { GUEST_READER_HEADER, getGuestReaderKey } from '../utils/guestReader';
 
 type ReportTarget = { type: 'content' } | { type: 'comment'; commentId: string };
 
@@ -146,7 +147,11 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                 return;
             }
             viewRecordedRef.current = id;
-            api.post<ContentStats>(`/content/${id}/view`)
+            api.post<ContentStats>(`/content/${id}/view`, null, {
+                headers: {
+                    [GUEST_READER_HEADER]: getGuestReaderKey(),
+                },
+            })
                 .then(response => {
                     setStats(response.data);
                     queryClient.setQueryData(['content-stats', id], response.data);
