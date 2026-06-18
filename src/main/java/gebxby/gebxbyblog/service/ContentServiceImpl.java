@@ -67,6 +67,7 @@ public class ContentServiceImpl implements ContentService {
     private final ContentCounterService counterService;
     private final ValidReadTrackingService readTrackingService;
     private final UserSnapshotService userSnapshotService;
+    private final SeoRefreshService seoRefreshService;
     private volatile CacheEntry<List<String>> categoriesCache;
 
     @Autowired
@@ -85,7 +86,8 @@ public class ContentServiceImpl implements ContentService {
                               ArticleContentPolicy articlePolicy,
                               ContentCounterService counterService,
                               ValidReadTrackingService readTrackingService,
-                              UserSnapshotService userSnapshotService) {
+                              UserSnapshotService userSnapshotService,
+                              SeoRefreshService seoRefreshService) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
@@ -99,6 +101,7 @@ public class ContentServiceImpl implements ContentService {
         this.counterService = counterService;
         this.readTrackingService = readTrackingService;
         this.userSnapshotService = userSnapshotService;
+        this.seoRefreshService = seoRefreshService == null ? SeoRefreshService.NOOP : seoRefreshService;
     }
 
     public ContentServiceImpl(ContentRepository contentRepository,
@@ -111,13 +114,29 @@ public class ContentServiceImpl implements ContentService {
                               ActivityLogService activityLogService,
                               long maxUploadBytes) {
         this(contentRepository, voteRepository, commentRepository, userRepository, userService,
+                mediaPipelineService, mapper, activityLogService, maxUploadBytes,
+                SeoRefreshService.NOOP);
+    }
+
+    ContentServiceImpl(ContentRepository contentRepository,
+                       ContentVoteRepository voteRepository,
+                       CommentRepository commentRepository,
+                       UserRepository userRepository,
+                       UserService userService,
+                       MediaPipelineService mediaPipelineService,
+                       ForumMapper mapper,
+                       ActivityLogService activityLogService,
+                       long maxUploadBytes,
+                       SeoRefreshService seoRefreshService) {
+        this(contentRepository, voteRepository, commentRepository, userRepository, userService,
                 mediaPipelineService, null, mapper, activityLogService, maxUploadBytes,
                 new ContentFeedService(contentRepository, voteRepository, commentRepository, mapper),
                 new ContentAnalyticsService(contentRepository, voteRepository, userRepository, mapper),
                 new ArticleContentPolicy(mediaPipelineService, maxUploadBytes),
                 new ContentCounterService(contentRepository, null),
                 new ValidReadTrackingService(null),
-                new UserSnapshotService());
+                new UserSnapshotService(),
+                seoRefreshService);
     }
 
     @Override
@@ -134,6 +153,7 @@ public class ContentServiceImpl implements ContentService {
         Content saved = contentRepository.save(content);
         recordPublicationSafely(saved, author);
         invalidateContentCaches();
+        requestSeoRefreshSafely("content-published");
         return mapper.toContentResponse(saved, VoteDirection.NONE, true);
     }
 
@@ -177,6 +197,7 @@ public class ContentServiceImpl implements ContentService {
         Content saved = contentRepository.save(draft);
         recordPublicationSafely(saved, author);
         invalidateContentCaches();
+        requestSeoRefreshSafely("draft-published");
         return mapper.toContentResponse(saved, resolveUserVote(saved.getIdContent(), author), true);
     }
 
@@ -271,6 +292,7 @@ public class ContentServiceImpl implements ContentService {
         existingContent.setUpdatedAt(LocalDateTime.now());
         Content saved = contentRepository.save(existingContent);
         invalidateContentCaches();
+        requestSeoRefreshSafely("content-updated");
         return mapper.toContentResponse(saved, resolveUserVote(id, actor), true);
     }
 
@@ -284,6 +306,9 @@ public class ContentServiceImpl implements ContentService {
         voteRepository.deleteByContentId(id);
         contentRepository.deleteById(id);
         invalidateContentCaches();
+        if (isPublished(content)) {
+            requestSeoRefreshSafely("content-deleted");
+        }
     }
 
     @Override
@@ -491,6 +516,14 @@ public class ContentServiceImpl implements ContentService {
     private void invalidateContentCaches() {
         categoriesCache = null;
         analyticsService.invalidate();
+    }
+
+    private void requestSeoRefreshSafely(String reason) {
+        try {
+            seoRefreshService.requestRefresh(reason);
+        } catch (RuntimeException ex) {
+            log.warn("SEO refresh request failed for reason {}. Content change remains successful.", reason, ex);
+        }
     }
 
     private record CacheEntry<T>(T value, long expiresAtMillis) {

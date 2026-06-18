@@ -59,6 +59,8 @@ class ContentServiceImplTest {
     private BadgeService badgeService;
     @Mock
     private ActivityLogService activityLogService;
+    @Mock
+    private SeoRefreshService seoRefreshService;
 
     private ContentServiceImpl contentService;
     private User author;
@@ -75,7 +77,8 @@ class ContentServiceImplTest {
                 inlineMediaPipeline(),
                 new ForumMapper(badgeService),
                 activityLogService,
-                5_242_880
+                5_242_880,
+                seoRefreshService
         );
         author = new User();
         author.setUserID(UUID.randomUUID());
@@ -108,6 +111,7 @@ class ContentServiceImplTest {
         assertFalse(response.paragrafs().contains("script"));
         assertEquals(author.getUserID(), response.user().userID());
         verify(userService).ensureActive(author);
+        verify(seoRefreshService).requestRefresh("content-published");
     }
 
     @Test
@@ -181,6 +185,7 @@ class ContentServiceImplTest {
         assertTrue(!response.createdAt().isAfter(afterPublish));
         assertEquals(response.createdAt(), response.updatedAt());
         assertTrue(response.createdAt().isAfter(originalDraftDate));
+        verify(seoRefreshService).requestRefresh("draft-published");
     }
 
     @Test
@@ -324,6 +329,7 @@ class ContentServiceImplTest {
         assertEquals("Updated", response.head());
         assertEquals("QNA", response.kategori());
         assertFalse(response.paragrafs().contains("onerror"));
+        verify(seoRefreshService).requestRefresh("content-updated");
     }
 
     @Test
@@ -395,6 +401,7 @@ class ContentServiceImplTest {
         verify(commentRepository).deleteByContentId(content.getIdContent());
         verify(voteRepository).deleteByContentId(content.getIdContent());
         verify(contentRepository).deleteById(content.getIdContent());
+        verify(seoRefreshService).requestRefresh("content-deleted");
     }
 
     @Test

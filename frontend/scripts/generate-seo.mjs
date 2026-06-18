@@ -150,19 +150,37 @@ async function writeIndexPage(articles) {
   }
 
   const fallback = renderIndexFallback(articles);
-  const itemListJsonLd = {
+  const siteJsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    itemListElement: articles.map((article, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      url: `${SITE_URL}/read/${encodeURIComponent(article.idContent)}`,
-      name: cleanText(article.head),
-    })),
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
+        name: SITE_NAME,
+        alternateName: ['Code X Avernico', 'GebxBy Blog'],
+        url: SITE_URL,
+      },
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
+        name: SITE_NAME,
+        url: SITE_URL,
+      },
+      {
+        '@type': 'ItemList',
+        '@id': `${SITE_URL}/#latest-posts`,
+        itemListElement: articles.map((article, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${SITE_URL}/read/${encodeURIComponent(article.idContent)}`,
+          name: cleanText(article.head),
+        })),
+      },
+    ],
   };
   const meta = [
     `<link rel="canonical" href="${escapeHtmlAttr(SITE_URL)}" />`,
-    `<script type="application/ld+json">${escapeScriptJson(JSON.stringify(itemListJsonLd))}</script>`,
+    `<script type="application/ld+json">${escapeScriptJson(JSON.stringify(siteJsonLd))}</script>`,
   ].join('\n    ');
 
   const html = template
@@ -188,7 +206,7 @@ function renderIndexFallback(articles) {
   return [
     '<main class="seo-fallback">',
     `  <h1>${SITE_NAME}</h1>`,
-    '  <p>Archive blog untuk tulisan, lore, dan analisis.</p>',
+    '  <p>CodeXAvernico adalah archive blog untuk tulisan, lore, dan analisis.</p>',
     '  <nav aria-label="Artikel terbaru">',
     '    <ul>',
     ...links,
