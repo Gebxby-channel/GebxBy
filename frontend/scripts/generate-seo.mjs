@@ -32,6 +32,7 @@ async function main() {
   await writeFile(path.join(DIST_DIR, 'robots.txt'), robots, 'utf8');
 
   await writeArticlePages(articles);
+  await writeIndexPage(articles);
 
   console.log(`SEO assets generated: ${articles.length} article URLs, sitemap.xml, robots.txt`);
 }
@@ -137,6 +138,64 @@ async function writeArticlePages(articles) {
     await mkdir(articleDir, { recursive: true });
     await writeFile(path.join(articleDir, 'index.html'), renderArticleHtml(template, article), 'utf8');
   }));
+}
+
+async function writeIndexPage(articles) {
+  const indexPath = path.join(DIST_DIR, 'index.html');
+  let template;
+  try {
+    template = await readFile(indexPath, 'utf8');
+  } catch {
+    return;
+  }
+
+  const fallback = renderIndexFallback(articles);
+  const itemListJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: articles.map((article, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      url: `${SITE_URL}/read/${encodeURIComponent(article.idContent)}`,
+      name: cleanText(article.head),
+    })),
+  };
+  const meta = [
+    `<link rel="canonical" href="${escapeHtmlAttr(SITE_URL)}" />`,
+    `<script type="application/ld+json">${escapeScriptJson(JSON.stringify(itemListJsonLd))}</script>`,
+  ].join('\n    ');
+
+  const html = template
+    .replace(/<title>.*?<\/title>/, `<title>${SITE_NAME}</title>\n    ${meta}`)
+    .replace('<div id="root"></div>', `<div id="root">\n${fallback}\n    </div>`);
+
+  await writeFile(indexPath, html, 'utf8');
+}
+
+function renderIndexFallback(articles) {
+  const links = articles.map((article) => {
+    const title = cleanText(article.head) || 'Archive';
+    const description = summarize(article.subtitle || article.paragrafs || title, 140);
+    const href = `/read/${encodeURIComponent(article.idContent)}`;
+    return [
+      '    <li>',
+      `      <a href="${escapeHtmlAttr(href)}">${escapeHtml(title)}</a>`,
+      `      <p>${escapeHtml(description)}</p>`,
+      '    </li>',
+    ].join('\n');
+  });
+
+  return [
+    '<main class="seo-fallback">',
+    `  <h1>${SITE_NAME}</h1>`,
+    '  <p>Archive blog untuk tulisan, lore, dan analisis.</p>',
+    '  <nav aria-label="Artikel terbaru">',
+    '    <ul>',
+    ...links,
+    '    </ul>',
+    '  </nav>',
+    '</main>',
+  ].join('\n');
 }
 
 function renderArticleHtml(template, article) {
