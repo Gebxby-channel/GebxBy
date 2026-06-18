@@ -15,6 +15,7 @@ import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
 import { LazyRenderList } from '../components/LazyRender';
 import ShareDialog from '../components/ShareDialog';
 import { GUEST_READER_HEADER, getGuestReaderKey } from '../utils/guestReader';
+import { resetSeo, setArticleSeo } from '../utils/seo';
 
 type ReportTarget = { type: 'content' } | { type: 'comment'; commentId: string };
 
@@ -170,6 +171,15 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
     }, [content, fetchStats, id, queryClient]);
 
     const safeBody = useMemo(() => sanitizeArticle(content?.paragrafs), [content?.paragrafs]);
+
+    useEffect(() => {
+        if (!content) {
+            resetSeo();
+            return;
+        }
+        setArticleSeo(content);
+        return () => resetSeo();
+    }, [content]);
 
     useEffect(() => {
         setBookmarked(Boolean(id && user?.bookmarkedContentIds?.includes(id)));
