@@ -1,5 +1,13 @@
 package gebxby.gebxbyblog.service;
 
+import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
+
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
 import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
@@ -9,12 +17,6 @@ import gebxby.gebxbyblog.dto.FeedResponse;
 import gebxby.gebxbyblog.dto.VoteBatchResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Collection;
-import java.util.UUID;
 
 public interface ContentService {
     ContentResponse addContent(ContentRequest request, User author);
@@ -39,4 +41,5 @@ public interface ContentService {
     VoteBatchResponse batchVotes(Collection<UUID> contentIds, User viewer);
     List<String> findCategories();
     AnalyticsResponse getAnalytics(User viewer);
+    Page<ContentResponse> getPagedContent(int page, int size, String sortBy, String category, User viewer);
 }

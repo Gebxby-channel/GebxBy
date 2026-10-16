@@ -20,6 +20,10 @@ import gebxby.gebxbyblog.service.UserService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
+import java.util.HashMap;
+
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -39,6 +43,7 @@ import org.springframework.web.server.ResponseStatusException;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -249,6 +254,27 @@ public class ContentController {
         User actor = userService.getCurrentUser(principal);
         commentService.deleteComment(contentId, commentId, actor);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/paged")
+    public ResponseEntity<Map<String, Object>> getPagedContent(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false) String category,
+            @AuthenticationPrincipal OAuth2User principal) {
+        
+        User viewer = optionalUser(principal);
+        Page<ContentResponse> pageResult = contentService.getPagedContent(page, size, sortBy, category, viewer);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", pageResult.getContent());
+        response.put("currentPage", pageResult.getNumber());
+        response.put("totalItems", pageResult.getTotalElements());
+        response.put("totalPages", pageResult.getTotalPages());
+        response.put("hasMore", pageResult.hasNext());
+        
+        return ResponseEntity.ok(response);
     }
 
     private User optionalUser(OAuth2User principal) {

@@ -1,15 +1,17 @@
 package gebxby.gebxbyblog.repository;
 
-import gebxby.gebxbyblog.model.Content;
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import gebxby.gebxbyblog.model.Content;
 
 @Repository
 public interface ContentRepository extends MongoRepository<Content, UUID> {
@@ -26,6 +28,8 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
     List<Content> findTop10ByOrderByViewCountDesc();
 
     List<Content> findTop10ByOrderByUpCountDesc();
+    
+    Page<Content> findByKategori(String kategori, Pageable pageable);
 
     @Query(value = "{}", fields = "{ 'kategori': 1, 'status': 1 }")
     List<Content> findCategoryFields();

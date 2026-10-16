@@ -1,5 +1,32 @@
 package gebxby.gebxbyblog.service;
 
+import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
 import gebxby.gebxbyblog.dto.AnalyticsResponse;
 import gebxby.gebxbyblog.dto.ContentImageRequest;
 import gebxby.gebxbyblog.dto.ContentRequest;
@@ -16,28 +43,6 @@ import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ContentVoteRepository;
 import gebxby.gebxbyblog.repository.GenreRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
 
 @Service
 public class ContentServiceImpl implements ContentService {
@@ -534,6 +539,21 @@ public class ContentServiceImpl implements ContentService {
         boolean isExpired() {
             return System.currentTimeMillis() >= expiresAtMillis;
         }
+    }
+    @Override
+    public Page<ContentResponse> getPagedContent(int page, int size, String sortBy, String category, User viewer) {
+        // Mengatur halaman, ukuran, dan sorting (Default: terbaru berdasarkan createdAt)
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt"));
+        
+        Page<Content> contentPage;
+        if (category != null && !category.isEmpty() && !category.equalsIgnoreCase("All") && !category.equalsIgnoreCase("General")) {
+            contentPage = contentRepository.findByKategori(category, pageable);
+        } else {
+            contentPage = contentRepository.findAll(pageable);
+        }
+        
+        // Mapping dokumen Content ke ContentResponse DTO
+        return contentPage.map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)));
     }
 
 }
