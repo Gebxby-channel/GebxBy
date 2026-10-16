@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Bookmark, FileText, ShieldAlert, Users } from 'lucide-react';
+import { Award, Bookmark, FileText, ShieldAlert, Users, Settings, UserCheck } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
 import { getCategoryColor } from '../utils/categoryColors';
@@ -21,7 +21,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
     const [bookmarks, setBookmarks] = useState<ContentItem[]>([]);
     const [following, setFollowing] = useState<PublicUser[]>([]);
     const [followers, setFollowers] = useState<PublicUser[]>([]);
-    const [profileTab, setProfileTab] = useState<'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges'>('about');
+    const [profileTab, setProfileTab] = useState<'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges' | 'settings'>('about');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
     const [name, setName] = useState(user.name || '');
     const [designation, setDesignation] = useState(user.designation || 'RECONNAISSANCE OFFICER');
@@ -178,6 +178,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
             invalidateApiCache(`/content/by-user/${nextUser.userID}`);
             invalidateApiCache('/content/all-content');
             setProfileEditorOpen(false);
+            feedback.toast('Profil berhasil diperbarui.', 'success');
+        } catch {
+            feedback.toast('Gagal menyimpan profil.', 'error');
         } finally {
             setSavingProfile(false);
         }
@@ -262,12 +265,11 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
         await api.delete(`/content/${idContent}`);
         invalidateContentCaches(user.userID, idContent);
         await fetchMyContents(true);
+        feedback.toast('Arsip berhasil dihapus.', 'success');
     };
 
     const handlePublishDraft = async (item: ContentItem) => {
-        if (item.status !== 'DRAFT' || publishingDraftId) {
-            return;
-        }
+        if (item.status !== 'DRAFT' || publishingDraftId) return;
         if (!item.head?.trim() || !stripHtml(item.paragrafs).trim()) {
             feedback.toast('Draft butuh judul dan isi sebelum dipublish.', 'error');
             return;
@@ -291,137 +293,173 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
             await fetchMyContents(true);
             feedback.toast('Draft berhasil dipublish.', 'success');
         } catch {
-            feedback.toast('Draft gagal dipublish. Draft tetap aman di profil.', 'error');
+            feedback.toast('Draft gagal dipublish.', 'error');
         } finally {
             setPublishingDraftId(null);
         }
     };
 
     return (
-        <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
-            <div className="mx-auto max-w-[1600px]">
-                <div className="mb-10 border-b border-[#2a2a2a] pb-4">
-                    <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] transition-all duration-300 hover:text-[#e60000]">
-                        <span className="text-xs font-bold uppercase tracking-widest">{'<'} Back to Command Center</span>
-                    </button>
-                </div>
+        <div className="min-h-screen bg-[#0d0d0d] font-mono text-[#eee]">
+            {/* TOP BANNER / HERO AREA (Gaya Modern Streaming Dashboard) */}
+            <div className="relative border-b border-[#222] bg-gradient-to-b from-[#1a0505] via-[#111] to-[#0d0d0d] px-6 py-10 lg:px-12">
+                <div className="mx-auto max-w-[1600px]">
+                    <div className="mb-6">
+                        <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#777] transition-all hover:text-[#e60000]">
+                            <span className="text-[10px] font-black uppercase tracking-widest">{'<'} Return to Command Center</span>
+                        </button>
+                    </div>
 
-                <div className="flex flex-col items-start gap-10 lg:flex-row">
-                    <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
-                        <p className="mb-3 pl-2 text-[10px] uppercase tracking-[0.3em] text-[#444]">Personnel Side ID</p>
-                        {profileCardId === 'DEFAULT:STARS' ? (
-                        <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
-                            <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4">
-                                <img src={logo} alt="S.T.A.R.S. Logo" width={180} height={180} className="w-[85%] object-contain" />
-                                <h2 className="mt-3 text-center text-[5px] font-black uppercase leading-tight tracking-normal text-white">Special Tactics and Rescue Service</h2>
+                    <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+                        <div className="flex items-center gap-5">
+                            <div className="h-16 w-16 overflow-hidden border-2 border-[#e60000] bg-[#151515] shadow-lg shadow-red-950/40 md:h-20 md:w-20">
+                                <img
+                                    src={picture || user.picture || defaultAvatar}
+                                    alt="User"
+                                    width={80}
+                                    height={80}
+                                    className="h-full w-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                    onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                                />
                             </div>
-                            <div className="relative flex flex-1 flex-col justify-between bg-white p-5 text-[#1a3a63]">
-                                <div>
-                                    <h1 className="text-3xl font-black leading-none tracking-normal">POLICE</h1>
-                                    <p className="text-[11px] font-bold">CENTRAL ARCHIVE DEP.</p>
+                            <div>
+                                <div className="flex items-center gap-3">
+                                    <h1 className="text-2xl font-black uppercase tracking-wider text-white md:text-3xl">{name || user.name}</h1>
+                                    <span className="border border-[#e60000]/40 bg-[#e60000]/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">
+                                        {designation}
+                                    </span>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="relative border-b border-[#1a3a63] pb-0.5">
-                                        <span className="block truncate text-sm font-black uppercase tracking-normal">{name || user.name || 'N/A'}</span>
-                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Officer Name</span>
-                                    </div>
-                                    <div className="relative border-b border-[#1a3a63] pb-0.5">
-                                        <span className="block truncate text-xs font-black uppercase tracking-normal">{designation || 'Archive Officer'}</span>
-                                        <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Asignation</span>
-                                    </div>
+                                <p className="mt-1 text-xs text-[#777]">
+                                    {user.username ? `@${user.username}` : user.email} // Terminal Clearance Level 4
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setProfileEditorOpen(true)}
+                                className="border border-[#333] bg-[#141414] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#aaa] transition-all hover:border-[#e60000] hover:text-white"
+                            >
+                                Edit Credentials
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/write')}
+                                className="bg-[#e60000] px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_#333] transition-all hover:bg-white hover:text-[#e60000]"
+                            >
+                                + Create New Entry
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* NAVIGATION TABS KAPSUL (Mirip IDLIX/Streaming Dashboard) */}
+                    <div className="mt-10 flex flex-wrap items-center gap-2 border-t border-[#222] pt-6">
+                        <TabButton active={profileTab === 'about'} label="Profil" onClick={() => setProfileTab('about')} />
+                        <TabButton active={profileTab === 'writings'} label="Writings" icon={<FileText size={13} />} count={publishedContents.length} onClick={() => setProfileTab('writings')} />
+                        <TabButton active={profileTab === 'bookmarks'} label="Bookmarks" icon={<Bookmark size={13} />} count={bookmarks.length} onClick={() => setProfileTab('bookmarks')} />
+                        <TabButton active={profileTab === 'following'} label="Following" icon={<Users size={13} />} count={following.length} onClick={() => setProfileTab('following')} />
+                        <TabButton active={profileTab === 'followers'} label="Followers" icon={<UserCheck size={13} />} count={followers.length} onClick={() => setProfileTab('followers')} />
+                        <TabButton active={profileTab === 'badges'} label="Badges" icon={<Award size={13} />} count={user.badges?.length ?? 0} onClick={() => setProfileTab('badges')} />
+                        <TabButton active={profileTab === 'settings'} label="Settings" icon={<Settings size={13} />} onClick={() => setProfileTab('settings')} />
+                    </div>
+                </div>
+            </div>
+
+            {/* MAIN CONTENT AREA */}
+            <div className="mx-auto max-w-[1600px] p-6 lg:p-10">
+                <div className="flex flex-col items-start gap-10 lg:flex-row">
+                    
+                    {/* === KOLOM KIRI: ORGANIZATIONAL SIDE CARD (AMAN DAN TIDAK DIGANGGU) === */}
+                    <div className="w-full flex-shrink-0 lg:sticky lg:top-28 lg:w-[380px]">
+                        <p className="mb-3 pl-2 text-[10px] uppercase tracking-[0.3em] text-[#555]">Personnel ID Card</p>
+                        
+                        {profileCardId === 'DEFAULT:STARS' ? (
+                            <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#333] bg-white shadow-2xl">
+                                <div className="flex w-[40%] flex-col items-center justify-center border-r-[3px] border-white bg-[#1a3a63] p-4">
+                                    <img src={logo} alt="S.T.A.R.S. Logo" width={180} height={180} className="w-[85%] object-contain" />
+                                    <h2 className="mt-3 text-center text-[5px] font-black uppercase leading-tight tracking-normal text-white">Special Tactics and Rescue Service</h2>
                                 </div>
-                                <div className="flex items-end justify-between gap-3">
-                                    <div className="h-24 w-20 flex-shrink-0 border border-[#1a3a63] bg-gray-100 p-0.5 shadow-md">
-                                        <img
-                                            src={picture || user.picture || defaultAvatar}
-                                            alt="Officer"
-                                            width={80}
-                                            height={96}
-                                            className="h-full w-full object-cover grayscale contrast-125"
-                                            referrerPolicy="no-referrer"
-                                            onError={(event) => { event.currentTarget.src = defaultAvatar; }}
-                                        />
+                                <div className="relative flex flex-1 flex-col justify-between bg-white p-5 text-[#1a3a63]">
+                                    <div>
+                                        <h1 className="text-3xl font-black leading-none tracking-normal">POLICE</h1>
+                                        <p className="text-[11px] font-bold">CENTRAL ARCHIVE DEP.</p>
                                     </div>
-                                    <div className="flex flex-1 flex-col items-end">
-                                        <div className="w-full max-w-[100px] text-center">
-                                            <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic">GEBXBY</div>
-                                            <span className="text-[7px] font-black uppercase">Authorized Signature</span>
+                                    <div className="space-y-4">
+                                        <div className="relative border-b border-[#1a3a63] pb-0.5">
+                                            <span className="block truncate text-sm font-black uppercase tracking-normal">{name || user.name || 'N/A'}</span>
+                                            <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Officer Name</span>
+                                        </div>
+                                        <div className="relative border-b border-[#1a3a63] pb-0.5">
+                                            <span className="block truncate text-xs font-black uppercase tracking-normal">{designation || 'Archive Officer'}</span>
+                                            <span className="absolute -bottom-3 right-0 text-[6px] font-bold uppercase opacity-60">Asignation</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-end justify-between gap-3">
+                                        <div className="h-24 w-20 flex-shrink-0 border border-[#1a3a63] bg-gray-100 p-0.5 shadow-md">
+                                            <img
+                                                src={picture || user.picture || defaultAvatar}
+                                                alt="Officer"
+                                                width={80}
+                                                height={96}
+                                                className="h-full w-full object-cover grayscale contrast-125"
+                                                referrerPolicy="no-referrer"
+                                                onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                                            />
+                                        </div>
+                                        <div className="flex flex-1 flex-col items-end">
+                                            <div className="w-full max-w-[100px] text-center">
+                                                <div className="mb-0.5 truncate border-b border-[#1a3a63] pb-0.5 font-serif text-sm italic">GEBXBY</div>
+                                                <span className="text-[7px] font-black uppercase">Authorized Signature</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
                         ) : (
                             <ProfileCardRenderer user={previewUser} card={previewProfileCard} />
                         )}
-                        <div className="mt-3">
-                            <BadgeStrip badges={user.badges} />
-                        </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setProfileEditorOpen(true)}
-                                className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
-                            >
-                                Edit Profile
-                            </button>
+                        <div className="mt-4">
+                            <BadgeStrip badges={user.badges} />
                         </div>
 
                         {user.suspensionMarked && (
                             <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
                                 <div className="mb-2 flex items-center gap-2 text-[#e60000]">
                                     <ShieldAlert size={16} />
-                                    <span className="font-mono text-[10px] font-black uppercase tracking-widest">Suspension Mark Placeholder</span>
+                                    <span className="font-mono text-[10px] font-black uppercase tracking-widest">Suspension Mark Active</span>
                                 </div>
-                                <div className="h-24 border border-dashed border-[#e60000]/40 bg-[#100]" />
+                                <div className="h-20 border border-dashed border-[#e60000]/40 bg-[#100]" />
                             </div>
                         )}
                     </div>
 
+                    {/* === KOLOM KANAN: PANEL ISI BERDASARKAN TAB === */}
                     <div className="w-full flex-1">
-                        <div className="mb-10 flex flex-col items-start justify-between gap-4 border-b border-[#2a2a2a] pb-6 md:flex-row md:items-center">
-                            <div>
-                                <h2 className="text-2xl font-black uppercase tracking-widest text-white">
-                                    {profileTitle(profileTab)}
-                                </h2>
-                                <p className="font-mono text-xs text-[#888]">
-                                    {profileSubtitle(profileTab, contents.length, bookmarks.length, following.length, followers.length, user.badges?.length ?? 0)}
-                                </p>
-                            </div>
-                            <div className="flex w-full flex-wrap items-center gap-3 md:w-auto">
-                                <ProfileTabButton active={profileTab === 'about'} label="About" onClick={() => setProfileTab('about')} />
-                                <ProfileTabButton active={profileTab === 'writings'} label="Writings" icon={<FileText size={13} />} onClick={() => setProfileTab('writings')} />
-                                <ProfileTabButton active={profileTab === 'bookmarks'} label="Bookmarks" icon={<Bookmark size={13} />} onClick={() => setProfileTab('bookmarks')} />
-                                <ProfileTabButton active={profileTab === 'following'} label="Following" icon={<Users size={13} />} onClick={() => setProfileTab('following')} />
-                                <ProfileTabButton active={profileTab === 'followers'} label="Followers" icon={<Users size={13} />} onClick={() => setProfileTab('followers')} />
-                                <ProfileTabButton active={profileTab === 'badges'} label="Badges" icon={<Award size={13} />} onClick={() => setProfileTab('badges')} />
+                        
+                        {/* Header Tab & Sortir */}
+                        {profileTab === 'writings' && (
+                            <div className="mb-6 flex items-center justify-between border-b border-[#222] pb-4">
+                                <h3 className="text-lg font-black uppercase tracking-wider text-white">Secure Sector Archives</h3>
                                 <select
-                                    id="profile-writing-sort"
-                                    name="profileWritingSort"
                                     aria-label="Sort profile writings"
                                     value={sortOrder}
                                     onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}
-                                    className={`${profileTab === 'writings' ? 'block' : 'hidden'} cursor-pointer border border-[#333] bg-[#111] p-3 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]`}
+                                    className="cursor-pointer border border-[#333] bg-[#141414] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]"
                                 >
                                     <option value="newest">Newest Entry</option>
                                     <option value="oldest">Oldest Entry</option>
                                 </select>
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/write')}
-                                    className="flex-1 bg-[#e60000] px-8 py-3 text-xs font-black uppercase tracking-normal text-white shadow-[4px_4px_0px_#444] transition-all duration-300 hover:bg-white hover:text-[#e60000] md:flex-none"
-                                >
-                                    + Create New Entry
-                                </button>
                             </div>
-                        </div>
+                        )}
 
                         <div className="grid gap-6">
                             {profileTab === 'about' ? (
                                 <AboutPanel stats={profileStats} user={user} recent={contents.slice(0, 4)} />
                             ) : profileTab === 'writings' && contents.length === 0 ? (
-                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO DATA RECORDED ]</div>
+                                <div className="border border-dashed border-[#222] py-20 text-center text-[#555]">[ NO DATA RECORDED IN THIS SECTOR ]</div>
                             ) : profileTab === 'writings' ? (
                                 <LazyRenderList
                                     items={contents}
@@ -441,7 +479,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             ) : profileTab === 'badges' ? (
                                 <BadgesPanel badges={user.badges ?? []} onOpen={setSelectedBadge} />
                             ) : profileTab === 'bookmarks' && bookmarks.length === 0 ? (
-                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BOOKMARKS SAVED ]</div>
+                                <div className="border border-dashed border-[#222] py-20 text-center text-[#555]">[ NO BOOKMARKS SAVED ]</div>
                             ) : profileTab === 'bookmarks' ? (
                                 <LazyRenderList
                                     items={bookmarks}
@@ -453,7 +491,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     )}
                                 />
                             ) : profileTab === 'following' && following.length === 0 ? (
-                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWING DATA ]</div>
+                                <div className="border border-dashed border-[#222] py-20 text-center text-[#555]">[ NO FOLLOWING DATA ]</div>
                             ) : profileTab === 'following' ? (
                                 <LazyRenderList
                                     items={following}
@@ -464,9 +502,9 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         <FollowingItem target={target} onOpen={() => navigate(`/profile/${target.userID}`)} />
                                     )}
                                 />
-                            ) : followers.length === 0 ? (
-                                <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO FOLLOWER DATA ]</div>
-                            ) : (
+                            ) : profileTab === 'followers' && followers.length === 0 ? (
+                                <div className="border border-dashed border-[#222] py-20 text-center text-[#555]">[ NO FOLLOWER DATA ]</div>
+                            ) : profileTab === 'followers' ? (
                                 <LazyRenderList
                                     items={followers}
                                     getKey={(target) => target.userID}
@@ -482,44 +520,57 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                         />
                                     )}
                                 />
+                            ) : (
+                                /* Tab Settings Interaktif */
+                                <SettingsPanel
+                                    name={name}
+                                    setName={setName}
+                                    designation={designation}
+                                    setDesignation={setDesignation}
+                                    profileCardId={profileCardId}
+                                    setProfileCardId={setProfileCardId}
+                                    availableProfileCards={availableProfileCards}
+                                    canCustomizeSelectedCard={canCustomizeSelectedCard}
+                                    cardDisplayName={cardDisplayName}
+                                    setCardDisplayName={setCardDisplayName}
+                                    onSave={() => void handleSaveProfile()}
+                                    saving={savingProfile}
+                                    dirty={profileDirty}
+                                />
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* MODAL EDIT PROFIL LENGKAP */}
             {profileEditorOpen && (
                 <Modal
-                    title="Edit Profile"
+                    title="Edit Officer Credentials"
                     onClose={handleCancelProfile}
                     footer={(
                         <>
                             <UiButton onClick={handleCancelProfile} disabled={savingProfile}>Cancel</UiButton>
                             <UiButton onClick={() => void handleSaveProfile()} disabled={!profileDirty || savingProfile} variant="danger">
-                                {savingProfile ? 'Saving' : 'Save Profile'}
+                                {savingProfile ? 'Saving...' : 'Save Changes'}
                             </UiButton>
                         </>
                     )}
                 >
                     <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
                         <div className="space-y-4">
-                            <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
+                            <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
                                 Profile Name
                                 <input
-                                    id="profile-display-name"
-                                    name="profileDisplayName"
-                                    aria-label="Profile name"
                                     value={name}
                                     maxLength={80}
                                     onChange={(event) => setName(event.target.value)}
                                     className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]"
                                 />
                             </label>
-                            <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
-                                Role / Designation
+                            <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
+                                Designation / Role
                                 <input
-                                    id="profile-designation"
-                                    name="profileDesignation"
-                                    aria-label="Profile designation"
                                     value={designation}
                                     maxLength={80}
                                     onChange={(event) => setDesignation(event.target.value.toUpperCase())}
@@ -527,32 +578,26 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 />
                             </label>
                             <div>
-                                <p className="m-0 mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Profile Photo</p>
+                                <p className="m-0 mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">Profile Photo</p>
                                 <div className="flex flex-wrap gap-2">
-                                    <label className="flex h-10 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
-                                        Change Profile Photo
-                                        <input id="profile-photo-upload" name="profilePhoto" aria-label="Profile photo upload" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
+                                    <label className="flex h-10 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-[#e60000] hover:text-[#e60000]">
+                                        Upload Image File
+                                        <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
                                     </label>
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setPicture('');
-                                            setCardDisplayPhoto('');
-                                        }}
+                                        onClick={() => { setPicture(''); setCardDisplayPhoto(''); }}
                                         disabled={!picture}
-                                        className="h-10 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="h-10 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-white hover:text-white disabled:opacity-40"
                                     >
-                                        Use Account Photo
+                                        Reset Photo
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="border-t border-[#2a2a2a] pt-4">
-                                <label className="mb-2 block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Card Model</label>
+                            <div className="border-t border-[#222] pt-4">
+                                <label className="mb-2 block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">Card Template</label>
                                 <select
-                                    id="profile-card-model"
-                                    name="profileCardModel"
-                                    aria-label="Profile card model"
                                     value={profileCardId}
                                     onChange={(event) => setProfileCardId(event.target.value)}
                                     className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
@@ -563,77 +608,57 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 </select>
                             </div>
 
-                            {canCustomizeSelectedCard ? (
-                                <div className="space-y-3 border border-[#2a2a2a] bg-[#111] p-3">
-                                    <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">
-                                        Name On Card
+                            {canCustomizeSelectedCard && (
+                                <div className="space-y-3 border border-[#222] bg-[#141414] p-3">
+                                    <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
+                                        Custom Name On Card
                                         <input
-                                            id="profile-card-display-name"
-                                            name="profileCardDisplayName"
-                                            aria-label="Name on profile card"
                                             value={cardDisplayName}
                                             maxLength={80}
                                             onChange={(event) => setCardDisplayName(event.target.value)}
-                                            placeholder={name || user.name || 'Use profile name'}
+                                            placeholder={name || user.name}
                                             className="mt-2 h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
                                         />
                                     </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleDeleteProfileCard()}
-                                            className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
-                                        >
-                                            Delete Card
-                                        </button>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleDeleteProfileCard()}
+                                        className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                    >
+                                        Delete Custom Card
+                                    </button>
                                 </div>
-                            ) : (
-                                <p className="m-0 border border-[#2a2a2a] bg-[#111] p-3 font-mono text-[9px] uppercase leading-5 text-[#555]">
-                                    Default card mengikuti nama, role, dan foto profil utama.
-                                </p>
                             )}
                         </div>
 
                         <div className="space-y-4">
-                            <div className="border border-[#2a2a2a] bg-[#111] p-3">
-                                <p className="m-0 mb-3 font-mono text-[9px] font-black uppercase tracking-widest text-[#666]">Preview</p>
+                            <div className="border border-[#222] bg-[#141414] p-3">
+                                <p className="m-0 mb-3 font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">Preview</p>
                                 <div className="aspect-square overflow-hidden border border-[#333] bg-[#090909]">
                                     <img
                                         src={cardDisplayPhoto || picture || user.picture || defaultAvatar}
-                                        alt="Profile preview"
-                                        width={260}
-                                        height={260}
+                                        alt="Preview"
                                         className="h-full w-full object-cover"
                                         referrerPolicy="no-referrer"
-                                        onError={(event) => { event.currentTarget.src = defaultAvatar; }}
                                     />
                                 </div>
                             </div>
 
                             {cropSource && (
-                                <div className="border border-[#2a2a2a] bg-[#151515] p-4">
+                                <div className="border border-[#222] bg-[#151515] p-4">
                                     <div className="mb-3 aspect-square w-full overflow-hidden border border-[#333] bg-[#090909]">
                                         <img
                                             src={cropSource}
-                                            alt="Crop preview"
-                                            width={260}
-                                            height={260}
+                                            alt="Crop"
                                             className="h-full w-full object-cover"
-                                            style={{
-                                                transform: `scale(${cropZoom}) translate(${cropX}px, ${cropY}px)`,
-                                            }}
+                                            style={{ transform: `scale(${cropZoom}) translate(${cropX}px, ${cropY}px)` }}
                                         />
                                     </div>
-                                    <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Zoom</label>
-                                    <input id="profile-crop-zoom" name="profileCropZoom" aria-label="Photo crop zoom" className="mb-3 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} />
-                                    <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Horizontal</label>
-                                    <input id="profile-crop-x" name="profileCropX" aria-label="Photo crop horizontal position" className="mb-3 w-full" type="range" min="-80" max="80" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
-                                    <label className="mb-2 block font-mono text-[9px] uppercase text-[#666]">Vertical</label>
-                                    <input id="profile-crop-y" name="profileCropY" aria-label="Photo crop vertical position" className="mb-3 w-full" type="range" min="-80" max="80" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
-                                    <div className="flex flex-wrap gap-2">
-                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white">Apply Photo</button>
-                                        <button type="button" onClick={() => setCropSource('')} className="border border-[#333] px-4 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel Crop</button>
+                                    <label className="mb-1 block text-[9px] text-[#777]">Zoom</label>
+                                    <input className="mb-2 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(e) => setCropZoom(Number(e.target.value))} />
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-3 py-1.5 text-[9px] font-black uppercase text-[#e60000]">Apply</button>
+                                        <button type="button" onClick={() => setCropSource('')} className="border border-[#333] px-3 py-1.5 text-[9px] font-black uppercase text-[#777]">Cancel</button>
                                     </div>
                                 </div>
                             )}
@@ -641,6 +666,8 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                     </div>
                 </Modal>
             )}
+
+            {/* MODAL DETAIL BADGE */}
             {selectedBadge && (
                 <Modal
                     title={selectedBadge.label}
@@ -650,111 +677,70 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                     footer={<UiButton onClick={() => setSelectedBadge(null)}>Close</UiButton>}
                 >
                     <div className="mb-4 text-3xl">{selectedBadge.icon}</div>
-                    <p className="m-0 whitespace-pre-wrap font-sans text-sm leading-7 text-[var(--app-text-soft)]">{selectedBadge.description || 'No description.'}</p>
+                    <p className="m-0 whitespace-pre-wrap font-sans text-sm leading-7 text-[#aaa]">{selectedBadge.description || 'No description provided.'}</p>
                 </Modal>
             )}
         </div>
     );
 }
 
-function ArchiveItem({
-    item,
-    publishing,
-    onPublish,
-    onEdit,
-    onDelete,
-}: {
-    item: ContentItem;
-    publishing: boolean;
-    onPublish: () => void;
-    onEdit: () => void;
-    onDelete: () => void;
-}) {
+// Sub-komponen Pendukung UI
+function TabButton({ active, label, icon, count, onClick }: { active: boolean; label: string; icon?: ReactNode; count?: number; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex h-11 items-center gap-2.5 border px-5 font-mono text-[10px] font-black uppercase tracking-widest transition-all ${
+                active
+                    ? 'border-[#e60000] bg-[#e60000] text-white shadow-md shadow-red-950/30'
+                    : 'border-[#222] bg-[#141414] text-[#888] hover:border-[#e60000]/70 hover:text-white'
+            }`}
+        >
+            {icon}
+            <span>{label}</span>
+            {count !== undefined && count > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 text-[8px] font-black ${active ? 'bg-black/30 text-white' : 'bg-[#222] text-[#aaa]'}`}>
+                    {count}
+                </span>
+            )}
+        </button>
+    );
+}
+
+function ArchiveItem({ item, publishing, onPublish, onEdit, onDelete }: any) {
     const themeColor = getCategoryColor(item.kategori);
     const isDraft = item.status === 'DRAFT';
     return (
-        <div className="bg-[#181818] p-6 shadow-inner transition-all duration-300" style={{ border: `1px solid #2a2a2a`, borderLeft: `3px solid ${themeColor}` }}>
+        <div className="bg-[#141414] p-6 shadow-inner transition-all duration-300 hover:border-[#e60000]" style={{ border: `1px solid #222`, borderLeft: `3px solid ${themeColor}` }}>
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                 <div className="flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-4">
                         <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
-                        <span className="font-mono text-[9px] font-bold uppercase text-[#444]">FILE DATE: {formatDate(item.createdAt)}</span>
+                        <span className="font-mono text-[9px] font-bold uppercase text-[#555]">FILE DATE: {formatDate(item.createdAt)}</span>
                         <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
-                        {isDraft && (
-                            <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">Draft</span>
-                        )}
+                        {isDraft && <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase text-[#e60000]">Draft</span>}
                     </div>
                     <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
-                    <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
+                    <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#999]">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                 </div>
                 <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
                     {isDraft && (
-                        <button
-                            type="button"
-                            onClick={onPublish}
-                            disabled={publishing}
-                            className="flex-1 border border-[#e60000] bg-[#e60000] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60 md:w-28"
-                        >
+                        <button type="button" onClick={onPublish} disabled={publishing} className="flex-1 border border-[#e60000] bg-[#e60000] px-5 py-2 text-[10px] font-bold uppercase text-white hover:bg-white hover:text-[#e60000] md:w-28">
                             {publishing ? 'Publishing' : 'Publish'}
                         </button>
                     )}
-                    <button type="button" onClick={onEdit} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-white disabled:cursor-wait disabled:opacity-50 md:w-28">Edit File</button>
-                    <button type="button" onClick={onDelete} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white transition-all hover:border-[#e60000] hover:bg-[#e60000] disabled:cursor-wait disabled:opacity-50 md:w-28">Delete</button>
+                    <button type="button" onClick={onEdit} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white hover:border-white md:w-28">Edit File</button>
+                    <button type="button" onClick={onDelete} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white hover:bg-[#e60000] md:w-28">Delete</button>
                 </div>
             </div>
         </div>
     );
 }
 
-function ProfileTabButton({ active, label, icon, onClick }: { active: boolean; label: string; icon?: ReactNode; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`flex h-10 items-center gap-2 border px-3 font-mono text-[9px] font-black uppercase tracking-widest transition-all ${
-                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-[#e60000]'
-            }`}
-        >
-            {icon}
-            {label}
-        </button>
-    );
-}
-
-function profileTitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges') {
-    return {
-        about: 'Profile Overview',
-        writings: 'Personal Archives',
-        bookmarks: 'Bookmarks',
-        following: 'Following',
-        followers: 'Followers',
-        badges: 'Badge Cabinet',
-    }[tab];
-}
-
-function profileSubtitle(tab: 'about' | 'writings' | 'bookmarks' | 'following' | 'followers' | 'badges', writings: number, bookmarks: number, following: number, followers: number, badges: number) {
-    return {
-        about: 'Identity, stats, and recent signal activity.',
-        writings: `Managing ${writings} secure data entries within this sector.`,
-        bookmarks: `${bookmarks} saved entries for later reading.`,
-        following: `${following} followed archive officers.`,
-        followers: `${followers} officers following this account.`,
-        badges: `${badges} visible badge records.`,
-    }[tab];
-}
-
-function AboutPanel({
-    stats,
-    user,
-    recent,
-}: {
-    stats: { writings: number; drafts: number; up: number; comments: number; views: number };
-    user: CurrentUser;
-    recent: ContentItem[];
-}) {
+function AboutPanel({ stats, user, recent }: any) {
     return (
         <section className="space-y-6">
-            <div className="grid gap-3 md:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-5">
                 <ProfileMetric label="Writings" value={stats.writings} />
                 <ProfileMetric label="Drafts" value={stats.drafts} danger={stats.drafts > 0} />
                 <ProfileMetric label="Total UP" value={stats.up} />
@@ -762,23 +748,22 @@ function AboutPanel({
                 <ProfileMetric label="Views" value={stats.views} />
             </div>
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-                <div className="border border-[#2a2a2a] bg-[#181818] p-5">
-                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">About</p>
+                <div className="border border-[#222] bg-[#141414] p-6">
+                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Officer Dossier</p>
                     <h3 className="m-0 mt-3 font-mono text-xl font-black uppercase text-white">{user.name}</h3>
-                    <p className="m-0 mt-2 font-mono text-[10px] uppercase text-[#666]">{user.username ? `@${user.username}` : user.designation || 'Archive Officer'}</p>
-                    {user.username && <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#444]">{user.designation || 'Archive Officer'}</p>}
-                    <p className="m-0 mt-4 font-sans text-sm leading-7 text-[#aaa]">{user.moto || 'No personal note recorded yet.'}</p>
+                    <p className="m-0 mt-2 font-mono text-[10px] uppercase text-[#777]">{user.username ? `@${user.username}` : user.designation}</p>
+                    <p className="m-0 mt-4 font-sans text-sm leading-7 text-[#999]">{user.moto || 'No operational notes recorded.'}</p>
                 </div>
-                <div className="border border-[#2a2a2a] bg-[#181818] p-5">
-                    <p className="m-0 mb-4 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Recent Activity</p>
+                <div className="border border-[#222] bg-[#141414] p-6">
+                    <p className="m-0 mb-4 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Recent Signal Log</p>
                     {recent.length === 0 ? (
-                        <div className="border border-dashed border-[#333] py-10 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-[#444]">[ No Activity ]</div>
+                        <div className="border border-dashed border-[#333] py-10 text-center font-mono text-[10px] uppercase text-[#555]">[ No Activity ]</div>
                     ) : (
                         <div className="space-y-3">
-                            {recent.map((item) => (
-                                <div key={item.idContent} className="border border-[#242424] bg-[#101010] p-3">
+                            {recent.map((item: any) => (
+                                <div key={item.idContent} className="border border-[#222] bg-[#101010] p-3">
                                     <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{item.head}</p>
-                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{item.status === 'DRAFT' ? 'Draft saved' : 'Published'} // {formatDate(item.updatedAt || item.createdAt)}</p>
+                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{item.status === 'DRAFT' ? 'Draft' : 'Published'} // {formatDate(item.updatedAt || item.createdAt)}</p>
                                 </div>
                             ))}
                         </div>
@@ -789,50 +774,40 @@ function AboutPanel({
     );
 }
 
-function ProfileMetric({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
+function ProfileMetric({ label, value, danger = false }: any) {
     return (
-        <div className="border border-[#2a2a2a] bg-[#181818] p-4">
-            <p className="m-0 font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#555]">{label}</p>
+        <div className="border border-[#222] bg-[#141414] p-4">
+            <p className="m-0 font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#666]">{label}</p>
             <p className={`m-0 mt-2 font-mono text-2xl font-black ${danger ? 'text-[#e60000]' : 'text-white'}`}>{value}</p>
         </div>
     );
 }
 
-function BadgesPanel({ badges, onOpen }: { badges: Badge[]; onOpen: (badge: Badge) => void }) {
-    if (badges.length === 0) {
-        return <div className="border border-dashed border-[#2a2a2a] py-20 text-center font-mono text-[#444]">[ NO BADGES ]</div>;
-    }
+function BadgesPanel({ badges, onOpen }: any) {
+    if (badges.length === 0) return <div className="border border-dashed border-[#222] py-20 text-center text-[#555]">[ NO BADGES ]</div>;
     return (
         <LazyRenderList
             items={badges}
-            getKey={(badge) => badge.id ?? badge.code ?? badge.label}
+            getKey={(badge: any) => badge.id ?? badge.code ?? badge.label}
             estimateSize={126}
-            className="grid gap-3 md:grid-cols-2"
-            renderItem={(badge) => (
-                <button
-                    type="button"
-                    onClick={() => onOpen(badge)}
-                    className="border border-[#2a2a2a] bg-[#181818] p-4 text-left transition-all hover:border-[#e60000]"
-                >
+            className="grid gap-4 md:grid-cols-2"
+            renderItem={(badge: any) => (
+                <button type="button" onClick={() => onOpen(badge)} className="border border-[#222] bg-[#141414] p-5 text-left transition-all hover:border-[#e60000]">
                     <div className="mb-3 flex items-center gap-3">
-                        {badge.image ? (
-                            <img src={badge.image} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
-                        ) : (
-                            <span className="text-2xl">{badge.custom ? badge.icon : '▣'}</span>
-                        )}
+                        <span className="text-2xl">{badge.custom ? badge.icon : '▣'}</span>
                         <div className="min-w-0">
                             <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{badge.label}</p>
-                            <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{badge.custom ? 'Custom' : 'Core'} // {badge.automatic ? 'Auto' : 'Manual'}</p>
+                            <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{badge.custom ? 'Custom' : 'Core'}</p>
                         </div>
                     </div>
-                    <p className="m-0 line-clamp-2 font-sans text-sm leading-6 text-[#aaa]">{badge.description}</p>
+                    <p className="m-0 line-clamp-2 font-sans text-sm text-[#999]">{badge.description}</p>
                 </button>
             )}
         />
     );
 }
 
-function BookmarkItem({ item, viewerUserId, onOpen }: { item: ContentItem; viewerUserId: string; onOpen: () => void }) {
+function BookmarkItem({ item, viewerUserId, onOpen }: any) {
     const navigate = useNavigate();
     const themeColor = getCategoryColor(item.kategori);
     return (
@@ -840,93 +815,76 @@ function BookmarkItem({ item, viewerUserId, onOpen }: { item: ContentItem; viewe
             role="button"
             tabIndex={0}
             onClick={onOpen}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onOpen();
-                }
-            }}
-            className="group border border-[#2a2a2a] bg-[#181818] p-6 text-left transition-all hover:border-[#e60000]"
+            onKeyDown={(event) => { if (event.key === 'Enter') onOpen(); }}
+            className="group border border-[#222] bg-[#141414] p-6 text-left transition-all hover:border-[#e60000]"
             style={{ borderLeft: `3px solid ${themeColor}` }}
         >
-            <div className="mb-2 flex flex-wrap items-center gap-3">
-                <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>SAVED ENTRY</span>
-                <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
-                <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        const path = profilePathForUser(item.user?.userID, viewerUserId);
-                        if (path) navigate(path);
-                    }}
-                    onKeyDown={(event) => {
-                        if (event.key !== 'Enter' && event.key !== ' ') return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        const path = profilePathForUser(item.user?.userID, viewerUserId);
-                        if (path) navigate(path);
-                    }}
-                    className="font-mono text-[9px] uppercase text-[#555] hover:text-[#e60000]"
-                >
+            <div className="mb-2 flex items-center gap-3">
+                <span className="border px-2 py-0.5 text-[9px] font-black uppercase" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                <span onClick={(e) => { e.stopPropagation(); navigate(profilePathForUser(item.user?.userID, viewerUserId) || '/'); }} className="text-[9px] uppercase text-[#777] hover:underline">
                     {item.user?.name || 'Unknown'}
                 </span>
             </div>
             <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
-            <p className="line-clamp-2 font-sans text-sm leading-6 text-[#aaa]">{stripHtml(item.paragrafs).substring(0, 200)}...</p>
+            <p className="line-clamp-2 text-sm text-[#999]">{stripHtml(item.paragrafs).substring(0, 200)}...</p>
         </article>
     );
 }
 
-function FollowingItem({
-    target,
-    onOpen,
-    actionLabel,
-    actionDisabled = false,
-    onAction,
-}: {
-    target: PublicUser;
-    onOpen: () => void;
-    actionLabel?: string;
-    actionDisabled?: boolean;
-    onAction?: () => void;
-}) {
+function FollowingItem({ target, onOpen, actionLabel, actionDisabled, onAction }: any) {
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(target.name || 'User')}`;
     return (
-        <div className="flex flex-col gap-3 border border-[#2a2a2a] bg-[#181818] p-4 transition-all hover:border-[#e60000] sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 border border-[#222] bg-[#141414] p-4 transition-all hover:border-[#e60000] sm:flex-row sm:items-center">
             <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-4 text-left">
-            <div className="h-14 w-14 overflow-hidden border border-[#333] bg-[#111]">
-                <img
-                    src={target.picture || defaultAvatar}
-                    alt=""
-                    width={56}
-                    height={56}
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                    onError={(event) => { event.currentTarget.src = defaultAvatar; }}
-                />
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{target.name || 'Unknown'}</p>
-                <p className="m-0 mt-1 truncate font-mono text-[10px] uppercase text-[#666]">{target.designation || 'Archive Officer'}</p>
-                <div className="mt-2">
-                    <BadgeStrip badges={target.badges} compact />
+                <div className="h-12 w-12 overflow-hidden border border-[#333]">
+                    <img src={target.picture || defaultAvatar} alt="" width={48} height={48} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                 </div>
-            </div>
+                <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{target.name}</p>
+                    <p className="m-0 mt-1 truncate font-mono text-[10px] uppercase text-[#666]">{target.designation || 'Officer'}</p>
+                </div>
             </button>
-            {actionLabel && onAction && (
-                <button
-                    type="button"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        onAction();
-                    }}
-                    disabled={actionDisabled}
-                    className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-not-allowed disabled:opacity-40"
-                >
+            {actionLabel && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onAction(); }} disabled={actionDisabled} className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-[#e60000] hover:text-[#e60000] disabled:opacity-40">
                     {actionLabel}
                 </button>
             )}
+        </div>
+    );
+}
+
+function SettingsPanel({ name, setName, designation, setDesignation, profileCardId, setProfileCardId, availableProfileCards, canCustomizeSelectedCard, cardDisplayName, setCardDisplayName, onSave, saving, dirty }: any) {
+    return (
+        <div className="border border-[#222] bg-[#141414] p-6 space-y-6">
+            <div>
+                <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Quick Preferences</p>
+                <h3 className="m-0 mt-1 text-xl font-black uppercase text-white">Direct Terminal Config</h3>
+            </div>
+            <div className="space-y-4 max-w-xl">
+                <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
+                    Officer Name
+                    <input value={name} onChange={(e) => setName(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]" />
+                </label>
+                <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
+                    Designation
+                    <input value={designation} onChange={(e) => setDesignation(e.target.value.toUpperCase())} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]" />
+                </label>
+                <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
+                    Active Card Template
+                    <select value={profileCardId} onChange={(e) => setProfileCardId(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]">
+                        {availableProfileCards.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </label>
+                {canCustomizeSelectedCard && (
+                    <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
+                        Card Display Name
+                        <input value={cardDisplayName} onChange={(e) => setCardDisplayName(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]" />
+                    </label>
+                )}
+                <button type="button" onClick={onSave} disabled={!dirty || saving} className="bg-[#e60000] px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_#222] hover:bg-white hover:text-[#e60000] disabled:opacity-40">
+                    {saving ? 'Syncing...' : 'Save Quick Settings'}
+                </button>
+            </div>
         </div>
     );
 }
@@ -939,36 +897,23 @@ function invalidateContentCaches(userId: string, contentId?: string) {
     invalidateApiCache('/content/latest');
     invalidateApiCache('/content/categories');
     invalidateApiCache('/content/analytics');
-    if (contentId) {
-        invalidateApiCache(`/content/${contentId}`);
-    }
+    if (contentId) invalidateApiCache(`/content/${contentId}`);
 }
 
 function buildDraftPublishPayload(item: ContentItem) {
-    return {
-        head: item.head,
-        subtitle: item.subtitle,
-        paragrafs: item.paragrafs,
-        kategori: item.kategori || 'General',
-    };
+    return { head: item.head, subtitle: item.subtitle, paragrafs: item.paragrafs, kategori: item.kategori || 'General' };
 }
 
 function discardLocalWriterDraft(userId: string, draftId: string) {
     const prefix = `gebxby:writer-draft:${userId}:`;
     for (let index = localStorage.length - 1; index >= 0; index -= 1) {
         const key = localStorage.key(index);
-        if (!key?.startsWith(prefix)) {
-            continue;
-        }
+        if (!key?.startsWith(prefix)) continue;
         try {
-            const draft = JSON.parse(localStorage.getItem(key) || '{}') as { draftId?: string };
-            if (key === `${prefix}${draftId}` || draft.draftId === draftId) {
-                localStorage.removeItem(key);
-            }
+            const draft = JSON.parse(localStorage.getItem(key) || '{}');
+            if (key === `${prefix}${draftId}` || draft.draftId === draftId) localStorage.removeItem(key);
         } catch {
-            if (key === `${prefix}${draftId}`) {
-                localStorage.removeItem(key);
-            }
+            if (key === `${prefix}${draftId}`) localStorage.removeItem(key);
         }
     }
 }
@@ -986,10 +931,7 @@ function cropImage(source: string, zoom: number, offsetX: number, offsetY: numbe
             canvas.width = size;
             canvas.height = size;
             const context = canvas.getContext('2d');
-            if (!context) {
-                reject(new Error('Canvas unavailable'));
-                return;
-            }
+            if (!context) { reject(new Error('Canvas unavailable')); return; }
             context.fillStyle = '#111';
             context.fillRect(0, 0, size, size);
             const scale = Math.max(size / image.width, size / image.height) * zoom;
@@ -1007,27 +949,12 @@ function cropImage(source: string, zoom: number, offsetX: number, offsetY: numbe
 
 function defaultCardLayout() {
     return {
-        photoX: 68,
-        photoY: 16,
-        photoW: 22,
-        photoH: 28,
-        nameX: 36,
-        nameY: 62,
-        nameW: 50,
-        nameH: 10,
-        designationX: 36,
-        designationY: 72,
-        designationW: 50,
-        designationH: 8,
-        statsX: 5,
-        statsY: 78,
-        statsW: 30,
-        statsH: 12,
-        nameFontSize: 0.9,
-        designationFontSize: 0.9,
-        statsFontSize: 1.2,
-        textColor: '#111111',
-        accentColor: '#e60000',
+        photoX: 68, photoY: 16, photoW: 22, photoH: 28,
+        nameX: 36, nameY: 62, nameW: 50, nameH: 10,
+        designationX: 36, designationY: 72, designationW: 50, designationH: 8,
+        statsX: 5, statsY: 78, statsW: 30, statsH: 12,
+        nameFontSize: 0.9, designationFontSize: 0.9, statsFontSize: 1.2,
+        textColor: '#111111', accentColor: '#e60000',
     };
 }
 
