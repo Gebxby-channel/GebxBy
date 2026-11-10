@@ -8,7 +8,7 @@ import GlobalSearch from '../components/GlobalSearch';
 import type { AnalyticsPayload, AnnouncementItem, ContentItem, CurrentUser, FeedPayload, GenreItem } from '../types/forum';
 import { useFeedback } from '../components/feedback';
 import { profilePathForUser } from '../utils/profilePath';
-import { setRuntimeCategoryColors } from '../utils/categoryColors';
+import { getCategoryLabel, isThreadCategory, setRuntimeCategoryColors } from '../utils/categoryColors';
 import { LazyRenderList } from '../components/LazyRender';
 
 type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
@@ -157,7 +157,7 @@ function AnalyticsCard({ analytics, onOpen }: { analytics?: AnalyticsPayload; on
 
 function WhatsHappeningCard({ analytics, articles, onOpen }: { analytics?: AnalyticsPayload; articles: ContentItem[]; onOpen: (id: string) => void }) {
     const items = (analytics?.mostUpvoted?.length ? analytics.mostUpvoted : articles).slice(0, 4);
-    return <section className="rounded-2xl border border-[#242424] bg-[#101010] p-4"><h2 className="mb-4 flex items-center gap-2 text-base font-extrabold text-white"><Flame size={17} className="text-[#ff1744]" />What's going on</h2>{items.length ? <div className="grid">{items.map((item) => <button key={item.idContent} type="button" onClick={() => onOpen(item.idContent)} className="border-b border-[#222] py-3 text-left last:border-0"><span className="flex items-center gap-1 text-[10px] text-[#777]"><TrendingUp size={12} />{item.kategori || 'Tulisan populer'} · {item.upCount} vote</span><span className="mt-1 line-clamp-2 block text-sm font-bold text-[#ddd] hover:text-white">{item.head}</span><span className="mt-1 block truncate text-xs text-[#777]">{item.user?.name || 'Penulis'}</span></button>)}</div> : <p className="m-0 text-sm text-[#777]">Topik yang sedang ramai akan muncul di sini.</p>}</section>;
+    return <section className="rounded-2xl border border-[#242424] bg-[#101010] p-4"><h2 className="mb-4 flex items-center gap-2 text-base font-extrabold text-white"><Flame size={17} className="text-[#ff1744]" />What's going on</h2>{items.length ? <div className="grid">{items.map((item) => <button key={item.idContent} type="button" onClick={() => onOpen(item.idContent)} className="border-b border-[#222] py-3 text-left last:border-0"><span className="flex items-center gap-1 text-[10px] text-[#777]"><TrendingUp size={12} />{getCategoryLabel(item.kategori)} · {item.upCount} vote</span><span className="mt-1 line-clamp-2 block text-sm font-bold text-[#ddd] hover:text-white">{isThreadCategory(item.kategori) ? `Utas dari ${item.user?.name || 'Penulis'}` : item.head}</span><span className="mt-1 block truncate text-xs text-[#777]">{item.user?.name || 'Penulis'}</span></button>)}</div> : <p className="m-0 text-sm text-[#777]">Topik yang sedang ramai akan muncul di sini.</p>}</section>;
 }
 
 function AnnouncementCard({ announcement, loading, user, onAdmin }: { announcement: AnnouncementItem | null; loading: boolean; user: CurrentUser | null; onAdmin: () => void }) {

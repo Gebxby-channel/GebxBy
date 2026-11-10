@@ -4,7 +4,7 @@ export const categoryColors: Record<string, string> = {
     'ANALISTIC PSHYCOLOGIC':   '#ec4899',
     'FAN-NOVEL':               '#eab308',
     'GENERAL':                 '#ffffff',
-    'QNA':                     '#a855f7',
+    'UTAS':                    '#a855f7',
 };
 
 let runtimeCategoryColors: Record<string, string> = {};
@@ -29,5 +29,10 @@ export const DEFAULT_CATEGORIES = [
     'Speculation',
     'Analistic Pshycologic',
     'Fan-Novel',
-    'QNA',
+    'Utas',
 ];
+
+export const isThreadCategory = (kategori?: string) => /^(QNA|QA|UTAS)$/i.test(kategori?.trim() ?? '');
+
+export const getCategoryLabel = (kategori?: string) =>
+    isThreadCategory(kategori) ? 'Utas' : kategori || 'UNASSIGNED';

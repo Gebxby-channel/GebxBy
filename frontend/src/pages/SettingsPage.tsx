@@ -32,7 +32,7 @@ export default function SettingsPage({
                     <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Policy</h2>
                 </div>
                 <div className="space-y-3 font-sans text-sm leading-7 text-[#aaa]">
-                    <p className="m-0">1. Gunakan forum untuk diskusi tulisan, teori, QNA, dan arsip komunitas dengan tetap menghormati pengguna lain.</p>
+                    <p className="m-0">1. Gunakan forum untuk diskusi tulisan, teori, utas, dan arsip komunitas dengan tetap menghormati pengguna lain.</p>
                     <p className="m-0">2. Admin dan moderator dapat menghapus konten, komentar, memberi suspend sementara, dan mengirim pesan jika ada pelanggaran.</p>
                     <p className="m-0">3. Guest boleh membaca dan melihat kategori. Aksi menulis, vote, komentar, dan personalisasi memerlukan login.</p>
                     <p className="m-0">4. Konten yang diunggah harus sesuai dengan tema forum. Admin berhak menolak atau menghapus konten yang tidak relevan.</p>

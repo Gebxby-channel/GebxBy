@@ -44,10 +44,12 @@ public class ArticleContentPolicy {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload tulisan wajib diisi");
         }
-        String title = trimToLength(request.head(), MAX_TITLE_LENGTH);
+        String category = normalizeCategory(request.kategori());
+        boolean thread = "Utas".equals(category);
+        String title = thread ? "" : trimToLength(request.head(), MAX_TITLE_LENGTH);
         String body = request.paragrafs() == null ? "" : request.paragrafs();
         String normalizedBody = normalizeArticleBody(body);
-        if (!StringUtils.hasText(title)) {
+        if (!thread && !StringUtils.hasText(title)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Judul wajib diisi");
         }
         if (!StringUtils.hasText(Jsoup.parse(normalizedBody).text())) {
@@ -60,10 +62,11 @@ public class ArticleContentPolicy {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload draft wajib diisi");
         }
-        String title = trimToLength(request.head(), MAX_TITLE_LENGTH);
+        boolean thread = "Utas".equals(normalizeCategory(request.kategori()));
+        String title = thread ? "" : trimToLength(request.head(), MAX_TITLE_LENGTH);
         String body = request.paragrafs() == null ? "" : request.paragrafs();
         String normalizedBody = normalizeArticleBody(body);
-        applySharedFields(content, request, StringUtils.hasText(title) ? title : "Untitled Draft", normalizedBody);
+        applySharedFields(content, request, thread ? "" : StringUtils.hasText(title) ? title : "Untitled Draft", normalizedBody);
     }
 
     public void validateDocx(MultipartFile file) {
@@ -113,8 +116,8 @@ public class ArticleContentPolicy {
         if ("fannovel".equals(key)) {
             return "Fan-Novel";
         }
-        if ("qna".equals(key) || "qa".equals(key)) {
-            return "QNA";
+        if ("qna".equals(key) || "qa".equals(key) || "utas".equals(key)) {
+            return "Utas";
         }
         return Arrays.stream(clean.split(" "))
                 .filter(StringUtils::hasText)

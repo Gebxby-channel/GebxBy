@@ -2,6 +2,7 @@ import './index.css';
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import api, { isRequestCanceled } from './lib/api';
 import type { CurrentUser } from './types/forum';
 
@@ -119,6 +120,7 @@ export default function App() {
         <Router>
             <FeedbackProvider>
                 <RealtimeProvider user={user}>
+                    <PerformanceInsights />
                     <BackgroundMusic enabled={musicEnabled} trackId={musicTrackId} />
                     <Suspense fallback={<LoadingSpinner label="Decrypting Module" />}>
                         <Routes>
@@ -159,6 +161,11 @@ export default function App() {
             </FeedbackProvider>
         </Router>
     );
+}
+
+function PerformanceInsights() {
+    const location = useLocation();
+    return <SpeedInsights route={location.pathname} />;
 }
 
 function readThemePreference(): ThemeMode {

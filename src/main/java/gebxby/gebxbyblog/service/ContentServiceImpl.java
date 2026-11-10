@@ -53,7 +53,7 @@ public class ContentServiceImpl implements ContentService {
             "Speculation",
             "Analistic Pshycologic",
             "Fan-Novel",
-            "QNA"
+            "Utas"
     );
     private static final Duration CATEGORY_CACHE_TTL = Duration.ofMinutes(5);
     private static final String STATUS_PUBLISHED = "PUBLISHED";

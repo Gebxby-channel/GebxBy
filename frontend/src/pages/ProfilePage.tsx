@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Award, Bookmark, FileText, ShieldAlert, Users, Settings, UserCheck } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
-import { getCategoryColor } from '../utils/categoryColors';
+import { getCategoryColor, getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
 import type { Badge, ContentItem, CurrentUser, ProfileCardItem, PublicUser } from '../types/forum';
@@ -270,13 +270,13 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
 
     const handlePublishDraft = async (item: ContentItem) => {
         if (item.status !== 'DRAFT' || publishingDraftId) return;
-        if (!item.head?.trim() || !stripHtml(item.paragrafs).trim()) {
-            feedback.toast('Draft butuh judul dan isi sebelum dipublish.', 'error');
+        if ((!isThreadCategory(item.kategori) && !item.head?.trim()) || !stripHtml(item.paragrafs).trim()) {
+            feedback.toast(isThreadCategory(item.kategori) ? 'Draft utas butuh isi sebelum dipublish.' : 'Draft butuh judul dan isi sebelum dipublish.', 'error');
             return;
         }
         const accepted = await feedback.confirm({
             title: 'Publish Draft',
-            message: `Draft "${item.head}" akan masuk ke database publik.`,
+            message: isThreadCategory(item.kategori) ? 'Draft utas akan dipublikasikan.' : `Draft "${item.head}" akan masuk ke database publik.`,
             confirmLabel: 'Publish',
         });
         if (!accepted) return;
@@ -717,10 +717,10 @@ function ArchiveItem({ item, publishing, onPublish, onEdit, onDelete }: any) {
                     <div className="mb-2 flex flex-wrap items-center gap-4">
                         <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
                         <span className="font-mono text-[9px] font-bold uppercase text-[#555]">FILE DATE: {formatDate(item.createdAt)}</span>
-                        <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                        <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{getCategoryLabel(item.kategori)}</span>
                         {isDraft && <span className="border border-[#ff1744] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase text-[#ff1744]">Draft</span>}
                     </div>
-                    <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
+                    {!isThreadCategory(item.kategori) && <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>}
                     <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#999]">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                 </div>
                 <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
@@ -762,7 +762,7 @@ function AboutPanel({ stats, user, recent }: any) {
                         <div className="space-y-3">
                             {recent.map((item: any) => (
                                 <div key={item.idContent} className="border border-[#222] bg-[#101010] p-3">
-                                    <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{item.head}</p>
+                                    <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">{isThreadCategory(item.kategori) ? 'Utas' : item.head}</p>
                                     <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{item.status === 'DRAFT' ? 'Draft' : 'Published'} // {formatDate(item.updatedAt || item.createdAt)}</p>
                                 </div>
                             ))}
@@ -820,12 +820,12 @@ function BookmarkItem({ item, viewerUserId, onOpen }: any) {
             style={{ borderLeft: `3px solid ${themeColor}` }}
         >
             <div className="mb-2 flex items-center gap-3">
-                <span className="border px-2 py-0.5 text-[9px] font-black uppercase" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
+                <span className="border px-2 py-0.5 text-[9px] font-black uppercase" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{getCategoryLabel(item.kategori)}</span>
                 <span onClick={(e) => { e.stopPropagation(); navigate(profilePathForUser(item.user?.userID, viewerUserId) || '/'); }} className="text-[9px] uppercase text-[#777] hover:underline">
                     {item.user?.name || 'Unknown'}
                 </span>
             </div>
-            <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#ff1744]">{item.head}</h3>
+            {!isThreadCategory(item.kategori) && <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#ff1744]">{item.head}</h3>}
             <p className="line-clamp-2 text-sm text-[#999]">{stripHtml(item.paragrafs).substring(0, 200)}...</p>
         </article>
     );

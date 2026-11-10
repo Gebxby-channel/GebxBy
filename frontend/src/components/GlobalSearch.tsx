@@ -6,6 +6,7 @@ import { cachedGet, isRequestCanceled } from '../lib/api';
 import type { SearchPayload } from '../types/forum';
 import LoadingSpinner from './LoadingSpinner';
 import { LazyRenderList } from './LazyRender';
+import { getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 
 type SearchTab = 'all' | 'users' | 'contents' | 'badges';
 
@@ -202,9 +203,9 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                     }}
                                                     className="w-full border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#ff1744]/60"
                                                 >
-                                                    <span className="mb-1 block truncate font-mono text-[11px] font-black uppercase text-white">{item.head}</span>
+                                                    <span className="mb-1 block truncate font-mono text-[11px] font-black uppercase text-white">{isThreadCategory(item.kategori) ? `Utas dari ${item.user?.name || 'Penulis'}` : item.head}</span>
                                                     <span className="block truncate font-mono text-[9px] uppercase text-[#666]">
-                                                        {item.kategori} //{' '}
+                                                        {getCategoryLabel(item.kategori)} //{' '}
                                                         {item.user?.userID ? (
                                                             <button
                                                                 type="button"

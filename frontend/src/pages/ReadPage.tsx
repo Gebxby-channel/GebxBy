@@ -11,6 +11,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useFeedback } from '../components/feedback';
 import { useRealtimeContentSubscription } from '../hooks/useRealtimeContentSubscription';
 import { profilePathForUser } from '../utils/profilePath';
+import { getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
 import { LazyRenderList } from '../components/LazyRender';
 import ShareDialog from '../components/ShareDialog';
@@ -376,7 +377,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     <header className="border-b border-[#2a2a2a] bg-[#131313] p-6 md:p-9">
                         <div className="mb-5 flex flex-wrap items-center gap-3">
                             <span className="border border-[#ff1744] bg-[#ff1744] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white">
-                                {content.kategori || 'Classified'}
+                                {getCategoryLabel(content.kategori)}
                             </span>
                             <span className="flex items-center gap-1.5 font-mono text-[10px] font-black uppercase tracking-widest text-[#666]">
                                 <CalendarDays size={13} />
@@ -386,9 +387,9 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                                 #{id?.substring(0, 8)}
                             </span>
                         </div>
-                        <h1 className="mb-6 max-w-4xl break-words font-mono text-3xl font-black uppercase leading-tight tracking-normal text-white md:text-5xl">
+                        {!isThreadCategory(content.kategori) && <h1 className="mb-6 max-w-4xl break-words font-mono text-3xl font-black uppercase leading-tight tracking-normal text-white md:text-5xl">
                             {content.head}
-                        </h1>
+                        </h1>}
                         <ArticleAuthorBox author={content.user} viewerUserId={user?.userID} onOpenProfile={openUserProfile} />
                     </header>
 

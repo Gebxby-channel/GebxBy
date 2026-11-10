@@ -81,7 +81,8 @@ public class GenreServiceImpl implements GenreService {
         if (!StringUtils.hasText(clean)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nama genre wajib diisi");
         }
-        return clean;
+        String key = clean.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+        return "qna".equals(key) || "qa".equals(key) || "utas".equals(key) ? "Utas" : clean;
     }
 
     private String normalizeColor(String value) {
@@ -98,6 +99,6 @@ public class GenreServiceImpl implements GenreService {
     }
 
     private GenreResponse toResponse(Genre genre) {
-        return new GenreResponse(genre.getId(), genre.getName(), genre.getColor(), genre.getCreatedAt(), genre.getUpdatedAt());
+        return new GenreResponse(genre.getId(), normalizeName(genre.getName()), genre.getColor(), genre.getCreatedAt(), genre.getUpdatedAt());
     }
 }

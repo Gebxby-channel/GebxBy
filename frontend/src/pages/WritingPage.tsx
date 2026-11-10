@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, FileText, ImagePlus, LoaderCircle, Pencil, RotateCcw, Send, Upload, X } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
-import { DEFAULT_CATEGORIES } from '../utils/categoryColors';
+import { DEFAULT_CATEGORIES, getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 import { sanitizeArticle, stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
 import { useFeedback } from '../components/feedback';
@@ -51,6 +51,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const editId = searchParams.get('edit') || '';
     const [title, setTitle] = useState('');
     const [selectedKategori, setSelectedKategori] = useState('General');
+    const isThread = isThreadCategory(selectedKategori);
     const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
     const [activeTab, setActiveTab] = useState<'manual' | 'upload'>('manual');
     const [content, setContent] = useState('');
@@ -77,7 +78,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     useEffect(() => {
         if (!user) return;
         cachedGet<string[]>('/content/categories', undefined, { ttlMs: 5 * 60_000 })
-            .then((categories) => setCategoryOptions(Array.from(new Set([...DEFAULT_CATEGORIES, ...categories]))))
+            .then((categories) => setCategoryOptions(Array.from(new Set([...DEFAULT_CATEGORIES, ...categories.map(getCategoryLabel)]))))
             .catch(() => setCategoryOptions(DEFAULT_CATEGORIES));
     }, [user]);
 
@@ -122,7 +123,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         if (draft.version !== DRAFT_SCHEMA_VERSION) return false;
         setDraftId(draft.draftId);
         setTitle(draft.title ?? '');
-        setSelectedKategori(draft.kategori ?? 'General');
+        setSelectedKategori(getCategoryLabel(draft.kategori ?? 'General'));
         setActiveTab(draft.activeTab ?? 'manual');
         setContent(draft.content ?? '');
         setFile(null);
@@ -136,7 +137,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
         setEditContentId(item.idContent);
         setDraftId(item.status === 'DRAFT' ? item.idContent : undefined);
         setTitle(item.head || '');
-        setSelectedKategori(item.kategori || 'General');
+        setSelectedKategori(getCategoryLabel(item.kategori) || 'General');
         setActiveTab('manual');
         setContent(item.paragrafs || '');
         setImages(toAttachedImages(item));
@@ -311,15 +312,15 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     }
 
     const handlePublishManual = async () => {
-        if (!title.trim() || !hasReadableText(content)) {
-            feedback.toast('Judul dan isi laporan wajib ada.', 'error');
+        if ((!isThread && !title.trim()) || !hasReadableText(content)) {
+            feedback.toast(isThread ? 'Isi utas wajib ada.' : 'Judul dan isi tulisan wajib ada.', 'error');
             return;
         }
         setSubmitting(true);
         persistLocalDraft('Upload checkpoint saved');
         try {
             const payload = {
-                head: title,
+                head: isThread ? '' : title,
                 paragrafs: content,
                 kategori: selectedKategori,
                 images: buildImagePayload(images),
@@ -343,8 +344,8 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     };
 
     const handleUploadFile = async () => {
-        if (!file || !title.trim()) {
-            feedback.toast('Pilih file dan isi judul dulu, Officer.', 'error');
+        if (!file || (!isThread && !title.trim())) {
+            feedback.toast(isThread ? 'Pilih file DOCX untuk utas.' : 'Pilih file dan isi judul dulu, Officer.', 'error');
             return;
         }
 
@@ -377,7 +378,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     const submit = activeTab === 'manual' ? handlePublishManual : handleUploadFile;
     const actionDisabled = submitting || compressingImages;
     const resetDraft = () => {
-        setTitle('');
+                        setTitle('');
         setContent('');
         setFile(null);
         setImages([]);
@@ -492,7 +493,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                 </div>
 
                 <div className="space-y-5">
-                    <input
+                    {!isThread && <input
                         id="writing-title"
                         name="writingTitle"
                         aria-label="Writing title"
@@ -505,7 +506,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         lang="id-ID"
                         spellCheck
                         maxLength={180}
-                    />
+                    />}
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <select
@@ -517,7 +518,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             onChange={(event) => setSelectedKategori(event.target.value)}
                         >
                             {categoryOptions.map((category) => (
-                                <option key={category} value={category}>{category}</option>
+                                <option key={category} value={category}>{getCategoryLabel(category)}</option>
                             ))}
                         </select>
                         <div className="flex items-center gap-2 border border-[#333] bg-[#1a1a1a] p-3 text-[10px]">
@@ -731,11 +732,11 @@ function ArticlePreview({
         <section className="mx-auto w-full max-w-[1080px] border border-[#333] bg-[#0f0f0f]">
             <header className="border-b border-[#252525] p-5">
                 <span className="inline-flex border border-[#ff1744] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest text-[#ff1744]">
-                    {kategori || 'General'}
+                    {getCategoryLabel(kategori)}
                 </span>
-                <h1 className="m-0 mt-4 break-words font-mono text-3xl font-black uppercase tracking-normal text-white">
+                {!isThreadCategory(kategori) && <h1 className="m-0 mt-4 break-words font-mono text-3xl font-black uppercase tracking-normal text-white">
                     {title || 'Untitled Entry'}
-                </h1>
+                </h1>}
             </header>
             <div
                 className="min-h-[520px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#ff1744] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"

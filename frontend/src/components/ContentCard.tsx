@@ -4,6 +4,7 @@ import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, Eye, MessageSquare, 
 import { useEffect, useState } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { getCategoryColor } from '../utils/categoryColors';
+import { getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
 import { formatIndonesiaDate } from '../utils/time';
@@ -152,7 +153,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                                 backgroundColor: `${themeColor}15`,
                             }}
                         >
-                            {art.kategori || 'UNASSIGNED'}
+                            {getCategoryLabel(art.kategori)}
                         </span>
                     </div>
                 </div>
@@ -160,14 +161,14 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                     <BadgeStrip badges={art.user?.badges} compact />
                 </div>
 
-                <h2
+                {!isThreadCategory(art.kategori) && <h2
                     className="mb-2 line-clamp-2 font-mono text-xl font-black uppercase leading-tight tracking-normal text-white transition-colors md:text-2xl"
                     style={{ color: 'white' }}
                 >
                     {art.head || 'Tanpa judul'}
-                </h2>
+                </h2>}
 
-                <p className="mb-6 line-clamp-2 max-w-2xl font-sans text-sm leading-relaxed text-[#999]">
+                <p className={`mb-6 max-w-2xl font-sans leading-relaxed text-[#999] ${isThreadCategory(art.kategori) ? 'line-clamp-4 text-base' : 'line-clamp-2 text-sm'}`}>
                     {preview}
                 </p>
 

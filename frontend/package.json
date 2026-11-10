@@ -20,6 +20,7 @@
     "@tiptap/pm": "^3.24.0",
     "@tiptap/react": "^3.24.0",
     "@tiptap/starter-kit": "^3.24.0",
+    "@vercel/speed-insights": "^2.1.0",
     "axios": "^1.16.1",
     "cspell-trie-lib": "^9.8.0",
     "dictionary-en": "^4.0.0",

@@ -116,7 +116,7 @@ public class ForumMapper {
                 includeImages ? toImageResponses(content.getImages()) : List.of(),
                 toCoverImageResponse(content.getImages()),
                 toPublicUser(content.getUser()),
-                content.getKategori(),
+                categoryLabel(content.getKategori()),
                 content.getCreatedAt(),
                 content.getUpdatedAt(),
                 content.getViewCount(),
@@ -136,7 +136,7 @@ public class ForumMapper {
                 summarizeBody(content.getParagrafs()),
                 toCoverImageResponse(content.getImages()),
                 toPublicUserForFeed(content.getUser()),
-                content.getKategori(),
+                categoryLabel(content.getKategori()),
                 content.getCreatedAt(),
                 content.getUpdatedAt(),
                 content.getViewCount(),
@@ -146,6 +146,14 @@ public class ForumMapper {
                 userVote == null ? VoteDirection.NONE : userVote,
                 content.getStatus() == null ? "PUBLISHED" : content.getStatus()
         );
+    }
+
+    private String categoryLabel(String category) {
+        if (category == null) {
+            return null;
+        }
+        String key = category.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "");
+        return "qna".equals(key) || "qa".equals(key) || "utas".equals(key) ? "Utas" : category;
     }
 
     private PublicUserResponse toPublicUserForFeed(User user) {

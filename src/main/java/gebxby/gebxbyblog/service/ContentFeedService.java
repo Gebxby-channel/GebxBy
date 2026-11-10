@@ -147,7 +147,10 @@ public class ContentFeedService {
             return contentRepository.findFeedPageBy(PageRequest.of(page, limit));
         }
         String normalized = normalizeCategory(category);
-        return contentRepository.findFeedPageByCategory("^" + Pattern.quote(normalized) + "$", PageRequest.of(page, limit));
+        String categoryPattern = "Utas".equals(normalized)
+                ? "^(Utas|QNA|QA)$"
+                : "^" + Pattern.quote(normalized) + "$";
+        return contentRepository.findFeedPageByCategory(categoryPattern, PageRequest.of(page, limit));
     }
 
     private List<Content> trendingFeedPage(int page, int limit) {
@@ -209,7 +212,11 @@ public class ContentFeedService {
         if (!StringUtils.hasText(category) || "all".equalsIgnoreCase(category)) {
             return contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, limit));
         }
-        return contentRepository.findByKategoriIgnoreCaseOrderByCreatedAtDesc(normalizeCategory(category), PageRequest.of(page, limit));
+        String normalized = normalizeCategory(category);
+        if ("Utas".equals(normalized)) {
+            return contentRepository.findFeedPageByCategory("^(Utas|QNA|QA)$", PageRequest.of(page, limit));
+        }
+        return contentRepository.findByKategoriIgnoreCaseOrderByCreatedAtDesc(normalized, PageRequest.of(page, limit));
     }
 
     private List<Content> trendingFeed(int page, int limit) {
@@ -419,8 +426,8 @@ public class ContentFeedService {
         if ("fannovel".equals(key)) {
             return "Fan-Novel";
         }
-        if ("qna".equals(key) || "qa".equals(key)) {
-            return "QNA";
+        if ("qna".equals(key) || "qa".equals(key) || "utas".equals(key)) {
+            return "Utas";
         }
         return Arrays.stream(clean.split(" "))
                 .filter(StringUtils::hasText)
