@@ -6,8 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -50,6 +48,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        // This machine-to-machine route uses its own shared secret instead of browser cookies.
+                        .ignoringRequestMatchers("/api/worker/drafts")
                 )
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
@@ -61,6 +61,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/worker/drafts").permitAll()
                         .requestMatchers("/", "/error", "/api/csrf", "/oauth2/**", "/login/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/search", "/api/announcements/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/user/me", "/api/user/{id}", "/api/user/username/**", "/api/user/*/following", "/api/user/*/followers", "/content/**").permitAll()
@@ -78,11 +79,6 @@ public class SecurityConfig {
                         .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204))
                 );
         return http.build();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 
     @Bean
