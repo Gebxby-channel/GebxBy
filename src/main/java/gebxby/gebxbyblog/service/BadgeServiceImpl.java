@@ -38,6 +38,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class BadgeServiceImpl implements BadgeService {
+    private static final long BADGE_DEFINITIONS_CACHE_MS = 15_000;
+    private static final long WEEKLY_LEADER_CACHE_MS = 15_000;
     private static final Set<BadgeCode> MANUAL_BADGES = Set.of(
             BadgeCode.MODERATOR,
             BadgeCode.WRITERS,
@@ -67,6 +69,8 @@ public class BadgeServiceImpl implements BadgeService {
     private final ContentRepository contentRepository;
     private final CustomBadgeRepository customBadgeRepository;
     private final BadgeImagePolicy badgeImagePolicy;
+    private volatile TimedBadgeDefinitions cachedBadgeDefinitions;
+    private volatile TimedWeeklyLeader cachedWeeklyLeader;
 
     @Autowired
     public BadgeServiceImpl(UserRepository userRepository,
@@ -109,7 +113,7 @@ public class BadgeServiceImpl implements BadgeService {
         if (hasRequiemPrerequisites(codes)) {
             codes.add(BadgeCode.REQUIEM);
         }
-        List<BadgeResponse> response = definitions().stream()
+        List<BadgeResponse> response = effectiveBadgeDefinitions().stream()
                 .filter(definition -> codes.contains(definition.code()))
                 .toList();
         if (customBadgeRepository == null || user.getCustomBadgeIds() == null || user.getCustomBadgeIds().isEmpty()) {
@@ -323,16 +327,52 @@ public class BadgeServiceImpl implements BadgeService {
     }
 
     private boolean isWeeklyLeader(UUID userId) {
-        if (userId == null) {
-            return false;
+        return userId != null && userId.equals(weeklyLeaderId());
+    }
+
+    private List<BadgeResponse> effectiveBadgeDefinitions() {
+        TimedBadgeDefinitions cached = cachedBadgeDefinitions;
+        long now = System.currentTimeMillis();
+        if (cached != null && cached.expiresAt() > now) {
+            return cached.items();
         }
+        synchronized (this) {
+            cached = cachedBadgeDefinitions;
+            now = System.currentTimeMillis();
+            if (cached == null || cached.expiresAt() <= now) {
+                cached = new TimedBadgeDefinitions(definitions(), now + BADGE_DEFINITIONS_CACHE_MS);
+                cachedBadgeDefinitions = cached;
+            }
+        }
+        return cached.items();
+    }
+
+    private UUID weeklyLeaderId() {
+        TimedWeeklyLeader cached = cachedWeeklyLeader;
+        long now = System.currentTimeMillis();
+        if (cached != null && cached.expiresAt() > now) {
+            return cached.userId();
+        }
+        synchronized (this) {
+            cached = cachedWeeklyLeader;
+            now = System.currentTimeMillis();
+            if (cached != null && cached.expiresAt() > now) {
+                return cached.userId();
+            }
+            UUID leaderId = findWeeklyLeaderId();
+            cachedWeeklyLeader = new TimedWeeklyLeader(leaderId, now + WEEKLY_LEADER_CACHE_MS);
+            return leaderId;
+        }
+    }
+
+    private UUID findWeeklyLeaderId() {
         LocalDateTime weekStart = LocalDateTime.now()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 .toLocalDate()
                 .atStartOfDay();
         List<ContentVote> weeklyUpVotes = voteRepository.findByVoteAndCreatedAtGreaterThanEqual(VoteDirection.UP, weekStart);
         if (weeklyUpVotes.isEmpty()) {
-            return false;
+            return null;
         }
         List<UUID> contentIds = weeklyUpVotes.stream().map(ContentVote::getContentId).distinct().toList();
         Map<UUID, Content> contentById = contentRepository.findAllById(contentIds).stream()
@@ -346,8 +386,11 @@ public class BadgeServiceImpl implements BadgeService {
                 .entrySet()
                 .stream()
                 .max(Map.Entry.comparingByValue(Comparator.naturalOrder()));
-        return top.map(entry -> entry.getKey().equals(userId)).orElse(false);
+        return top.map(Map.Entry::getKey).orElse(null);
     }
+
+    private record TimedBadgeDefinitions(List<BadgeResponse> items, long expiresAt) {}
+    private record TimedWeeklyLeader(UUID userId, long expiresAt) {}
 
     private Set<BadgeCode> manualBadges(User user) {
         return user.getManualBadges() == null ? new LinkedHashSet<>() : new LinkedHashSet<>(user.getManualBadges());

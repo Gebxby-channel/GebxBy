@@ -54,6 +54,18 @@ public class ForumMapper {
         );
     }
 
+    public PublicUserResponse toPublicUserPreview(User user) {
+        if (user == null) {
+            return null;
+        }
+        String picture = isInlineImage(user.getPhoto()) ? null : user.getPhoto();
+        return new PublicUserResponse(
+                user.getUserID(), user.getName(), user.getUsername(), picture,
+                user.getDesignation(), user.getMoto(), user.isSuspensionMarked(),
+                user.getSuspendedUntil(), List.of(), null
+        );
+    }
+
     public CurrentUserResponse toCurrentUser(User user) {
         return new CurrentUserResponse(
                 user.getUserID(),
@@ -137,14 +149,14 @@ public class ForumMapper {
     }
 
     private PublicUserResponse toPublicUserForFeed(User user) {
-        PublicUserResponse response = toPublicUser(user);
-        if (response == null || !isInlineImage(response.picture())) {
-            return response;
+        if (user == null) {
+            return null;
         }
+        String picture = isInlineImage(user.getPhoto()) ? null : user.getPhoto();
         return new PublicUserResponse(
-                response.userID(), response.name(), response.username(), null,
-                response.designation(), response.moto(), response.suspensionMarked(),
-                response.suspendedUntil(), response.badges(), response.activeProfileCard()
+                user.getUserID(), user.getName(), user.getUsername(), picture,
+                user.getDesignation(), user.getMoto(), user.isSuspensionMarked(),
+                user.getSuspendedUntil(), badgeService.effectiveBadges(user), null
         );
     }
 

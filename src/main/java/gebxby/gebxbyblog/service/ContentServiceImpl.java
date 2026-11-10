@@ -234,6 +234,11 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public FeedResponse profileFeedPage(UUID authorId, int page, int limit, User viewer) {
+        return feedService.profileFeedPage(authorId, page, limit, viewer);
+    }
+
+    @Override
     public List<ContentResponse> findByCategory(String category, User viewer) {
         if (!StringUtils.hasText(category) || "all".equalsIgnoreCase(category)) {
             return findAll(viewer);

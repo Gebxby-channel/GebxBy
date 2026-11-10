@@ -128,6 +128,15 @@ public class ContentController {
         return ResponseEntity.ok(contentService.findByAuthor(userId, optionalUser(principal)));
     }
 
+    @GetMapping("/by-user/{userId}/page")
+    public ResponseEntity<FeedResponse> getContentPageByUser(
+            @PathVariable UUID userId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "limit", defaultValue = "3") int limit,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.profileFeedPage(userId, page, limit, optionalUser(principal)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ContentResponse> getContentById(
             @PathVariable UUID id,

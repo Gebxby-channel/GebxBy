@@ -33,6 +33,9 @@ export default function DesktopNavbar({ user, menuItems, onTerminate }: DesktopN
                         <NavLink
                             key={item.path}
                             to={item.path}
+                            onClick={() => {
+                                if (item.path === '/') window.dispatchEvent(new Event('home-feed-refresh'));
+                            }}
                             aria-current={active ? 'page' : undefined}
                             className={`flex min-h-12 items-center gap-4 rounded-full px-4 text-[15px] transition-colors ${
                                 active

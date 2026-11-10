@@ -17,6 +17,12 @@ public interface UserRepository extends MongoRepository<User, UUID> {
     Optional<User> findByUsernameNormalized(String usernameNormalized);
     boolean existsByUsernameNormalized(String usernameNormalized);
     List<User> findByUserIDIn(Collection<UUID> userIds);
+
+    @Query(value = "{ '_id': { '$in': ?0 } }", fields = "{ '_id': 1, 'name': 1, 'username': 1, 'photo': 1, 'designation': 1, 'moto': 1, 'suspensionMarked': 1, 'suspendedUntil': 1 }")
+    List<User> findPublicPreviewByUserIDIn(Collection<UUID> userIds);
+
+    @Query(value = "{ '_id': { '$in': ?0 } }", fields = "{ '_id': 1, 'photo': 1 }")
+    List<User> findPhotosByUserIDIn(Collection<UUID> userIds);
     List<User> findByRoleIgnoreCase(String role);
     List<User> findByRoleIgnoreCase(String role, Pageable pageable);
     List<User> findByManualBadges(BadgeCode badge, Pageable pageable);

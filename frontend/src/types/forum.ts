@@ -86,6 +86,13 @@ export interface PublicUser {
   activeProfileCard?: ProfileCardItem;
 }
 
+export interface UserRelationsPreviewPayload {
+  followers: PublicUser[];
+  following: PublicUser[];
+  followerCount: number;
+  followingCount: number;
+}
+
 export interface ContentImage {
   id: string;
   data: string;

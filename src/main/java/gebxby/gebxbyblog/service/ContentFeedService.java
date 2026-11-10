@@ -12,6 +12,7 @@ import gebxby.gebxbyblog.repository.CommentRepository;
 import gebxby.gebxbyblog.repository.ContentRepository;
 import gebxby.gebxbyblog.repository.ContentVoteRepository;
 import gebxby.gebxbyblog.repository.FollowRepository;
+import gebxby.gebxbyblog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -45,18 +46,29 @@ public class ContentFeedService {
     private final CommentRepository commentRepository;
     private final ForumMapper mapper;
     private final FollowRepository followRepository;
+    private final UserRepository userRepository;
 
     @Autowired
     public ContentFeedService(ContentRepository contentRepository,
                               ContentVoteRepository voteRepository,
                               CommentRepository commentRepository,
                               FollowRepository followRepository,
-                              ForumMapper mapper) {
+                              ForumMapper mapper,
+                              UserRepository userRepository) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
         this.mapper = mapper;
         this.followRepository = followRepository;
+        this.userRepository = userRepository;
+    }
+
+    public ContentFeedService(ContentRepository contentRepository,
+                              ContentVoteRepository voteRepository,
+                              CommentRepository commentRepository,
+                              FollowRepository followRepository,
+                              ForumMapper mapper) {
+        this(contentRepository, voteRepository, commentRepository, followRepository, mapper, null);
     }
 
     public ContentFeedService(ContentRepository contentRepository,
@@ -76,10 +88,14 @@ public class ContentFeedService {
             case "following" -> followingFeed(viewer, 0, pageSize);
             default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, pageSize));
         };
-        return contents.stream()
+        List<Content> visibleContents = contents.stream()
                 .filter(this::isPublished)
                 .limit(pageSize)
-                .map(content -> mapper.toContentResponse(content, resolveUserVote(content.getIdContent(), viewer)))
+                .toList();
+        hydrateAuthorPhotos(visibleContents);
+        Map<UUID, VoteDirection> votes = resolveUserVotes(visibleContents, viewer);
+        return visibleContents.stream()
+                .map(content -> mapper.toContentResponse(content, votes.getOrDefault(content.getIdContent(), VoteDirection.NONE)))
                 .toList();
     }
 
@@ -95,10 +111,33 @@ public class ContentFeedService {
             default -> contentRepository.findFeedPageBy(PageRequest.of(pageNumber, pageSize + 1));
         };
         boolean hasMore = contents.size() > pageSize;
-        List<ContentSummaryResponse> items = contents.stream()
+        List<Content> pageContents = contents.stream()
                 .filter(this::isPublished)
                 .limit(pageSize)
-                .map(content -> mapper.toContentSummaryResponse(content, resolveUserVote(content.getIdContent(), viewer)))
+                .toList();
+        hydrateAuthorPhotos(pageContents);
+        Map<UUID, VoteDirection> votes = resolveUserVotes(pageContents, viewer);
+        List<ContentSummaryResponse> items = pageContents.stream()
+                .map(content -> mapper.toContentSummaryResponse(content, votes.getOrDefault(content.getIdContent(), VoteDirection.NONE)))
+                .toList();
+        return new FeedResponse(items, pageNumber, pageSize, hasMore);
+    }
+
+    public FeedResponse profileFeedPage(UUID authorId, int page, int limit, User viewer) {
+        int pageSize = Math.max(1, Math.min(limit <= 0 ? 3 : limit, 20));
+        int pageNumber = Math.max(0, page);
+        boolean canSeeDrafts = viewer != null && (viewer.isAdmin() || authorId.equals(viewer.getUserID()));
+        List<Content> contents = canSeeDrafts
+                ? contentRepository.findProfileFeedByAuthorId(authorId, PageRequest.of(pageNumber, pageSize + 1))
+                : contentRepository.findPublishedProfileFeedByAuthorId(authorId, PageRequest.of(pageNumber, pageSize + 1));
+        boolean hasMore = contents.size() > pageSize;
+        List<Content> pageContents = contents.stream()
+                .limit(pageSize)
+                .toList();
+        hydrateAuthorPhotos(pageContents);
+        Map<UUID, VoteDirection> votes = resolveUserVotes(pageContents, viewer);
+        List<ContentSummaryResponse> items = pageContents.stream()
+                .map(content -> mapper.toContentSummaryResponse(content, votes.getOrDefault(content.getIdContent(), VoteDirection.NONE)))
                 .toList();
         return new FeedResponse(items, pageNumber, pageSize, hasMore);
     }
@@ -321,13 +360,38 @@ public class ContentFeedService {
         return Math.max(1, Math.min(requested, MAX_FEED_LIMIT));
     }
 
-    private VoteDirection resolveUserVote(UUID contentId, User viewer) {
-        if (viewer == null || viewer.getUserID() == null) {
-            return VoteDirection.NONE;
+    private Map<UUID, VoteDirection> resolveUserVotes(List<Content> contents, User viewer) {
+        if (viewer == null || viewer.getUserID() == null || contents.isEmpty()) {
+            return Map.of();
         }
-        return voteRepository.findByContentIdAndUserId(contentId, viewer.getUserID())
-                .map(ContentVote::getVote)
-                .orElse(VoteDirection.NONE);
+        List<UUID> contentIds = contents.stream()
+                .map(Content::getIdContent)
+                .filter(Objects::nonNull)
+                .toList();
+        return voteRepository.findByContentIdInAndUserId(contentIds, viewer.getUserID()).stream()
+                .collect(Collectors.toMap(ContentVote::getContentId, ContentVote::getVote, (first, ignored) -> first));
+    }
+
+    private void hydrateAuthorPhotos(List<Content> contents) {
+        if (userRepository == null || contents.isEmpty()) {
+            return;
+        }
+        Set<UUID> authorIds = contents.stream()
+                .map(Content::getUser)
+                .filter(Objects::nonNull)
+                .map(User::getUserID)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (authorIds.isEmpty()) {
+            return;
+        }
+        Map<UUID, String> photos = userRepository.findPhotosByUserIDIn(authorIds).stream()
+                .filter(author -> author.getUserID() != null && author.getPhoto() != null)
+                .collect(Collectors.toMap(User::getUserID, User::getPhoto, (first, ignored) -> first));
+        contents.stream()
+                .map(Content::getUser)
+                .filter(Objects::nonNull)
+                .forEach(author -> author.setPhoto(photos.get(author.getUserID())));
     }
 
     private boolean isPublished(Content content) {

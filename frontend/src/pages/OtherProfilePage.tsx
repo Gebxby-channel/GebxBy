@@ -3,10 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { BadgeCheck, Ban, Eye, Flag, ShieldAlert, Trash2, UserMinus, UserPlus, X } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache, isRequestCanceled } from '../lib/api';
 import logo from '../assets/S.T.A.R.S._logo.webp';
-import { getCategoryColor } from '../utils/categoryColors';
-import { stripHtml } from '../utils/sanitize';
-import type { BadgeCode, ContentItem, CurrentUser, PublicUser } from '../types/forum';
+import type { BadgeCode, ContentItem, CurrentUser, FeedPayload, PublicUser, UserRelationsPreviewPayload } from '../types/forum';
 import BadgeStrip from '../components/BadgeStrip';
+import ContentCard from '../components/ContentCard';
 import { useFeedback } from '../components/feedback';
 import ProfileCardRenderer from '../components/ProfileCardRenderer';
 import { LazyRenderList } from '../components/LazyRender';
@@ -19,9 +18,15 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const feedback = useFeedback();
     const { userId } = useParams();
     const [contents, setContents] = useState<ContentItem[]>([]);
+    const [contentsPage, setContentsPage] = useState(0);
+    const [contentsHasMore, setContentsHasMore] = useState(false);
+    const [contentsLoading, setContentsLoading] = useState(false);
+    const [relationsLoading, setRelationsLoading] = useState(false);
     const [viewedUser, setViewedUser] = useState<PublicUser | null>(null);
     const [followers, setFollowers] = useState<PublicUser[]>([]);
     const [following, setFollowing] = useState<PublicUser[]>([]);
+    const [followerCount, setFollowerCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     const [dialog, setDialog] = useState<ProfileActionDialog | null>(null);
     const [reportMessage, setReportMessage] = useState('');
@@ -34,46 +39,74 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     const isMyOwnProfile = String(user?.userID) === String(userId);
 
     const fetchProfileData = useCallback(async (targetUserId: string, force = false, signal?: AbortSignal) => {
-        const [profileRes, contentRes, followersRes, followingRes] = await Promise.all([
-            cachedGet<PublicUser>(`/api/user/${targetUserId}`, { signal }, {
-                ttlMs: 2 * 60_000,
-                force,
-            }),
-            cachedGet<ContentItem[]>(`/content/by-user/${targetUserId}`, { signal }, {
-                ttlMs: 60_000,
-                scope: user?.userID ?? 'guest',
-                force,
-            }),
-            cachedGet<PublicUser[]>(`/api/user/${targetUserId}/followers`, { signal }, {
-                ttlMs: 60_000,
-                scope: user?.userID ?? 'guest',
-                force,
-            }),
-            cachedGet<PublicUser[]>(`/api/user/${targetUserId}/following`, { signal }, {
-                ttlMs: 60_000,
-                scope: user?.userID ?? 'guest',
-                force,
-            }),
-        ]);
+        const profileRes = await cachedGet<PublicUser>(`/api/user/${targetUserId}`, { signal }, {
+            ttlMs: 2 * 60_000,
+            force,
+        });
         setViewedUser(profileRes);
-        setContents(Array.isArray(contentRes) ? contentRes : []);
-        setFollowers(Array.isArray(followersRes) ? followersRes : []);
-        setFollowing(Array.isArray(followingRes) ? followingRes : []);
+        setRelationsLoading(true);
+        try {
+            const relations = await cachedGet<UserRelationsPreviewPayload>(`/api/user/${targetUserId}/relations-preview`, { signal }, {
+                ttlMs: 60_000,
+                scope: user?.userID ?? 'guest',
+                force,
+            });
+            setFollowers(Array.isArray(relations.followers) ? relations.followers : []);
+            setFollowing(Array.isArray(relations.following) ? relations.following : []);
+            setFollowerCount(relations.followerCount ?? relations.followers?.length ?? 0);
+            setFollowingCount(relations.followingCount ?? relations.following?.length ?? 0);
+        } catch {
+            setFollowers([]);
+            setFollowing([]);
+            setFollowerCount(0);
+            setFollowingCount(0);
+        } finally {
+            setRelationsLoading(false);
+        }
+    }, [user?.userID]);
+
+    const fetchProfileContents = useCallback(async (targetUserId: string, page: number, force = false, signal?: AbortSignal) => {
+        setContentsLoading(true);
+        try {
+            const response = await cachedGet<FeedPayload>(`/content/by-user/${targetUserId}/page`, {
+                signal,
+                params: { page, limit: 3 },
+            }, {
+                ttlMs: 30_000,
+                scope: user?.userID ?? 'guest',
+                force,
+            });
+            setContents((current) => page === 0
+                ? response.items
+                : [...current, ...response.items.filter((item) => !current.some((existing) => existing.idContent === item.idContent))]);
+            setContentsPage(response.page);
+            setContentsHasMore(response.hasMore);
+        } finally {
+            setContentsLoading(false);
+        }
     }, [user?.userID]);
 
     useEffect(() => {
         if (!userId) return;
         const controller = new AbortController();
-        void fetchProfileData(userId, false, controller.signal).catch((error) => {
-            if (!isRequestCanceled(error)) {
-                setViewedUser(null);
-                setContents([]);
-                setFollowers([]);
-                setFollowing([]);
-            }
-        });
+        setViewedUser(null);
+        setContents([]);
+        setFollowers([]);
+        setFollowing([]);
+        setFollowerCount(0);
+        setFollowingCount(0);
+        setContentsPage(0);
+        setContentsHasMore(false);
+        void fetchProfileData(userId, false, controller.signal)
+            .then(() => fetchProfileContents(userId, 0, false, controller.signal))
+            .catch((error) => {
+                if (!isRequestCanceled(error)) {
+                    setContents([]);
+                    setContentsHasMore(false);
+                }
+            });
         return () => controller.abort();
-    }, [fetchProfileData, userId]);
+    }, [fetchProfileContents, fetchProfileData, userId]);
 
     const displayUser = isMyOwnProfile && user ? user : viewedUser;
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(displayUser?.name || 'User')}`;
@@ -227,6 +260,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
             }
             invalidateApiCache('/api/user/following');
             invalidateApiCache('/api/user/me');
+            invalidateApiCache(`/api/user/${displayUser.userID}/relations-preview`);
+            await fetchProfileData(displayUser.userID, true);
         } catch (error) {
             feedback.toast(getActionError(error), 'error');
         } finally {
@@ -260,7 +295,9 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                             }}
                             title={canModerate ? 'Klik kanan untuk action moderator/admin' : undefined}
                         >
-                            {showCustomProfileCard ? (
+                            {!displayUser ? (
+                                <div className="h-[280px] w-full animate-pulse rounded-xl border border-[#2a2a2a] bg-[#171717]" aria-label="Loading profile card" />
+                            ) : showCustomProfileCard ? (
                                 <ProfileCardRenderer user={displayUser as PublicUser} card={activeProfileCard} />
                             ) : (
                                 <DefaultPublicProfileCard displayUser={displayUser} defaultAvatar={defaultAvatar} />
@@ -291,11 +328,15 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                 <ProfileRelationPreview
                                     title="Followers"
                                     users={followers}
+                                    count={followerCount}
+                                    loading={relationsLoading}
                                     onOpen={(target) => navigate(`/profile/${target.userID}`)}
                                 />
                                 <ProfileRelationPreview
                                     title="Following"
                                     users={following}
+                                    count={followingCount}
+                                    loading={relationsLoading}
                                     onOpen={(target) => navigate(`/profile/${target.userID}`)}
                                 />
                             </div>
@@ -325,17 +366,28 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                     <div className="w-full flex-1">
                         <div className="mb-10 border-b border-[#2a2a2a] pb-6">
                             <h2 className="text-2xl font-black uppercase tracking-widest">{isMyOwnProfile ? 'Personal Archives' : 'Remote Sector Data'}</h2>
-                            <p className="font-mono text-xs text-[#888]">Viewing {contents.length} remote entries for subject: {userId?.substring(0, 8)}...</p>
+                            <p className="font-mono text-xs text-[#888]">Loaded {contents.length} entries for subject: {userId?.substring(0, 8)}...</p>
                         </div>
 
                         <div className="grid gap-6">
+                            {contentsLoading && contents.length === 0 && <div className="h-48 animate-pulse rounded-xl border border-[#2a2a2a] bg-[#171717]" aria-label="Loading writings" />}
                             <LazyRenderList
                                 items={contents}
                                 getKey={(item) => item.idContent}
                                 estimateSize={170}
                                 className="grid gap-6"
-                                renderItem={(item) => <RemoteArchiveItem item={item} onOpen={() => navigate(`/read/${item.idContent}`)} />}
+                                renderItem={(item) => <ContentCard art={item} user={user} />}
                             />
+                            {contentsHasMore && (
+                                <button
+                                    type="button"
+                                    onClick={() => userId && void fetchProfileContents(userId, contentsPage + 1)}
+                                    disabled={contentsLoading}
+                                    className="mx-auto mt-2 min-h-11 border border-[#333] px-6 font-mono text-[10px] font-black uppercase tracking-widest text-[#888] transition-colors hover:border-[#ff1744] hover:text-white disabled:opacity-50"
+                                >
+                                    {contentsLoading ? 'Loading...' : 'Load 3 more writings'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -538,24 +590,6 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
     );
 }
 
-function RemoteArchiveItem({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
-    const color = getCategoryColor(item.kategori);
-    return (
-        <div onClick={onOpen} className="group cursor-pointer border border-[#2a2a2a] bg-[#181818] p-6 transition-all hover:border-[#ff1744]">
-            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-                <div className="flex-1">
-                    <div className="mb-2 flex flex-wrap items-center gap-4">
-                        <span className="text-[10px] font-bold text-[#ff1744]">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
-                        <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: color, color, backgroundColor: `${color}15` }}>{item.kategori}</span>
-                    </div>
-                    <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#ff1744]">{item.head}</h3>
-                    <p className="line-clamp-2 text-sm text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function DefaultPublicProfileCard({ displayUser, defaultAvatar }: { displayUser: PublicUser | CurrentUser | null; defaultAvatar: string }) {
     return (
         <div className="relative flex min-h-[280px] w-full overflow-hidden rounded-xl border border-[#2a2a2a] bg-white shadow-2xl">
@@ -614,19 +648,28 @@ function ProfileField({ label, value }: { label: string; value: string }) {
 function ProfileRelationPreview({
     title,
     users,
+    count,
+    loading = false,
     onOpen,
 }: {
     title: string;
     users: PublicUser[];
+    count: number;
+    loading?: boolean;
     onOpen: (user: PublicUser) => void;
 }) {
     return (
         <div>
             <div className="mb-2 flex items-center justify-between gap-3">
                 <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">{title}</p>
-                <span className="font-mono text-[10px] font-black text-[#ff1744]">{users.length}</span>
+                <span className="font-mono text-[10px] font-black text-[#ff1744]">{loading ? '...' : count}</span>
             </div>
-            {users.length === 0 ? (
+            {loading ? (
+                <div className="flex gap-2" aria-label={`Loading ${title.toLowerCase()}`}>
+                    <span className="h-8 w-8 animate-pulse rounded-full bg-[#242424]" />
+                    <span className="h-8 w-8 animate-pulse rounded-full bg-[#242424]" />
+                </div>
+            ) : users.length === 0 ? (
                 <p className="m-0 font-mono text-[9px] uppercase tracking-[0.25em] text-[#444]">[ empty ]</p>
             ) : (
                 <div className="flex flex-wrap gap-2">
@@ -645,6 +688,8 @@ function ProfileRelationPreview({
                                     alt=""
                                     width={32}
                                     height={32}
+                                    loading="lazy"
+                                    decoding="async"
                                     className="h-full w-full object-cover"
                                     referrerPolicy="no-referrer"
                                     onError={(event) => { event.currentTarget.src = avatar; }}

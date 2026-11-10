@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -32,6 +33,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -511,6 +513,52 @@ public class UserServiceImpl implements UserService {
             return List.of();
         }
         return userRepository.findByUserIDIn(followerIds);
+    }
+
+    @Override
+    public List<User> getFollowingPreview(UUID userId, int limit) {
+        if (userId == null) return List.of();
+        int size = Math.max(1, Math.min(limit, 20));
+        LinkedHashSet<UUID> ids = new LinkedHashSet<>();
+        if (followRepository != null) {
+            followRepository.findByFollowerUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, size)).stream()
+                    .map(Follow::getTargetUserId).filter(java.util.Objects::nonNull).forEach(ids::add);
+        }
+        User owner = userRepository.findById(userId).orElse(null);
+        if (owner != null && owner.getFollowingUserIds() != null) {
+            owner.getFollowingUserIds().stream().limit(size).forEach(ids::add);
+        }
+        return usersInRequestedOrder(ids).stream().limit(size).toList();
+    }
+
+    @Override
+    public List<User> getFollowerPreview(UUID userId, int limit) {
+        if (userId == null || followRepository == null) return List.of();
+        int size = Math.max(1, Math.min(limit, 20));
+        LinkedHashSet<UUID> ids = new LinkedHashSet<>();
+        followRepository.findByTargetUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, size)).stream()
+                .map(Follow::getFollowerUserId).filter(java.util.Objects::nonNull).forEach(ids::add);
+        return usersInRequestedOrder(ids).stream().limit(size).toList();
+    }
+
+    @Override
+    public long getFollowingCount(UUID userId) {
+        if (userId == null) return 0;
+        long storedCount = followRepository == null ? 0 : followRepository.countByFollowerUserId(userId);
+        long legacyCount = userRepository.findById(userId).map(owner -> owner.getFollowingUserIds() == null ? 0 : owner.getFollowingUserIds().size()).orElse(0);
+        return Math.max(storedCount, legacyCount);
+    }
+
+    @Override
+    public long getFollowerCount(UUID userId) {
+        return userId == null || followRepository == null ? 0 : followRepository.countByTargetUserId(userId);
+    }
+
+    private List<User> usersInRequestedOrder(LinkedHashSet<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        Map<UUID, User> byId = userRepository.findPublicPreviewByUserIDIn(ids).stream()
+                .collect(Collectors.toMap(User::getUserID, user -> user, (first, ignored) -> first));
+        return ids.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
     }
 
     @Override

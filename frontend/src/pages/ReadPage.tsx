@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, CalendarDays, Eye, Flag, MessageSquare, Share2, Trash2, UserRound } from 'lucide-react';
 import axios from 'axios';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ type ReportTarget = { type: 'content' } | { type: 'comment'; commentId: string }
 export default function ReadPage({ user }: { user: CurrentUser | null }) {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const feedback = useFeedback();
     const queryClient = useQueryClient();
     const [content, setContent] = useState<ContentItem | null>(null);
@@ -131,6 +132,11 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
             setComments(mergeCommentPages(commentsQuery.data.pages));
         }
     }, [commentsQuery.data]);
+
+    useEffect(() => {
+        if (location.hash !== '#comments' || !contentQuery.data) return;
+        requestAnimationFrame(() => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }, [contentQuery.data, location.hash]);
 
     useEffect(() => {
         if (statsQuery.data) {
@@ -401,7 +407,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     <div ref={readCompletionRef} className="h-2" aria-hidden="true" />
                 </main>
 
-                <section className="mt-8 border border-[#2a2a2a] bg-[#151515] p-4 md:p-6">
+                <section id="comments" className="mt-8 scroll-mt-6 border border-[#2a2a2a] bg-[#151515] p-4 md:p-6">
                     <div className="mb-6 flex flex-col gap-2 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-end md:justify-between">
                         <div>
                             <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Discussion</p>

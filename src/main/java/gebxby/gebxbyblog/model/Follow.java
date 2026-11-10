@@ -13,7 +13,11 @@ import java.util.UUID;
 @Getter
 @Setter
 @Document(collection = "follows")
-@CompoundIndex(name = "follow_user_target_idx", def = "{'followerUserId': 1, 'targetUserId': 1}", unique = true)
+@org.springframework.data.mongodb.core.index.CompoundIndexes({
+        @CompoundIndex(name = "follow_user_target_idx", def = "{'followerUserId': 1, 'targetUserId': 1}", unique = true),
+        @CompoundIndex(name = "follow_follower_order_idx", def = "{'followerUserId': 1, 'createdAt': -1}"),
+        @CompoundIndex(name = "follow_target_order_idx", def = "{'targetUserId': 1, 'createdAt': -1}")
+})
 public class Follow {
     @Id
     private String id;

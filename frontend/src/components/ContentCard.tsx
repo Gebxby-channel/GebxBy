@@ -1,14 +1,17 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowBigDown, ArrowBigUp, Eye, MessageSquare, Share2 } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, Eye, MessageSquare, Share2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { getCategoryColor } from '../utils/categoryColors';
 import { profilePathForUser } from '../utils/profilePath';
 import { stripHtml } from '../utils/sanitize';
 import { formatIndonesiaDate } from '../utils/time';
 import type { ContentItem, CurrentUser } from '../types/forum';
+import type { ContentStats } from '../types/forum';
 import BadgeStrip from './BadgeStrip';
 import ShareDialog from './ShareDialog';
+import api, { invalidateApiCache } from '../lib/api';
+import { useFeedback } from './feedback';
 
 interface ContentCardProps {
     art: ContentItem;
@@ -17,8 +20,34 @@ interface ContentCardProps {
 
 export default function ContentCard({ art, user }: ContentCardProps) {
     const navigate = useNavigate();
+    const feedback = useFeedback();
     const themeColor = getCategoryColor(art.kategori);
     const [shareOpen, setShareOpen] = useState(false);
+    const [stats, setStats] = useState<ContentStats>({
+        idContent: art.idContent,
+        viewCount: art.viewCount,
+        upCount: art.upCount,
+        downCount: art.downCount,
+        commentCount: art.commentCount,
+        userVote: art.userVote,
+    });
+    const [bookmarked, setBookmarked] = useState(Boolean(user?.bookmarkedContentIds?.includes(art.idContent)));
+    const [actionBusy, setActionBusy] = useState(false);
+
+    useEffect(() => {
+        setStats({
+            idContent: art.idContent,
+            viewCount: art.viewCount,
+            upCount: art.upCount,
+            downCount: art.downCount,
+            commentCount: art.commentCount,
+            userVote: art.userVote,
+        });
+    }, [art.idContent, art.viewCount, art.upCount, art.downCount, art.commentCount, art.userVote]);
+
+    useEffect(() => {
+        setBookmarked(Boolean(user?.bookmarkedContentIds?.includes(art.idContent)));
+    }, [art.idContent, user?.bookmarkedContentIds]);
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'NO DATA';
@@ -38,6 +67,44 @@ export default function ContentCard({ art, user }: ContentCardProps) {
     const coverImage = coverVisual?.thumbnail || coverVisual?.data;
     const shareUrl = buildArticleShareUrl(art.idContent);
     const shareMediaUrl = coverImage?.startsWith('http') ? coverImage : undefined;
+
+    const handleVote = async (vote: 'UP' | 'DOWN') => {
+        if (!user) {
+            feedback.toast('Login dulu untuk memberi vote.', 'info');
+            return;
+        }
+        setActionBusy(true);
+        try {
+            const response = await api.post<ContentStats>(`/content/${art.idContent}/vote`, { vote });
+            setStats(response.data);
+        } catch {
+            feedback.toast('Vote gagal disimpan. Coba lagi.', 'error');
+        } finally {
+            setActionBusy(false);
+        }
+    };
+
+    const handleBookmark = async () => {
+        if (!user) {
+            feedback.toast('Login dulu untuk menyimpan bookmark.', 'info');
+            return;
+        }
+        setActionBusy(true);
+        try {
+            if (bookmarked) {
+                await api.delete(`/api/user/bookmarks/${art.idContent}`);
+                setBookmarked(false);
+            } else {
+                await api.post(`/api/user/bookmarks/${art.idContent}`);
+                setBookmarked(true);
+            }
+            invalidateApiCache('/api/user/bookmarks');
+        } catch {
+            feedback.toast('Bookmark gagal diperbarui. Coba lagi.', 'error');
+        } finally {
+            setActionBusy(false);
+        }
+    };
 
     return (
         <article
@@ -99,29 +166,34 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                     {preview}
                 </p>
 
-                <div className="mt-auto flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-4 text-[#555]">
-                        <div className="flex items-center gap-2 font-mono text-[10px] font-bold">
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2 text-[#777]">
+                        <div className="mr-1 flex h-10 items-center gap-2 font-mono text-[10px] font-bold text-[#555]">
                             <span className="h-1.5 w-1.5" style={{ backgroundColor: themeColor }} />
                             {formatDate(art.createdAt)}
                         </div>
-                        <Stat icon={<Eye size={14} />} value={art.viewCount} label="READ" />
-                        <Stat icon={<ArrowBigUp size={15} />} value={art.upCount} label="UP" />
-                        <Stat icon={<ArrowBigDown size={15} />} value={art.downCount} label="DOWN" />
-                        <Stat icon={<MessageSquare size={14} />} value={art.commentCount} label="COM" />
+                        <ActionButton label="Dibaca" value={stats.viewCount} icon={<Eye size={18} />} onClick={() => navigate(`/read/${art.idContent}`)} />
+                        <ActionButton label="Upvote" value={stats.upCount} active={stats.userVote === 'UP'} disabled={actionBusy} icon={<ArrowBigUp size={19} />} onClick={() => void handleVote('UP')} />
+                        <ActionButton label="Downvote" value={stats.downCount} active={stats.userVote === 'DOWN'} disabled={actionBusy} icon={<ArrowBigDown size={19} />} onClick={() => void handleVote('DOWN')} />
+                        <ActionButton label="Komentar" value={stats.commentCount} icon={<MessageSquare size={18} />} onClick={() => navigate(`/read/${art.idContent}#comments`)} />
                     </div>
-                    <button
-                        type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            setShareOpen(true);
-                        }}
-                        className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#ff1744] hover:text-white"
-                        title="Share"
-                    >
-                        <Share2 size={13} />
-                        Share
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={(event) => { event.stopPropagation(); void handleBookmark(); }} disabled={actionBusy} className={`flex h-10 items-center gap-2 border px-3 font-mono text-[10px] font-black uppercase transition-colors disabled:opacity-50 ${bookmarked ? 'border-[#ff1744] text-[#ff1744]' : 'border-[#333] text-[#777] hover:border-[#ff1744] hover:text-white'}`} aria-label={bookmarked ? 'Hapus bookmark' : 'Tambahkan bookmark'} title={bookmarked ? 'Tersimpan' : 'Bookmark'}>
+                            {bookmarked ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setShareOpen(true);
+                            }}
+                            className="flex h-10 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] transition-all hover:border-[#ff1744] hover:text-white"
+                            title="Share"
+                        >
+                            <Share2 size={16} />
+                            Share
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -162,11 +234,11 @@ function buildArticleShareUrl(contentId: string) {
     return `${window.location.origin}/read/${contentId}`;
 }
 
-function Stat({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
+function ActionButton({ icon, value, label, active = false, disabled = false, onClick }: { icon: ReactNode; value: number; label: string; active?: boolean; disabled?: boolean; onClick: () => void }) {
     return (
-        <div className="flex items-center gap-1 transition-colors hover:text-white" title={label}>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onClick(); }} disabled={disabled} className={`flex h-10 min-w-[68px] items-center justify-center gap-2 border px-2.5 font-mono text-xs font-bold transition-colors disabled:opacity-50 ${active ? 'border-[#ff1744] bg-[#ff1744]/10 text-[#ff1744]' : 'border-[#292929] text-[#777] hover:border-[#555] hover:text-white'}`} title={label} aria-label={`${label}: ${value}`}>
             {icon}
-            <span className="font-mono text-[10px] font-bold">{value ?? 0}</span>
-        </div>
+            <span>{value ?? 0}</span>
+        </button>
     );
 }

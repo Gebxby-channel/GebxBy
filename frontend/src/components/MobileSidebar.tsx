@@ -129,7 +129,10 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                                     <NavLink
                                         key={item.path}
                                         to={item.path}
-                                        onClick={() => setDrawerOpen(false)}
+                                        onClick={() => {
+                                            setDrawerOpen(false);
+                                            if (item.path === '/') window.dispatchEvent(new Event('home-feed-refresh'));
+                                        }}
                                         className={`flex h-12 items-center gap-3 border px-4 font-mono text-[10px] font-black uppercase tracking-widest transition-all ${
                                             active
                                                 ? 'border-[#ff1744] bg-[#ff1744] text-white'

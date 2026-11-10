@@ -27,17 +27,24 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
 
     // Feed cards only need image thumbnails. Keep original image payloads out of
     // Mongo-to-application reads; full image data is loaded by the article view.
-    @Query(value = "{}", fields = "{ 'images.data': 0 }")
+    @Query(value = "{}", fields = "{ 'images.data': 0, 'user.photo': 0 }", sort = "{ 'createdAt': -1, '_id': -1 }")
     List<Content> findFeedPageBy(Pageable pageable);
 
-    @Query(value = "{ 'kategori': { '$regex': ?0, '$options': 'i' } }", fields = "{ 'images.data': 0 }")
+    @Query(value = "{ 'kategori': { '$regex': ?0, '$options': 'i' } }", fields = "{ 'images.data': 0, 'user.photo': 0 }", sort = "{ 'createdAt': -1, '_id': -1 }")
     List<Content> findFeedPageByCategory(String categoryPattern, Pageable pageable);
 
-    @Query(value = "{ 'createdAt': { '$gte': ?0 } }", fields = "{ 'images.data': 0 }", sort = "{ 'upCount': -1, 'createdAt': -1 }")
+    @Query(value = "{ 'createdAt': { '$gte': ?0 } }", fields = "{ 'images.data': 0, 'user.photo': 0 }", sort = "{ 'upCount': -1, 'createdAt': -1 }")
     List<Content> findFeedPageByCreatedAtAfterOrderByUpCountDescCreatedAtDesc(LocalDateTime createdAt, Pageable pageable);
 
-    @Query(value = "{ '$or': [ { 'user.userID': { '$in': ?0 } }, { 'kategori': { '$in': ?1 } } ] }", fields = "{ 'images.data': 0 }", sort = "{ 'createdAt': -1 }")
+    @Query(value = "{ '$or': [ { 'user.userID': { '$in': ?0 } }, { 'kategori': { '$in': ?1 } } ] }", fields = "{ 'images.data': 0, 'user.photo': 0 }", sort = "{ 'createdAt': -1, '_id': -1 }")
     List<Content> findFollowingFeedPage(Collection<UUID> userIds, Collection<String> categories, Pageable pageable);
+
+    @Query(value = "{ 'user.userID': ?0, '$or': [ { 'status': 'PUBLISHED' }, { 'status': null } ] }",
+            fields = "{ 'images.data': 0, 'user.photo': 0 }", sort = "{ 'createdAt': -1, '_id': -1 }")
+    List<Content> findPublishedProfileFeedByAuthorId(UUID userId, Pageable pageable);
+
+    @Query(value = "{ 'user.userID': ?0 }", fields = "{ 'images.data': 0, 'user.photo': 0 }", sort = "{ 'createdAt': -1, '_id': -1 }")
+    List<Content> findProfileFeedByAuthorId(UUID userId, Pageable pageable);
 
     List<Content> findByKategoriIgnoreCaseOrderByCreatedAtDesc(String kategori);
 

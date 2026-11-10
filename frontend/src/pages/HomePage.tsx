@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Megaphone } from 'lucide-react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import ContentCard from '../components/ContentCard';
@@ -15,12 +15,17 @@ type FeedMode = 'all' | 'recommended' | 'trending' | 'category' | 'following';
 
 export default function HomePage({ user }: { user: CurrentUser | null }) {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const feedback = useFeedback();
     const [feedMode, setFeedMode] = useState<FeedMode>('all');
     const [selectedCategory, setSelectedCategory] = useState('General');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
+    const feedQueryKey = useMemo(
+        () => ['feed-page', user?.userID ?? 'guest', feedMode, feedMode === 'category' ? selectedCategory : 'all'],
+        [feedMode, selectedCategory, user?.userID],
+    );
     const feedQuery = useInfiniteQuery({
-        queryKey: ['feed-page', user?.userID ?? 'guest', feedMode, feedMode === 'category' ? selectedCategory : 'all'],
+        queryKey: feedQueryKey,
         initialPageParam: 0,
         queryFn: async ({ pageParam, signal }) => {
             const response = await api.get<FeedPayload>('/content/feed-page', {
@@ -29,14 +34,15 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                     mode: feedMode,
                     category: feedMode === 'category' ? selectedCategory : undefined,
                     page: pageParam,
-                    limit: 12,
+                    limit: 5,
                 },
             });
             return response.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
         placeholderData: (previous) => previous,
-        staleTime: 30_000,
+        staleTime: 0,
+        refetchOnMount: 'always',
     });
     const articles = useMemo(() => mergePages(feedQuery.data?.pages ?? []), [feedQuery.data?.pages]);
     const sortedArticles = useMemo(() => sortArticles(articles, sortOrder), [articles, sortOrder]);
@@ -49,6 +55,17 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
         },
         staleTime: 60_000,
     });
+
+    useEffect(() => {
+        const refreshFeed = () => {
+            void queryClient.resetQueries({ queryKey: feedQueryKey, exact: true });
+        };
+        window.addEventListener('home-feed-refresh', refreshFeed);
+        return () => {
+            window.removeEventListener('home-feed-refresh', refreshFeed);
+            queryClient.removeQueries({ queryKey: feedQueryKey, exact: true });
+        };
+    }, [feedQueryKey, queryClient]);
 
     const categoryQuery = useQuery({
         queryKey: ['content-taxonomy'],

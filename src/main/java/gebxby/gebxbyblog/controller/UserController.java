@@ -4,6 +4,7 @@ import gebxby.gebxbyblog.dto.CurrentUserResponse;
 import gebxby.gebxbyblog.dto.ContentResponse;
 import gebxby.gebxbyblog.dto.ProfileUpdateRequest;
 import gebxby.gebxbyblog.dto.PublicUserResponse;
+import gebxby.gebxbyblog.dto.UserRelationsPreviewResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.model.VoteDirection;
 import gebxby.gebxbyblog.service.ForumMapper;
@@ -135,6 +136,18 @@ public class UserController {
         return ResponseEntity.ok(userService.getFollowerUsers(id).stream()
                 .map(mapper::toPublicUser)
                 .toList());
+    }
+
+    @GetMapping("/api/user/{id}/relations-preview")
+    public ResponseEntity<UserRelationsPreviewResponse> relationPreview(@PathVariable UUID id) {
+        userService.getUserById(id);
+        UserRelationsPreviewResponse response = new UserRelationsPreviewResponse(
+                userService.getFollowerPreview(id, 8).stream().map(mapper::toPublicUserPreview).toList(),
+                userService.getFollowingPreview(id, 8).stream().map(mapper::toPublicUserPreview).toList(),
+                userService.getFollowerCount(id),
+                userService.getFollowingCount(id)
+        );
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/api/user/following/{targetUserId}")
