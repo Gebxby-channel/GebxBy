@@ -144,6 +144,12 @@ export interface MediaSmokeTestResult {
   message: string;
 }
 
+export interface MediaMigrationResult {
+  migratedContents: number;
+  migratedImages: number;
+  complete: boolean;
+}
+
 export interface ContentStats {
   idContent: string;
   viewCount: number;

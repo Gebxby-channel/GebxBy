@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Award, Ban, Check, CheckCircle2, ChevronDown, Download, HardDrive, ImagePlus, Plus, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import api, { invalidateApiCache, isRequestCanceled } from '../lib/api';
-import type { ActivityLogItem, Badge, BadgeCode, ContentItem, CurrentUser, MediaSmokeTestResult } from '../types/forum';
+import type { ActivityLogItem, Badge, BadgeCode, ContentItem, CurrentUser, MediaMigrationResult, MediaSmokeTestResult } from '../types/forum';
 import AdminMessagePanel from '../components/AdminMessagePanel';
 import BadgeStrip from '../components/BadgeStrip';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -49,6 +49,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [drawerUser, setDrawerUser] = useState<CurrentUser | null>(null);
     const [mediaSmoke, setMediaSmoke] = useState<MediaSmokeTestResult | null>(null);
     const [mediaSmokeBusy, setMediaSmokeBusy] = useState(false);
+    const [mediaMigrationBusy, setMediaMigrationBusy] = useState(false);
+    const [mediaMigrationProgress, setMediaMigrationProgress] = useState({ contents: 0, images: 0 });
     const [backupBusy, setBackupBusy] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -346,6 +348,40 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         }
     };
 
+    const migrateExistingMedia = async () => {
+        const accepted = await feedback.confirm({
+            title: 'Migrate Existing Images to R2',
+            message: 'Gambar Base64 pada tulisan lama akan diunggah ke R2 dan URL-nya disimpan ke MongoDB. Proses berjalan bertahap dan dapat dilanjutkan jika terhenti.',
+            confirmLabel: 'Start migration',
+        });
+        if (!accepted) return;
+
+        setMediaMigrationBusy(true);
+        setMediaMigrationProgress({ contents: 0, images: 0 });
+        let migratedContents = 0;
+        let migratedImages = 0;
+        try {
+            let complete = false;
+            while (!complete) {
+                const response = await api.post<MediaMigrationResult>('/api/admin/media/migrate-inline');
+                migratedContents += response.data.migratedContents;
+                migratedImages += response.data.migratedImages;
+                complete = response.data.complete;
+                setMediaMigrationProgress({ contents: migratedContents, images: migratedImages });
+                if (!complete && response.data.migratedContents === 0) {
+                    throw new Error('Migrasi berhenti tanpa progres. Periksa log backend dan konfigurasi R2.');
+                }
+            }
+            feedback.toast(`Migrasi selesai: ${migratedImages} gambar dari ${migratedContents} tulisan.`, 'success');
+            invalidateApiCache('/content/feed-page');
+            invalidateApiCache('/content/all-content');
+        } catch (error) {
+            feedback.toast(getAdminError(error), 'error');
+        } finally {
+            setMediaMigrationBusy(false);
+        }
+    };
+
     const downloadLocalBackup = async () => {
         setBackupBusy(true);
         try {
@@ -534,13 +570,24 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                 title="Media Storage Status"
                 subtitle={mediaSmoke ? `${mediaSmoke.provider} // ${mediaSmoke.publicReadable ? 'public readable' : 'needs review'}` : 'R2 smoke test standby'}
                 action={(
-                    <UiButton onClick={() => void runMediaSmokeTest()} disabled={mediaSmokeBusy} variant="danger">
-                        <HardDrive size={13} />
-                        {mediaSmokeBusy ? 'Testing' : 'Smoke Test'}
-                    </UiButton>
+                    <div className="flex flex-wrap gap-2">
+                        <UiButton onClick={() => void migrateExistingMedia()} disabled={mediaMigrationBusy || mediaSmokeBusy} variant="danger">
+                            <RefreshCcw size={13} className={mediaMigrationBusy ? 'animate-spin' : ''} />
+                            {mediaMigrationBusy ? `Migrating ${mediaMigrationProgress.images} images` : 'Migrate Existing Images'}
+                        </UiButton>
+                        <UiButton onClick={() => void runMediaSmokeTest()} disabled={mediaSmokeBusy || mediaMigrationBusy} variant="danger">
+                            <HardDrive size={13} />
+                            {mediaSmokeBusy ? 'Testing' : 'Smoke Test'}
+                        </UiButton>
+                    </div>
                 )}
                 className="mb-8"
             >
+                <p className="mb-3 font-mono text-[10px] uppercase text-[#777]">
+                    {mediaMigrationBusy
+                        ? `Migration progress: ${mediaMigrationProgress.images} images across ${mediaMigrationProgress.contents} writings`
+                        : 'Migrate images already stored in MongoDB to R2 in small batches.'}
+                </p>
                 {mediaSmoke ? (
                     <div className="grid gap-2 font-mono text-[10px] uppercase text-[#777]">
                         <p className="m-0"><span className="text-[#ff1744]">Provider:</span> {mediaSmoke.provider}</p>
