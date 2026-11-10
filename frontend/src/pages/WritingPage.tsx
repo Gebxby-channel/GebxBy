@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, FileText, ImagePlus, LoaderCircle, Pencil, RotateCcw, Send, Upload, X } from 'lucide-react';
 import api, { cachedGet, invalidateApiCache } from '../lib/api';
 import { DEFAULT_CATEGORIES, getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
-import { sanitizeArticle, stripHtml } from '../utils/sanitize';
+import { linkifyMentions, stripHtml } from '../utils/sanitize';
 import type { ContentItem, CurrentUser } from '../types/forum';
 import { useFeedback } from '../components/feedback';
 import { Button as UiButton, Modal } from '../components/ui';
@@ -745,7 +745,7 @@ function ArticlePreview({
             </header>
             <div
                 className="min-h-[520px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#ff1744] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"
-                dangerouslySetInnerHTML={{ __html: sanitizeArticle(content || '<p>No decrypted data.</p>') }}
+                dangerouslySetInnerHTML={{ __html: linkifyMentions(content || '<p>No decrypted data.</p>') }}
             />
             {images.length > 0 && (
                 <div className="grid gap-3 border-t border-[#252525] p-5 md:grid-cols-2">

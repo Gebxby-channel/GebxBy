@@ -14,6 +14,7 @@ import gebxby.gebxbyblog.service.LoginVerificationService;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -40,14 +41,17 @@ public class AuthController {
     private final ForumMapper mapper;
     private final LoginRateLimiter loginRateLimiter;
     private final LoginVerificationService verificationService;
+    private final boolean verifyCustomAccounts;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
     public AuthController(UserService userService, ForumMapper mapper, LoginRateLimiter loginRateLimiter,
-                          LoginVerificationService verificationService) {
+                          LoginVerificationService verificationService,
+                          @Value("${app.auth.verify-custom-accounts:false}") boolean verifyCustomAccounts) {
         this.userService = userService;
         this.mapper = mapper;
         this.loginRateLimiter = loginRateLimiter;
         this.verificationService = verificationService;
+        this.verifyCustomAccounts = verifyCustomAccounts;
     }
 
     @PostMapping("/api/auth/email-login")
@@ -62,8 +66,13 @@ public class AuthController {
                 email,
                 request == null ? null : request.password()
         );
-        verificationService.start(user, servletRequest);
-        return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail())));
+        if (isGoogleLinked(user) || verifyCustomAccounts) {
+            verificationService.start(user, servletRequest);
+            return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail()), null));
+        }
+        establishSession(user, servletRequest, servletResponse);
+        loginRateLimiter.reset(email, remoteAddress);
+        return ResponseEntity.ok(new AuthChallengeResponse(false, null, mapper.toCurrentUser(user)));
     }
 
     @PostMapping("/api/auth/signup")
@@ -73,8 +82,13 @@ public class AuthController {
             HttpServletResponse servletResponse) {
         loginRateLimiter.check(request == null ? null : request.email(), clientAddress(servletRequest));
         User user = userService.registerWithEmail(request);
-        verificationService.start(user, servletRequest);
-        return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail())));
+        if (verifyCustomAccounts) {
+            verificationService.start(user, servletRequest);
+            return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail()), null));
+        }
+        establishSession(user, servletRequest, servletResponse);
+        loginRateLimiter.reset(user.getEmail(), clientAddress(servletRequest));
+        return ResponseEntity.ok(new AuthChallengeResponse(false, null, mapper.toCurrentUser(user)));
     }
 
     @PostMapping("/api/auth/verify-code")
@@ -120,6 +134,17 @@ public class AuthController {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, servletRequest, servletResponse);
+    }
+
+    private void establishSession(User user, HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+        servletRequest.getSession(true);
+        servletRequest.changeSessionId();
+        saveSession(user, servletRequest, servletResponse);
+    }
+
+    private boolean isGoogleLinked(User user) {
+        String googleId = user.getGoogleId();
+        return googleId != null && !googleId.isBlank() && !googleId.startsWith("manual:");
     }
 
     private OAuth2User toPrincipal(User user) {

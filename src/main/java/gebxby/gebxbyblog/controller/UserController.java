@@ -82,6 +82,11 @@ public class UserController {
         return ResponseEntity.ok(mapper.toPublicUser(dbUser));
     }
 
+    @GetMapping("/api/user/username/{username}")
+    public ResponseEntity<PublicUserResponse> getUserProfileByUsername(@PathVariable String username) {
+        return ResponseEntity.ok(mapper.toPublicUser(userService.getUserByUsername(username)));
+    }
+
     @GetMapping("/api/user/bookmarks")
     public ResponseEntity<List<ContentResponse>> bookmarks(@AuthenticationPrincipal OAuth2User principal) {
         User user = userService.getCurrentUser(principal);

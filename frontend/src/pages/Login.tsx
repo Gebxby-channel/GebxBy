@@ -16,6 +16,12 @@ type UsernameSuggestResponse = {
     suggestions: string[];
 };
 
+type AuthChallengeResponse = {
+    verificationRequired: boolean;
+    emailHint: string | null;
+    user: CurrentUser | null;
+};
+
 export default function Login({ user, setUser }: { user: CurrentUser | null; setUser: (user: CurrentUser | null) => void }) {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -118,9 +124,16 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
         setLoading(true);
         setError('');
         try {
-            const response = await api.post<{ verificationRequired: boolean; emailHint: string }>('/api/auth/email-login', { email, password });
-            setEmailHint(response.data.emailHint);
-            setVerificationRequired(true);
+            const response = await api.post<AuthChallengeResponse>('/api/auth/email-login', { email, password });
+            if (response.data.verificationRequired) {
+                setEmailHint(response.data.emailHint || 'email terdaftar');
+                setVerificationRequired(true);
+            } else if (response.data.user) {
+                setUser(response.data.user);
+                navigate('/', { replace: true });
+            } else {
+                setError('Login berhasil tetapi data sesi tidak lengkap. Silakan coba lagi.');
+            }
         } catch (requestError) {
             setError(getAuthError(requestError, 'EMAIL_OR_PASSWORD_REJECTED'));
         } finally {
@@ -134,14 +147,21 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
         setLoading(true);
         setError('');
         try {
-            const response = await api.post<{ verificationRequired: boolean; emailHint: string }>('/api/auth/signup', {
+            const response = await api.post<AuthChallengeResponse>('/api/auth/signup', {
                 name: signupName,
                 email: signupEmail,
                 password: signupPassword,
                 username: signupUsername,
             });
-            setEmailHint(response.data.emailHint);
-            setVerificationRequired(true);
+            if (response.data.verificationRequired) {
+                setEmailHint(response.data.emailHint || 'email terdaftar');
+                setVerificationRequired(true);
+            } else if (response.data.user) {
+                setUser(response.data.user);
+                navigate('/', { replace: true });
+            } else {
+                setError('Akun berhasil dibuat tetapi data sesi tidak lengkap. Silakan coba login.');
+            }
         } catch (requestError) {
             setError(getAuthError(requestError, 'SIGNUP_REJECTED'));
         } finally {
@@ -238,14 +258,14 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                     </div>
                 ) : (
                     <div className="mb-5 border border-[#2a2a2a] bg-[#111] p-4 font-mono text-[10px] font-black uppercase tracking-widest text-[#888]">
-                        Complete Google account setup before entering the archive.
+                        Complete account verification before entering the archive.
                     </div>
                 )}
 
                 {verificationRequired ? (
                     <div className="mb-5 space-y-3">
                         <p className="m-0 border border-[#2a2a2a] bg-[#111] p-4 font-mono text-xs leading-6 text-[#aaa]">
-                            Kode verifikasi 6 digit telah dikirim ke {emailHint || 'akun Google kamu'}. Kode berlaku selama 10 menit.
+                            Kode verifikasi 6 digit telah dikirim ke {emailHint || 'email kamu'}. Kode berlaku selama 10 menit.
                         </p>
                         <input
                             id="verification-code"

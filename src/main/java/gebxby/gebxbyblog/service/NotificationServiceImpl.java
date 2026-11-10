@@ -8,11 +8,14 @@ import gebxby.gebxbyblog.model.ActivityLog;
 import gebxby.gebxbyblog.model.Notification;
 import gebxby.gebxbyblog.model.NotificationType;
 import gebxby.gebxbyblog.model.User;
+import gebxby.gebxbyblog.model.Follow;
 import gebxby.gebxbyblog.realtime.RealtimeGateway;
 import gebxby.gebxbyblog.repository.NotificationRepository;
+import gebxby.gebxbyblog.repository.FollowRepository;
 import gebxby.gebxbyblog.repository.UserRepository;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -37,21 +40,33 @@ public class NotificationServiceImpl implements NotificationService {
     private static final Pattern MENTION_PATTERN = Pattern.compile("(?<![A-Za-z0-9._])@([A-Za-z0-9._]{3,24})");
 
     private final NotificationRepository notificationRepository;
+    private final FollowRepository followRepository;
     private final UserService userService;
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
     private final RealtimeGateway realtimeGateway;
 
+    @Autowired
     public NotificationServiceImpl(NotificationRepository notificationRepository,
+                                   FollowRepository followRepository,
                                    UserService userService,
                                    UserRepository userRepository,
                                    ActivityLogService activityLogService,
                                    RealtimeGateway realtimeGateway) {
         this.notificationRepository = notificationRepository;
+        this.followRepository = followRepository;
         this.userService = userService;
         this.userRepository = userRepository;
         this.activityLogService = activityLogService;
         this.realtimeGateway = realtimeGateway;
+    }
+
+    public NotificationServiceImpl(NotificationRepository notificationRepository,
+                                    UserService userService,
+                                    UserRepository userRepository,
+                                    ActivityLogService activityLogService,
+                                    RealtimeGateway realtimeGateway) {
+        this(notificationRepository, null, userService, userRepository, activityLogService, realtimeGateway);
     }
 
     @Override
@@ -61,6 +76,21 @@ public class NotificationServiceImpl implements NotificationService {
         int size = Math.max(1, Math.min(limit, MAX_LIMIT));
         return notificationRepository
                 .findByRecipientUserIdAndExpiresAtAfterOrderByCreatedAtDesc(user.getUserID(), LocalDateTime.now(), PageRequest.of(0, size))
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<NotificationResponse> findForUser(User user, int limit, boolean mentionsOnly) {
+        userService.ensureActive(user);
+        deleteExpired();
+        int size = Math.max(1, Math.min(limit, MAX_LIMIT));
+        LocalDateTime now = LocalDateTime.now();
+        List<Notification> notifications = mentionsOnly
+                ? notificationRepository.findByRecipientUserIdAndTypeAndExpiresAtAfterOrderByCreatedAtDesc(user.getUserID(), NotificationType.MENTION, now, PageRequest.of(0, size))
+                : notificationRepository.findByRecipientUserIdAndExpiresAtAfterOrderByCreatedAtDesc(user.getUserID(), now, PageRequest.of(0, size));
+        return notifications
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -143,17 +173,61 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public void notifyContentPublished(Content content, User actor) {
+        if (content == null || actor == null || actor.getUserID() == null || followRepository == null) return;
+        Set<UUID> recipients = followRepository.findByTargetUserIdOrderByCreatedAtDesc(actor.getUserID()).stream()
+                .map(Follow::getFollowerUserId)
+                .filter(id -> id != null && !id.equals(actor.getUserID()))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        for (UUID recipientId : recipients) {
+            Notification notification = baseNotification(recipientId, NotificationType.CONTENT);
+            notification.setTitle("Tulisan baru dari " + trimToLength(actor.getName(), 80));
+            notification.setMessage("menerbitkan tulisan baru di " + (StringUtils.hasText(content.getKategori()) ? content.getKategori() : "Utas"));
+            notification.setActorUserId(actor.getUserID());
+            notification.setActorName(actor.getName());
+            notification.setActorPhoto(actor.getPhoto());
+            notification.setContentId(content.getIdContent());
+            notification.setContentTitle(contentTitle(content));
+            notification = notificationRepository.save(notification);
+            realtimeGateway.notificationCreated(recipientId, toResponse(notification), unreadCount(recipientId));
+        }
+    }
+
+    @Override
+    public void notifyContentUpvote(Content content, User actor) {
+        if (content == null || actor == null || actor.getUserID() == null || content.getUser() == null) return;
+        UUID recipientId = content.getUser().getUserID();
+        if (recipientId == null || recipientId.equals(actor.getUserID())) return;
+        Notification notification = baseNotification(recipientId, NotificationType.UPVOTE);
+        notification.setTitle("Upvote baru");
+        notification.setMessage("@%s memberi upvote pada tulisan kamu".formatted(
+                StringUtils.hasText(actor.getUsername()) ? actor.getUsername() : actor.getName()
+        ));
+        notification.setActorUserId(actor.getUserID());
+        notification.setActorName(actor.getName());
+        notification.setActorPhoto(actor.getPhoto());
+        notification.setContentId(content.getIdContent());
+        notification.setContentTitle(contentTitle(content));
+        notification = notificationRepository.save(notification);
+        realtimeGateway.notificationCreated(recipientId, toResponse(notification), unreadCount(recipientId));
+    }
+
+    @Override
     public void notifyContentMentions(Content content, User actor) {
         if (content != null && actor != null) {
-            notifyMentions(content.getParagrafs(), actor, content, null, "tulisan", Set.of());
+            notifyMentions(mentionableContentText(content), actor, content, null, "tulisan", Set.of());
         }
     }
 
     @Override
     public void notifyNewContentMentions(Content content, User actor, String previousBody) {
         if (content != null && actor != null) {
-            notifyMentions(content.getParagrafs(), actor, content, null, "tulisan", extractMentions(previousBody));
+            notifyMentions(mentionableContentText(content), actor, content, null, "tulisan", extractMentions(previousBody));
         }
+    }
+
+    private String mentionableContentText(Content content) {
+        return (content.getHead() == null ? "" : content.getHead()) + "\n" + content.getParagrafs();
     }
 
     private void notifyMentions(String body, User actor, Content content, UUID commentId, String location, Set<String> excludedUsernames) {
@@ -168,9 +242,9 @@ public class NotificationServiceImpl implements NotificationService {
         for (UUID recipientId : recipientIds) {
             Notification notification = baseNotification(recipientId, NotificationType.MENTION);
             notification.setTitle("Kamu disebut di " + location);
-            notification.setMessage("%s menyebut kamu di %s pada tulisan \"%s\"".formatted(
-                    trimToLength(actor.getName(), 80), location, contentTitle(content)
-            ));
+            String actorUsername = StringUtils.hasText(actor.getUsername()) ? "@" + actor.getUsername() : trimToLength(actor.getName(), 80);
+            String genre = StringUtils.hasText(content.getKategori()) ? content.getKategori() : "Utas";
+            notification.setMessage("Anda di-mention oleh %s di sebuah tulisan bergenre %s".formatted(actorUsername, genre));
             notification.setActorUserId(actor.getUserID());
             notification.setActorName(actor.getName());
             notification.setActorPhoto(actor.getPhoto());

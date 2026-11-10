@@ -1,6 +1,7 @@
 package gebxby.gebxbyblog.repository;
 
 import gebxby.gebxbyblog.model.Notification;
+import gebxby.gebxbyblog.model.NotificationType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
@@ -11,6 +12,8 @@ import java.util.UUID;
 
 public interface NotificationRepository extends MongoRepository<Notification, UUID> {
     List<Notification> findByRecipientUserIdAndExpiresAtAfterOrderByCreatedAtDesc(UUID recipientUserId, LocalDateTime now, Pageable pageable);
+
+    List<Notification> findByRecipientUserIdAndTypeAndExpiresAtAfterOrderByCreatedAtDesc(UUID recipientUserId, NotificationType type, LocalDateTime now, Pageable pageable);
 
     long countByRecipientUserIdAndReadFalseAndExpiresAtAfter(UUID recipientUserId, LocalDateTime now);
 

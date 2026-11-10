@@ -12,6 +12,7 @@ import type { ContentItem, CurrentUser } from '../types/forum';
 import type { ContentStats } from '../types/forum';
 import BadgeStrip from './BadgeStrip';
 import ShareDialog from './ShareDialog';
+import MentionText from './MentionText';
 import api, { invalidateApiCache } from '../lib/api';
 import { useFeedback } from './feedback';
 
@@ -165,11 +166,11 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                     className="mb-2 line-clamp-2 font-mono text-xl font-black uppercase leading-tight tracking-normal text-white transition-colors md:text-2xl"
                     style={{ color: 'white' }}
                 >
-                    {art.head || 'Tanpa judul'}
+                    <MentionText text={art.head || 'Tanpa judul'} />
                 </h2>}
 
                 <p className={`mb-6 max-w-2xl font-sans leading-relaxed text-[#999] ${isThreadCategory(art.kategori) ? 'line-clamp-4 text-base' : 'line-clamp-2 text-sm'}`}>
-                    {preview}
+                    <MentionText text={preview} />
                 </p>
 
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-3">

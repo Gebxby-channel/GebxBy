@@ -14,6 +14,8 @@ const OtherProfilePage = lazy(() => import('./pages/OtherProfilePage'));
 const CategoryPage = lazy(() => import('./pages/Category'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const MentionProfileRedirect = lazy(() => import('./pages/MentionProfileRedirect'));
 const Login = lazy(() => import('./pages/Login'));
 const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
@@ -146,6 +148,8 @@ export default function App() {
                                         <Route path="/write" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
                                         <Route path="/analytics" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
                                         <Route path="/bookmarks" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <BookmarksPage user={user} /> : <GuestAccessPage title="Bookmark Locked" />} />
+                                        <Route path="/notifications" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <NotificationsPage /> : <GuestAccessPage title="Notifikasi Locked" />} />
+                                        <Route path="/u/:username" element={<MentionProfileRedirect />} />
                                         <Route path="/control-room" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
                                         <Route path="/admin" element={<NotFoundPage />} />
 

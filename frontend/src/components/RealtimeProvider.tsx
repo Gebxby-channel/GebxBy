@@ -62,11 +62,8 @@ export function RealtimeProvider({ user, children }: { user: CurrentUser | null;
                 queryClient.setQueryData(['notifications', 'unread-count'], payload.unreadCount);
             }
             if (payload.notification) {
-                queryClient.setQueryData<NotificationItem[]>(['notifications', 'panel'], (current) => {
-                    const existing = current ?? [];
-                    const withoutDuplicate = existing.filter((item) => item.id !== payload.notification?.id);
-                    return [payload.notification!, ...withoutDuplicate].slice(0, 30);
-                });
+                void queryClient.invalidateQueries({ queryKey: ['notifications', 'all'] });
+                void queryClient.invalidateQueries({ queryKey: ['notifications', 'mentions'] });
             }
             return;
         }
@@ -74,7 +71,8 @@ export function RealtimeProvider({ user, children }: { user: CurrentUser | null;
             const payload = envelope.payload as CountPayload;
             queryClient.setQueryData(['notifications', 'unread-count'], payload.count ?? 0);
             if (type === 'NOTIFICATIONS_READ') {
-                queryClient.setQueryData<NotificationItem[]>(['notifications', 'panel'], (current) => current?.map((item) => ({ ...item, read: true })) ?? []);
+                void queryClient.invalidateQueries({ queryKey: ['notifications', 'all'] });
+                void queryClient.invalidateQueries({ queryKey: ['notifications', 'mentions'] });
             }
             return;
         }

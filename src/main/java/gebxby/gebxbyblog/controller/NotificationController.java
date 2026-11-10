@@ -33,9 +33,13 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<List<NotificationResponse>> listNotifications(
             @RequestParam(value = "limit", defaultValue = "30") int limit,
+            @RequestParam(value = "tab", defaultValue = "all") String tab,
             @AuthenticationPrincipal OAuth2User principal) {
         User user = userService.getCurrentUser(principal);
-        return ResponseEntity.ok(notificationService.findForUser(user, limit));
+        List<NotificationResponse> notifications = "mentions".equalsIgnoreCase(tab)
+                ? notificationService.findForUser(user, limit, true)
+                : notificationService.findForUser(user, limit);
+        return ResponseEntity.ok(notifications);
     }
 
     @GetMapping("/unread-count")

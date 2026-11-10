@@ -118,7 +118,7 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                                     <p className="m-0 truncate font-mono text-xs font-black uppercase text-white">{user.name || 'Officer'}</p>
                                     <p className="m-0 mt-1 truncate font-mono text-[9px] uppercase text-[#666]">{user.designation || 'No designation'}</p>
                                 </button>
-                                <NotificationBell />
+                                <NotificationBell onNavigate={() => setDrawerOpen(false)} />
                             </div>
                         )}
 

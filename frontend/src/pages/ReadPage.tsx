@@ -5,7 +5,7 @@ import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, CalendarDays, Eye, F
 import axios from 'axios';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { invalidateApiCache } from '../lib/api';
-import { sanitizeArticle, stripHtml } from '../utils/sanitize';
+import { linkifyMentions, stripHtml } from '../utils/sanitize';
 import type { CommentItem, CommentPagePayload, ContentImage, ContentItem, ContentStats, CurrentUser, PublicUser, VoteDirection } from '../types/forum';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useFeedback } from '../components/feedback';
@@ -15,6 +15,7 @@ import { getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
 import { LazyRenderList } from '../components/LazyRender';
 import MentionTextarea from '../components/MentionTextarea';
+import MentionText from '../components/MentionText';
 import ShareDialog from '../components/ShareDialog';
 import { GUEST_READER_HEADER, getGuestReaderKey } from '../utils/guestReader';
 import { resetSeo, setArticleSeo } from '../utils/seo';
@@ -178,7 +179,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
         return () => observer.disconnect();
     }, [content, fetchStats, id, queryClient]);
 
-    const safeBody = useMemo(() => sanitizeArticle(content?.paragrafs), [content?.paragrafs]);
+    const safeBody = useMemo(() => linkifyMentions(content?.paragrafs), [content?.paragrafs]);
 
     useEffect(() => {
         if (!content) {
@@ -389,7 +390,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                             </span>
                         </div>
                         {!isThreadCategory(content.kategori) && <h1 className="mb-6 max-w-4xl break-words font-mono text-3xl font-black uppercase leading-tight tracking-normal text-white md:text-5xl">
-                            {content.head}
+                            <MentionText text={content.head} />
                         </h1>}
                         <ArticleAuthorBox author={content.user} viewerUserId={user?.userID} onOpenProfile={openUserProfile} />
                     </header>
@@ -893,7 +894,7 @@ function CommentNode({
                     </span>
                 )}
                 <p className={`m-0 whitespace-pre-wrap border-t border-[#1f1f1f] pt-3 font-sans text-sm leading-7 ${comment.deleted ? 'text-[#555]' : 'text-[#d1d5db]'}`}>
-                    {comment.body}
+                    <MentionText text={comment.body} />
                 </p>
                 {!comment.deleted && (
                     <button

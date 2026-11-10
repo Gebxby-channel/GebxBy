@@ -161,6 +161,7 @@ public class ContentServiceImpl implements ContentService {
         content.setUpdatedAt(now);
         Content saved = contentRepository.save(content);
         recordPublicationSafely(saved, author);
+        notifyContentPublishedSafely(saved, author);
         notifyContentMentionsSafely(saved, author);
         invalidateContentCaches();
         requestSeoRefreshSafely("content-published");
@@ -302,7 +303,7 @@ public class ContentServiceImpl implements ContentService {
         userService.ensureActive(actor);
         Content existingContent = getContentOrThrow(id);
         requireOwnerOrAdmin(existingContent, actor);
-        String previousBody = existingContent.getParagrafs();
+        String previousBody = (existingContent.getHead() == null ? "" : existingContent.getHead()) + "\n" + existingContent.getParagrafs();
         refreshAuthorSnapshot(existingContent, actor);
         articlePolicy.applyPublishedFields(existingContent, contentDetails);
         existingContent.setStatus(STATUS_PUBLISHED);
@@ -346,6 +347,8 @@ public class ContentServiceImpl implements ContentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Draft belum bisa divote");
         }
         Optional<ContentVote> existing = voteRepository.findByContentIdAndUserId(id, voter.getUserID());
+        boolean newUpvote = requestedVote == VoteDirection.UP
+                && existing.map(current -> current.getVote() != VoteDirection.UP).orElse(true);
         int upDelta = 0;
         int downDelta = 0;
 
@@ -396,6 +399,9 @@ public class ContentServiceImpl implements ContentService {
             if (updated != null) {
                 content = updated;
             }
+        }
+        if (newUpvote) {
+            notifyContentUpvoteSafely(content, voter);
         }
         analyticsService.invalidate();
         return mapper.toStatsResponse(content, commentRepository.countByContentIdAndDeletedFalse(id), requestedVote);
@@ -566,6 +572,24 @@ public class ContentServiceImpl implements ContentService {
             notificationService.notifyContentMentions(content, author);
         } catch (RuntimeException exception) {
             log.warn("Mention notifications could not be created for content {}", content.getIdContent(), exception);
+        }
+    }
+
+    private void notifyContentPublishedSafely(Content content, User author) {
+        if (notificationService == null) return;
+        try {
+            notificationService.notifyContentPublished(content, author);
+        } catch (RuntimeException exception) {
+            log.warn("Follower notifications could not be created for content {}", content.getIdContent(), exception);
+        }
+    }
+
+    private void notifyContentUpvoteSafely(Content content, User voter) {
+        if (notificationService == null) return;
+        try {
+            notificationService.notifyContentUpvote(content, voter);
+        } catch (RuntimeException exception) {
+            log.warn("Upvote notification could not be created for content {}", content.getIdContent(), exception);
         }
     }
 

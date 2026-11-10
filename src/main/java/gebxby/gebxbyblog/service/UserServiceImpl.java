@@ -314,6 +314,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public User getUserByUsername(String username) {
+        String normalized = username == null ? "" : username.trim().replaceFirst("^@", "").toLowerCase(Locale.ROOT);
+        User user = userRepository.findByUsernameNormalized(normalized)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User tidak ditemukan"));
+        return ensurePersistedUsername(user);
+    }
+
+    @Override
     public List<User> getAllUsers(User admin) {
         requireAdmin(admin);
         return userRepository.findAll().stream()

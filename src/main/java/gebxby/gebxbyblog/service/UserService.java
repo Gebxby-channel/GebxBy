@@ -20,6 +20,7 @@ public interface UserService {
     UsernameCheckResponse checkUsername(String username);
     List<String> suggestUsernames(String seed, int limit);
     User getUserById(UUID userId);
+    User getUserByUsername(String username);
     List<User> getAllUsers(User admin);
     User suspendUser(UUID userId, Duration duration, User admin);
     User moderatorSuspendUser(UUID userId, User moderator);

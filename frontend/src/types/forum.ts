@@ -221,7 +221,7 @@ export interface SearchPayload {
   badges: SearchBadgeResult[];
 }
 
-export type NotificationType = 'COMMENT' | 'MENTION' | 'ADMIN_MESSAGE';
+export type NotificationType = 'CONTENT' | 'UPVOTE' | 'COMMENT' | 'MENTION' | 'ADMIN_MESSAGE';
 
 export interface NotificationItem {
   id: string;

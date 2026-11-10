@@ -11,11 +11,14 @@ import java.util.UUID;
 
 public interface NotificationService {
     List<NotificationResponse> findForUser(User user, int limit);
+    List<NotificationResponse> findForUser(User user, int limit, boolean mentionsOnly);
     long countUnread(User user);
     NotificationResponse markRead(UUID notificationId, User user);
     void markAllRead(User user);
     long clearForUser(User user);
     void notifyCommentOnContent(Content content, Comment comment);
+    void notifyContentPublished(Content content, User actor);
+    void notifyContentUpvote(Content content, User actor);
     void notifyContentMentions(Content content, User actor);
     void notifyNewContentMentions(Content content, User actor, String previousBody);
     NotificationResponse sendAdminMessage(UUID recipientUserId, AdminNotificationRequest request, User admin);
