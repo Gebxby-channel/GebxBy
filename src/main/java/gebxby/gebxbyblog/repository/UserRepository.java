@@ -15,6 +15,7 @@ public interface UserRepository extends MongoRepository<User, UUID> {
     Optional<User> findByEmail(String email);
     Optional<User> findByGoogleId(String googleId);
     Optional<User> findByUsernameNormalized(String usernameNormalized);
+    List<User> findByUsernameNormalizedIn(Collection<String> usernamesNormalized);
     boolean existsByUsernameNormalized(String usernameNormalized);
     List<User> findByUserIDIn(Collection<UUID> userIds);
 

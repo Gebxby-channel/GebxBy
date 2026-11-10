@@ -1,13 +1,16 @@
 package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
+import gebxby.gebxbyblog.dto.AuthChallengeResponse;
 import gebxby.gebxbyblog.dto.EmailLoginRequest;
 import gebxby.gebxbyblog.dto.SignupRequest;
+import gebxby.gebxbyblog.dto.VerificationCodeRequest;
 import gebxby.gebxbyblog.dto.UsernameCheckResponse;
 import gebxby.gebxbyblog.dto.UsernameSuggestResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.LoginRateLimiter;
+import gebxby.gebxbyblog.service.LoginVerificationService;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,22 +32,26 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 public class AuthController {
     private final UserService userService;
     private final ForumMapper mapper;
     private final LoginRateLimiter loginRateLimiter;
+    private final LoginVerificationService verificationService;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
-    public AuthController(UserService userService, ForumMapper mapper, LoginRateLimiter loginRateLimiter) {
+    public AuthController(UserService userService, ForumMapper mapper, LoginRateLimiter loginRateLimiter,
+                          LoginVerificationService verificationService) {
         this.userService = userService;
         this.mapper = mapper;
         this.loginRateLimiter = loginRateLimiter;
+        this.verificationService = verificationService;
     }
 
     @PostMapping("/api/auth/email-login")
-    public ResponseEntity<CurrentUserResponse> emailLogin(
+    public ResponseEntity<AuthChallengeResponse> emailLogin(
             @RequestBody EmailLoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
@@ -55,19 +62,38 @@ public class AuthController {
                 email,
                 request == null ? null : request.password()
         );
-        loginRateLimiter.reset(email, remoteAddress);
-        saveSession(user, servletRequest, servletResponse);
-        return ResponseEntity.ok(mapper.toCurrentUser(user));
+        verificationService.start(user, servletRequest);
+        return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail())));
     }
 
     @PostMapping("/api/auth/signup")
-    public ResponseEntity<CurrentUserResponse> signup(
+    public ResponseEntity<AuthChallengeResponse> signup(
             @RequestBody SignupRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
+        loginRateLimiter.check(request == null ? null : request.email(), clientAddress(servletRequest));
         User user = userService.registerWithEmail(request);
+        verificationService.start(user, servletRequest);
+        return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail())));
+    }
+
+    @PostMapping("/api/auth/verify-code")
+    public ResponseEntity<CurrentUserResponse> verifyCode(
+            @RequestBody VerificationCodeRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        LoginVerificationService.VerifiedLogin verified = verificationService.verify(request == null ? null : request.code(), servletRequest);
+        User user = userService.getUserById(verified.userId());
+        servletRequest.changeSessionId();
         saveSession(user, servletRequest, servletResponse);
+        loginRateLimiter.reset(verified.email(), verified.remoteAddress());
         return ResponseEntity.ok(mapper.toCurrentUser(user));
+    }
+
+    @PostMapping("/api/auth/resend-code")
+    public ResponseEntity<Void> resendCode(HttpServletRequest servletRequest) {
+        verificationService.resend(servletRequest);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/usernames/check")

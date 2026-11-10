@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCheck, MessageSquare, ShieldAlert, Trash2 } from 'lucide-react';
+import { AtSign, Bell, CheckCheck, MessageSquare, ShieldAlert, Trash2, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -93,7 +93,7 @@ export default function NotificationBell() {
             return;
         }
         if (notification.contentId) {
-            navigate(`/read/${notification.contentId}`);
+            navigate(notification.commentId ? `/read/${notification.contentId}#comments` : `/read/${notification.contentId}`);
             setOpen(false);
         }
     };
@@ -116,13 +116,13 @@ export default function NotificationBell() {
             </button>
 
             {open && (
-                <div className="absolute right-0 top-12 z-[80] w-[min(88vw,380px)] border border-[#2a2a2a] bg-[#0d0d0d] shadow-2xl">
-                    <div className="flex items-center justify-between border-b border-[#2a2a2a] px-4 py-3">
+                <div className="fixed left-3 right-3 top-24 z-[120] mx-auto flex max-h-[calc(100dvh-7rem)] w-auto max-w-[420px] flex-col overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] shadow-2xl md:absolute md:left-auto md:right-0 md:top-12 md:mx-0 md:max-h-[min(75vh,560px)] md:w-[min(88vw,380px)]">
+                    <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-[#2a2a2a] px-4 py-3">
                         <div>
                             <h2 className="m-0 font-mono text-xs font-black uppercase tracking-widest text-white">Notifications</h2>
                             <p className="m-0 font-mono text-[9px] uppercase text-[#555]">Auto purge after 7 days</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-shrink-0 items-center gap-1.5">
                             <button
                                 type="button"
                                 onClick={() => void markAllRead()}
@@ -141,10 +141,13 @@ export default function NotificationBell() {
                                 <Trash2 size={12} />
                                 Clear
                             </button>
+                            <button type="button" onClick={() => setOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#777] hover:bg-white/10 hover:text-white" aria-label="Tutup notifikasi">
+                                <X size={15} />
+                            </button>
                         </div>
                     </div>
 
-                    <div className="max-h-[420px] overflow-y-auto">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain md:max-h-[420px]">
                         {itemsQuery.isLoading ? (
                             <div className="min-h-[160px]">
                                 <LoadingSpinner compact label="Syncing" />
@@ -177,7 +180,7 @@ export default function NotificationBell() {
                                         <div className="min-w-0 flex-1">
                                             <div className="mb-1 flex items-center justify-between gap-3">
                                                 <p className="m-0 truncate font-mono text-[11px] font-black uppercase text-white">
-                                                    {item.title || (item.type === 'COMMENT' ? 'Komentar baru' : 'Pesan admin')}
+                                                    {item.title || (item.type === 'COMMENT' ? 'Komentar baru' : item.type === 'MENTION' ? 'Kamu disebut' : 'Pesan admin')}
                                                 </p>
                                                 {!item.read && <span className="h-2 w-2 flex-shrink-0 bg-[#ff1744]" />}
                                             </div>
@@ -213,7 +216,7 @@ export default function NotificationBell() {
 }
 
 function NotificationIcon({ type }: { type: NotificationItem['type'] }) {
-    const Icon = type === 'COMMENT' ? MessageSquare : ShieldAlert;
+    const Icon = type === 'COMMENT' ? MessageSquare : type === 'MENTION' ? AtSign : ShieldAlert;
     return (
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center border border-[#333] bg-[#111] text-[#ff1744]">
             <Icon size={15} />

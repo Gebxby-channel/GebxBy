@@ -24,10 +24,13 @@ import java.util.List;
 public class SecurityConfig {
     private final String frontendUrl;
     private final List<String> allowedOrigins;
+    private final GoogleLoginVerificationSuccessHandler googleLoginVerificationSuccessHandler;
 
     public SecurityConfig(@Value("${app.frontend-url}") String frontendUrl,
-                          @Value("${app.allowed-origins}") String allowedOrigins) {
+                          @Value("${app.allowed-origins}") String allowedOrigins,
+                          GoogleLoginVerificationSuccessHandler googleLoginVerificationSuccessHandler) {
         this.frontendUrl = frontendUrl;
+        this.googleLoginVerificationSuccessHandler = googleLoginVerificationSuccessHandler;
         this.allowedOrigins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isBlank())
@@ -62,13 +65,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/search", "/api/announcements/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/user/me", "/api/user/{id}", "/api/user/*/following", "/api/user/*/followers", "/content/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/usernames/check", "/api/usernames/suggest").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/email-login", "/api/auth/signup").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/email-login", "/api/auth/signup", "/api/auth/verify-code", "/api/auth/resend-code").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/user/create").permitAll()
                         .requestMatchers(HttpMethod.POST, "/content/*/view").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        .defaultSuccessUrl(frontendUrl, true)
+                        .successHandler(googleLoginVerificationSuccessHandler)
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")

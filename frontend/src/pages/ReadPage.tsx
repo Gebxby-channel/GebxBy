@@ -14,6 +14,7 @@ import { profilePathForUser } from '../utils/profilePath';
 import { getCategoryLabel, isThreadCategory } from '../utils/categoryColors';
 import { formatIndonesiaDate, formatIndonesiaShortTime } from '../utils/time';
 import { LazyRenderList } from '../components/LazyRender';
+import MentionTextarea from '../components/MentionTextarea';
 import ShareDialog from '../components/ShareDialog';
 import { GUEST_READER_HEADER, getGuestReaderKey } from '../utils/guestReader';
 import { resetSeo, setArticleSeo } from '../utils/seo';
@@ -418,12 +419,11 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     </div>
 
                     <div className="mb-8 flex flex-col gap-3">
-                        <textarea
+                        <MentionTextarea
                             id="root-comment"
                             name="commentBody"
-                            aria-label="Write a comment"
                             value={commentBody}
-                            onChange={(event) => setCommentBody(event.target.value)}
+                            onChange={setCommentBody}
                             placeholder={user ? 'Add field note...' : 'Login required to comment...'}
                             disabled={!user || rootCommentPosting}
                             className="min-h-24 w-full resize-y border border-[#333] bg-[#0f0f0f] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#ff1744] disabled:opacity-50"
@@ -906,15 +906,15 @@ function CommentNode({
                 )}
                 {replyOpen && (
                     <div className="mt-3 flex flex-col gap-2">
-                        <textarea
+                        <MentionTextarea
                             id={`reply-comment-${comment.id}`}
                             name={`replyComment-${comment.id}`}
-                            aria-label="Write reply"
                             value={replyBody}
-                            onChange={(event) => setReplyBody(event.target.value)}
+                            onChange={setReplyBody}
                             disabled={replyPosting}
-                            className="min-h-20 resize-y border border-[#333] bg-[#0b0b0b] p-3 font-sans text-sm text-white outline-none focus:border-[#ff1744]"
                             placeholder="Write reply..."
+                            rows={3}
+                            className="min-h-20 resize-y border border-[#333] bg-[#0b0b0b] p-3 font-sans text-sm text-white outline-none focus:border-[#ff1744]"
                         />
                         <button
                             type="button"

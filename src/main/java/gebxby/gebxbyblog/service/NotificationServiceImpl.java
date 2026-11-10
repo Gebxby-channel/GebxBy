@@ -22,13 +22,19 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
     private static final int MAX_TITLE_LENGTH = 120;
     private static final int MAX_MESSAGE_LENGTH = 1_000;
     private static final int MAX_LIMIT = 50;
+    private static final int MAX_MENTIONS_PER_ITEM = 10;
+    private static final Pattern MENTION_PATTERN = Pattern.compile("(?<![A-Za-z0-9._])@([A-Za-z0-9._]{3,24})");
 
     private final NotificationRepository notificationRepository;
     private final UserService userService;
@@ -110,29 +116,84 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyCommentOnContent(Content content, Comment comment) {
-        if (content == null || comment == null || content.getUser() == null || comment.getUser() == null) {
+        if (content == null || comment == null || comment.getUser() == null) {
             return;
         }
-        UUID recipientId = content.getUser().getUserID();
         UUID actorId = comment.getUser().getUserID();
-        if (recipientId == null || actorId == null || recipientId.equals(actorId)) {
+        if (actorId == null) {
             return;
         }
+        UUID ownerId = content.getUser() == null ? null : content.getUser().getUserID();
+        if (ownerId != null && !ownerId.equals(actorId)) {
+            Notification notification = baseNotification(ownerId, NotificationType.COMMENT);
+            notification.setTitle("Komentar baru");
+            notification.setMessage("%s mengomentari tulisan \"%s\"".formatted(
+                    trimToLength(comment.getUser().getName(), 80), contentTitle(content)
+            ));
+            notification.setActorUserId(actorId);
+            notification.setActorName(comment.getUser().getName());
+            notification.setActorPhoto(comment.getUser().getPhoto());
+            notification.setContentId(content.getIdContent());
+            notification.setContentTitle(contentTitle(content));
+            notification.setCommentId(comment.getId());
+            notification = notificationRepository.save(notification);
+            realtimeGateway.notificationCreated(ownerId, toResponse(notification), unreadCount(ownerId));
+        }
+        notifyMentions(comment.getBody(), comment.getUser(), content, comment.getId(), "komentar", Set.of());
+    }
 
-        Notification notification = baseNotification(recipientId, NotificationType.COMMENT);
-        notification.setTitle("Komentar baru");
-        notification.setMessage("%s mengomentari tulisan \"%s\"".formatted(
-                trimToLength(comment.getUser().getName(), 80),
-                trimToLength(content.getHead(), 80)
-        ));
-        notification.setActorUserId(actorId);
-        notification.setActorName(comment.getUser().getName());
-        notification.setActorPhoto(comment.getUser().getPhoto());
-        notification.setContentId(content.getIdContent());
-        notification.setContentTitle(content.getHead());
-        notification.setCommentId(comment.getId());
-        notification = notificationRepository.save(notification);
-        realtimeGateway.notificationCreated(recipientId, toResponse(notification), unreadCount(recipientId));
+    @Override
+    public void notifyContentMentions(Content content, User actor) {
+        if (content != null && actor != null) {
+            notifyMentions(content.getParagrafs(), actor, content, null, "tulisan", Set.of());
+        }
+    }
+
+    @Override
+    public void notifyNewContentMentions(Content content, User actor, String previousBody) {
+        if (content != null && actor != null) {
+            notifyMentions(content.getParagrafs(), actor, content, null, "tulisan", extractMentions(previousBody));
+        }
+    }
+
+    private void notifyMentions(String body, User actor, Content content, UUID commentId, String location, Set<String> excludedUsernames) {
+        if (actor.getUserID() == null || !StringUtils.hasText(body)) return;
+        Set<String> usernames = extractMentions(body);
+        usernames.removeAll(excludedUsernames);
+        if (usernames.isEmpty()) return;
+        Set<UUID> recipientIds = userRepository.findByUsernameNormalizedIn(usernames).stream()
+                .map(User::getUserID)
+                .filter(id -> id != null && !id.equals(actor.getUserID()))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        for (UUID recipientId : recipientIds) {
+            Notification notification = baseNotification(recipientId, NotificationType.MENTION);
+            notification.setTitle("Kamu disebut di " + location);
+            notification.setMessage("%s menyebut kamu di %s pada tulisan \"%s\"".formatted(
+                    trimToLength(actor.getName(), 80), location, contentTitle(content)
+            ));
+            notification.setActorUserId(actor.getUserID());
+            notification.setActorName(actor.getName());
+            notification.setActorPhoto(actor.getPhoto());
+            notification.setContentId(content.getIdContent());
+            notification.setContentTitle(contentTitle(content));
+            notification.setCommentId(commentId);
+            notification = notificationRepository.save(notification);
+            realtimeGateway.notificationCreated(recipientId, toResponse(notification), unreadCount(recipientId));
+        }
+    }
+
+    private Set<String> extractMentions(String body) {
+        Set<String> usernames = new LinkedHashSet<>();
+        if (!StringUtils.hasText(body)) return usernames;
+        Matcher matcher = MENTION_PATTERN.matcher(Jsoup.parse(body).text());
+        while (matcher.find() && usernames.size() < MAX_MENTIONS_PER_ITEM) {
+            usernames.add(matcher.group(1).toLowerCase(java.util.Locale.ROOT));
+        }
+        return usernames;
+    }
+
+    private String contentTitle(Content content) {
+        return StringUtils.hasText(content.getHead()) ? trimToLength(content.getHead(), 80) : "Utas";
     }
 
     @Override

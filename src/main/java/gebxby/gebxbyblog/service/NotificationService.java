@@ -16,6 +16,8 @@ public interface NotificationService {
     void markAllRead(User user);
     long clearForUser(User user);
     void notifyCommentOnContent(Content content, Comment comment);
+    void notifyContentMentions(Content content, User actor);
+    void notifyNewContentMentions(Content content, User actor, String previousBody);
     NotificationResponse sendAdminMessage(UUID recipientUserId, AdminNotificationRequest request, User admin);
     List<NotificationResponse> sendAdminBroadcast(AdminNotificationRequest request, User admin);
     NotificationResponse sendModeratorReport(UUID adminUserId, AdminNotificationRequest request, User moderator);

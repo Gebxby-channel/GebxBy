@@ -30,6 +30,9 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
     const [usernameStatus, setUsernameStatus] = useState<UsernameCheckResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [verificationRequired, setVerificationRequired] = useState(false);
+    const [verificationCode, setVerificationCode] = useState('');
+    const [emailHint, setEmailHint] = useState('');
     const setupMode = mode === 'signup' || mode === 'onboarding';
 
     useEffect(() => {
@@ -48,6 +51,12 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
     useEffect(() => {
         if (searchParams.get('mode') === 'signup') {
             setMode('signup');
+        }
+        if (searchParams.get('verify') === '1') {
+            setVerificationRequired(true);
+        }
+        if (searchParams.get('verification') === 'unavailable') {
+            setError('Kode Google gagal dikirim. Periksa konfigurasi SMTP server atau coba lagi nanti.');
         }
     }, [searchParams]);
 
@@ -109,11 +118,11 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
         setLoading(true);
         setError('');
         try {
-            const response = await api.post<CurrentUser>('/api/auth/email-login', { email, password });
-            setUser(response.data);
-            navigate('/', { replace: true });
-        } catch {
-            setError('EMAIL_OR_PASSWORD_REJECTED');
+            const response = await api.post<{ verificationRequired: boolean; emailHint: string }>('/api/auth/email-login', { email, password });
+            setEmailHint(response.data.emailHint);
+            setVerificationRequired(true);
+        } catch (requestError) {
+            setError(getAuthError(requestError, 'EMAIL_OR_PASSWORD_REJECTED'));
         } finally {
             setLoading(false);
         }
@@ -125,16 +134,44 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
         setLoading(true);
         setError('');
         try {
-            const response = await api.post<CurrentUser>('/api/auth/signup', {
+            const response = await api.post<{ verificationRequired: boolean; emailHint: string }>('/api/auth/signup', {
                 name: signupName,
                 email: signupEmail,
                 password: signupPassword,
                 username: signupUsername,
             });
+            setEmailHint(response.data.emailHint);
+            setVerificationRequired(true);
+        } catch (requestError) {
+            setError(getAuthError(requestError, 'SIGNUP_REJECTED'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyCode = async () => {
+        if (!/^\d{6}$/.test(verificationCode)) return;
+        setLoading(true);
+        setError('');
+        try {
+            const response = await api.post<CurrentUser>('/api/auth/verify-code', { code: verificationCode });
             setUser(response.data);
             navigate('/', { replace: true });
         } catch (requestError) {
-            setError(getAuthError(requestError, 'SIGNUP_REJECTED'));
+            setError(getAuthError(requestError, 'Kode verifikasi tidak valid atau sudah kedaluwarsa.'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendCode = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            await api.post('/api/auth/resend-code');
+            setError('Kode baru sudah dikirim.');
+        } catch (requestError) {
+            setError(getAuthError(requestError, 'Kode gagal dikirim ulang.'));
         } finally {
             setLoading(false);
         }
@@ -194,7 +231,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                     <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#666]">Authorization Gateway</p>
                 </div>
 
-                {mode !== 'onboarding' ? (
+                {!verificationRequired && mode !== 'onboarding' ? (
                     <div className="mb-5 grid grid-cols-2 border border-[#2a2a2a]">
                         <ModeButton active={mode === 'login'} label="Login" onClick={() => { setMode('login'); setError(''); }} />
                         <ModeButton active={mode === 'signup'} label="Sign Up" onClick={() => { setMode('signup'); setError(''); }} />
@@ -205,7 +242,34 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                     </div>
                 )}
 
-                {mode === 'login' ? (
+                {verificationRequired ? (
+                    <div className="mb-5 space-y-3">
+                        <p className="m-0 border border-[#2a2a2a] bg-[#111] p-4 font-mono text-xs leading-6 text-[#aaa]">
+                            Kode verifikasi 6 digit telah dikirim ke {emailHint || 'akun Google kamu'}. Kode berlaku selama 10 menit.
+                        </p>
+                        <input
+                            id="verification-code"
+                            name="verificationCode"
+                            aria-label="Kode verifikasi"
+                            value={verificationCode}
+                            onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                            onKeyDown={(event) => { if (event.key === 'Enter') void handleVerifyCode(); }}
+                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 text-center font-mono text-2xl font-black tracking-[0.5em] text-white outline-none focus:border-[#ff1744]"
+                            placeholder="000000"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            autoFocus
+                        />
+                        <AuthError error={error} />
+                        <button type="button" onClick={() => void handleVerifyCode()} disabled={loading || verificationCode.length !== 6} className="flex w-full items-center justify-center gap-3 border border-[#ff1744] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#ff1744] transition-all hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]">
+                            {loading ? 'Checking' : 'Verifikasi kode'}
+                        </button>
+                        <button type="button" onClick={() => void handleResendCode()} disabled={loading} className="w-full py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#888] hover:text-white disabled:opacity-50">
+                            Kirim ulang kode
+                        </button>
+                    </div>
+                ) : mode === 'login' ? (
                     <div className="mb-5 space-y-3">
                         <input
                             id="login-email"
@@ -332,7 +396,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                     </div>
                 )}
 
-                {mode !== 'onboarding' && (
+                {!verificationRequired && mode !== 'onboarding' && (
                     <button
                         type="button"
                         onClick={() => { window.location.href = oauthLoginUrl(); }}
@@ -343,7 +407,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                     </button>
                 )}
 
-                {mode !== 'onboarding' && (
+                {!verificationRequired && mode !== 'onboarding' && (
                     <button
                         type="button"
                         onClick={enterAsGuest}

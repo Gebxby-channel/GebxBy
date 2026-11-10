@@ -73,6 +73,7 @@ public class ContentServiceImpl implements ContentService {
     private final ValidReadTrackingService readTrackingService;
     private final UserSnapshotService userSnapshotService;
     private final SeoRefreshService seoRefreshService;
+    private final NotificationService notificationService;
     private volatile CacheEntry<List<String>> categoriesCache;
 
     @Autowired
@@ -92,7 +93,8 @@ public class ContentServiceImpl implements ContentService {
                               ContentCounterService counterService,
                               ValidReadTrackingService readTrackingService,
                               UserSnapshotService userSnapshotService,
-                              SeoRefreshService seoRefreshService) {
+                              SeoRefreshService seoRefreshService,
+                              NotificationService notificationService) {
         this.contentRepository = contentRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
@@ -107,6 +109,7 @@ public class ContentServiceImpl implements ContentService {
         this.readTrackingService = readTrackingService;
         this.userSnapshotService = userSnapshotService;
         this.seoRefreshService = seoRefreshService == null ? SeoRefreshService.NOOP : seoRefreshService;
+        this.notificationService = notificationService;
     }
 
     public ContentServiceImpl(ContentRepository contentRepository,
@@ -141,7 +144,8 @@ public class ContentServiceImpl implements ContentService {
                 new ContentCounterService(contentRepository, null),
                 new ValidReadTrackingService(null),
                 new UserSnapshotService(),
-                seoRefreshService);
+                seoRefreshService,
+                null);
     }
 
     @Override
@@ -157,6 +161,7 @@ public class ContentServiceImpl implements ContentService {
         content.setUpdatedAt(now);
         Content saved = contentRepository.save(content);
         recordPublicationSafely(saved, author);
+        notifyContentMentionsSafely(saved, author);
         invalidateContentCaches();
         requestSeoRefreshSafely("content-published");
         return mapper.toContentResponse(saved, VoteDirection.NONE, true);
@@ -201,6 +206,7 @@ public class ContentServiceImpl implements ContentService {
         draft.setUpdatedAt(publishedAt);
         Content saved = contentRepository.save(draft);
         recordPublicationSafely(saved, author);
+        notifyContentMentionsSafely(saved, author);
         invalidateContentCaches();
         requestSeoRefreshSafely("draft-published");
         return mapper.toContentResponse(saved, resolveUserVote(saved.getIdContent(), author), true);
@@ -296,11 +302,13 @@ public class ContentServiceImpl implements ContentService {
         userService.ensureActive(actor);
         Content existingContent = getContentOrThrow(id);
         requireOwnerOrAdmin(existingContent, actor);
+        String previousBody = existingContent.getParagrafs();
         refreshAuthorSnapshot(existingContent, actor);
         articlePolicy.applyPublishedFields(existingContent, contentDetails);
         existingContent.setStatus(STATUS_PUBLISHED);
         existingContent.setUpdatedAt(LocalDateTime.now());
         Content saved = contentRepository.save(existingContent);
+        notifyNewContentMentionsSafely(saved, actor, previousBody);
         invalidateContentCaches();
         requestSeoRefreshSafely("content-updated");
         return mapper.toContentResponse(saved, resolveUserVote(id, actor), true);
@@ -549,6 +557,24 @@ public class ContentServiceImpl implements ContentService {
             activityLogService.recordPublication(content, author);
         } catch (RuntimeException ex) {
             log.warn("Publication log failed for content {}. Content save remains successful.", content == null ? null : content.getIdContent(), ex);
+        }
+    }
+
+    private void notifyContentMentionsSafely(Content content, User author) {
+        if (notificationService == null) return;
+        try {
+            notificationService.notifyContentMentions(content, author);
+        } catch (RuntimeException exception) {
+            log.warn("Mention notifications could not be created for content {}", content.getIdContent(), exception);
+        }
+    }
+
+    private void notifyNewContentMentionsSafely(Content content, User author, String previousBody) {
+        if (notificationService == null) return;
+        try {
+            notificationService.notifyNewContentMentions(content, author, previousBody);
+        } catch (RuntimeException exception) {
+            log.warn("New mention notifications could not be created for content {}", content.getIdContent(), exception);
         }
     }
 

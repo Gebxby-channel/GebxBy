@@ -530,12 +530,17 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                     {studioMode === 'preview' ? (
                         <ArticlePreview title={title} kategori={selectedKategori} content={content} images={images} />
                     ) : activeTab === 'manual' ? (
-                        <Suspense fallback={<EditorSkeleton />}>
-                            <RichTextEditor
-                                content={content}
-                                onChange={setContent}
-                            />
-                        </Suspense>
+                        <div>
+                            <Suspense fallback={<EditorSkeleton />}>
+                                <RichTextEditor
+                                    content={content}
+                                    onChange={setContent}
+                                />
+                            </Suspense>
+                            <p className="m-0 border-x border-b border-[#282828] bg-[#101010] px-4 py-2 font-mono text-[10px] text-[#777]">
+                                Tag pengguna dengan mengetik <span className="font-bold text-[#ff1744]">@username</span>; mereka akan menerima notifikasi saat tulisan diterbitkan.
+                            </p>
+                        </div>
                     ) : (
                         <div className="mx-auto w-full max-w-[1080px] border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#ff1744]">
                             <input
