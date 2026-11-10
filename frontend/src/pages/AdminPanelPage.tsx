@@ -15,7 +15,7 @@ import { LazyRenderList } from '../components/LazyRender';
 
 const assignableBadges: BadgeCode[] = ['MODERATOR', 'WRITERS', 'MEDIA_TEC', 'CRIMINAL', 'SPEED', 'SMILE', 'REQUIEM'];
 const genrePalette = [
-    '#e60000', '#ffffff', '#111827', '#3b82f6', '#38bdf8', '#22c55e', '#4ade80', '#eab308',
+    '#ff1744', '#ffffff', '#111827', '#3b82f6', '#38bdf8', '#22c55e', '#4ade80', '#eab308',
     '#f97316', '#ec4899', '#a855f7', '#8b5cf6', '#14b8a6', '#06b6d4', '#f43f5e', '#64748b',
     '#f8fafc', '#fde047', '#fb7185', '#c084fc', '#60a5fa', '#34d399', '#facc15', '#fb923c',
     '#991b1b', '#1d4ed8', '#166534', '#854d0e', '#581c87', '#0f172a',
@@ -37,7 +37,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [emailDomains, setEmailDomains] = useState<EmailDomainItem[]>([]);
     const [emailDomainInput, setEmailDomainInput] = useState('');
     const [genres, setGenres] = useState<GenreItem[]>([]);
-    const [genreForm, setGenreForm] = useState({ name: '', color: '#e60000', editingId: '' });
+    const [genreForm, setGenreForm] = useState({ name: '', color: '#ff1744', editingId: '' });
     const [profileCardTemplates, setProfileCardTemplates] = useState<ProfileCardItem[]>([]);
     const [cardForm, setCardForm] = useState<ProfileCardFormState>(initialProfileCardForm());
     const [suspendHours, setSuspendHours] = useState(24);
@@ -231,7 +231,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
         }
         invalidateApiCache('/content/categories');
         invalidateApiCache('/content/genre-definitions');
-        setGenreForm({ name: '', color: '#e60000', editingId: '' });
+        setGenreForm({ name: '', color: '#ff1744', editingId: '' });
         feedback.toast('Genre berhasil disimpan.', 'success');
     };
 
@@ -490,8 +490,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
 
     return (
         <div className="w-full">
-            <div className="mb-10 border-l-4 border-[#e60000] pl-6">
-                <div className="mb-2 flex items-center gap-3 text-[#e60000]">
+            <div className="mb-10 border-l-4 border-[#ff1744] pl-6">
+                <div className="mb-2 flex items-center gap-3 text-[#ff1744]">
                     <ShieldCheck size={22} />
                     <span className="font-mono text-[10px] font-black uppercase tracking-[0.35em]">Role Verified</span>
                 </div>
@@ -543,9 +543,9 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             >
                 {mediaSmoke ? (
                     <div className="grid gap-2 font-mono text-[10px] uppercase text-[#777]">
-                        <p className="m-0"><span className="text-[#e60000]">Provider:</span> {mediaSmoke.provider}</p>
-                        <p className="m-0"><span className="text-[#e60000]">Public:</span> {mediaSmoke.publicReadable ? 'Readable' : 'Not readable'}</p>
-                        <p className="m-0 break-all"><span className="text-[#e60000]">Key:</span> {mediaSmoke.storageKey}</p>
+                        <p className="m-0"><span className="text-[#ff1744]">Provider:</span> {mediaSmoke.provider}</p>
+                        <p className="m-0"><span className="text-[#ff1744]">Public:</span> {mediaSmoke.publicReadable ? 'Readable' : 'Not readable'}</p>
+                        <p className="m-0 break-all"><span className="text-[#ff1744]">Key:</span> {mediaSmoke.storageKey}</p>
                         <a className="break-all text-[#aaa] hover:text-white" href={mediaSmoke.url} target="_blank" rel="noreferrer">
                             {mediaSmoke.url}
                         </a>
@@ -583,7 +583,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             <div key={domain.id} className="flex items-center justify-between gap-3 border border-[#242424] bg-[#101010] p-3">
                                 <div className="min-w-0">
                                     <p className="m-0 truncate font-mono text-sm font-black uppercase text-white">@{domain.domain}</p>
-                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{domain.createdAt ? formatDate(domain.createdAt) : 'NO_DATE'}</p>
+                                    <p className="m-0 mt-1 font-mono text-[9px] uppercase text-[#666]">{domain.createdAt ? formatDate(domain.createdAt) : 'Tanggal tidak tersedia'}</p>
                                 </div>
                                 <UiButton onClick={() => void deleteEmailDomain(domain)} variant="danger">Delete</UiButton>
                             </div>
@@ -595,7 +595,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             <section className="mb-8 border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-5 flex flex-col gap-4 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+                        <div className="mb-2 flex items-center gap-2 text-[#ff1744]">
                             <AlertTriangle size={16} />
                             <span className="font-mono text-[10px] font-black uppercase tracking-[0.35em]">Moderation Center</span>
                         </div>
@@ -605,7 +605,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                     <button
                         type="button"
                         onClick={() => navigate('/logs?tab=reports')}
-                        className="h-9 border border-[#333] px-4 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]"
+                        className="h-9 border border-[#333] px-4 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-[#ff1744]"
                     >
                         Open Ledger
                     </button>
@@ -619,7 +619,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             <div key={report.id} className="flex flex-col gap-3 border border-[#242424] bg-[#101010] p-4 md:flex-row md:items-center md:justify-between">
                                 <div className="min-w-0">
                                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                                        <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">{report.targetType}</span>
+                                        <span className="border border-[#ff1744]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#ff1744]">{report.targetType}</span>
                                         <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#777]">{report.reportCategory || 'OTHER'}</span>
                                         <span className="font-mono text-[9px] uppercase text-[#555]">{formatDate(report.createdAt ?? '')}</span>
                                     </div>
@@ -717,7 +717,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 event.currentTarget.value = '';
                             }}
                         />
-                        <label htmlFor="admin-custom-badge-image" className="flex h-11 cursor-pointer items-center justify-center gap-2 border border-[#333] font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                        <label htmlFor="admin-custom-badge-image" className="flex h-11 cursor-pointer items-center justify-center gap-2 border border-[#333] font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-[#ff1744]">
                             <ImagePlus size={14} />
                             Upload 1:1 Transparent PNG
                         </label>
@@ -801,7 +801,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 aria-label="Genre color hex"
                                 value={genreForm.color}
                                 onChange={(event) => setGenreForm(current => ({ ...current, color: event.target.value }))}
-                                placeholder="#e60000"
+                                placeholder="#ff1744"
                             />
                         </div>
                         <div className="grid grid-cols-10 gap-1 border border-[#242424] bg-[#101010] p-2">
@@ -875,7 +875,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 event.currentTarget.value = '';
                             }}
                         />
-                        <label htmlFor="profileCardBackground" className="flex h-10 cursor-pointer items-center justify-center border border-[#333] font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]">
+                        <label htmlFor="profileCardBackground" className="flex h-10 cursor-pointer items-center justify-center border border-[#333] font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-[#ff1744]">
                             Upload Compressed Background
                         </label>
                         <LayoutEditor layout={cardForm.layout} onChange={(layout) => setCardForm(current => ({ ...current, layout }))} />
@@ -941,7 +941,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                             max={720}
                             value={suspendHours}
                             onChange={(event) => setSuspendHours(Number(event.target.value))}
-                            className="h-9 w-24 border border-[#333] bg-[#101010] px-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                            className="h-9 w-24 border border-[#333] bg-[#101010] px-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                             title="Suspend hours"
                         />
                         <button
@@ -975,15 +975,15 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                             <button
                                                 type="button"
                                                 onClick={() => navigate(profilePathForUser(target.userID, user.userID) ?? '/')}
-                                                className="m-0 truncate font-mono text-sm font-black uppercase text-white hover:text-[#e60000]"
+                                                className="m-0 truncate font-mono text-sm font-black uppercase text-white hover:text-[#ff1744]"
                                             >
                                                 {target.name}
                                             </button>
-                                            <span className={`border px-2 py-0.5 font-mono text-[9px] font-black uppercase ${isAdmin ? 'border-[#e60000] text-[#e60000]' : 'border-[#333] text-[#777]'}`}>
+                                            <span className={`border px-2 py-0.5 font-mono text-[9px] font-black uppercase ${isAdmin ? 'border-[#ff1744] text-[#ff1744]' : 'border-[#333] text-[#777]'}`}>
                                                 {target.role}
                                             </span>
                                             {target.suspensionMarked && (
-                                                <span className="border border-[#7f1d1d] bg-[#1a0707] px-2 py-0.5 font-mono text-[9px] font-black uppercase text-[#e60000]">
+                                                <span className="border border-[#7f1d1d] bg-[#1a0707] px-2 py-0.5 font-mono text-[9px] font-black uppercase text-[#ff1744]">
                                                     Marked
                                                 </span>
                                             )}
@@ -1001,7 +1001,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                         <button
                                             type="button"
                                             onClick={() => setDrawerUser(target)}
-                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000]"
+                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-[#ff1744]"
                                         >
                                             <Award size={13} />
                                             Actions
@@ -1010,7 +1010,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                             type="button"
                                             onClick={() => void suspendUser(target)}
                                             disabled={isAdmin}
-                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-not-allowed disabled:opacity-35"
+                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-[#ff1744] disabled:cursor-not-allowed disabled:opacity-35"
                                         >
                                             <Ban size={13} />
                                             Suspend
@@ -1019,7 +1019,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                             type="button"
                                             onClick={() => void deleteUser(target)}
                                             disabled={isSelf}
-                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                                            className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
                                         >
                                             <Trash2 size={13} />
                                             Delete
@@ -1060,14 +1060,14 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                                 <button
                                     type="button"
                                     onClick={() => void commentAsAdmin(content)}
-                                    className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                    className="h-9 border border-[#ff1744] px-3 font-mono text-[10px] font-black uppercase text-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                                 >
                                     Red Comment
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => void deleteContent(content)}
-                                    className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                    className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                                 >
                                     <Trash2 size={13} />
                                     Delete
@@ -1162,7 +1162,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
 }
 
 function formatDate(dateString: string) {
-    if (!dateString) return 'NO_DATE';
+    if (!dateString) return 'Tanggal tidak tersedia';
     return formatIndonesiaDateTime(dateString);
 }
 
@@ -1210,13 +1210,13 @@ function ActionMultiSelect({
             <button
                 type="button"
                 onClick={() => setOpen(current => !current)}
-                className={`flex min-h-11 w-full items-center justify-between gap-3 border px-3 text-left font-mono text-[10px] font-black uppercase transition-all ${open ? 'border-[#e60000] text-white' : 'border-[#333] text-[#aaa] hover:border-white hover:text-white'}`}
+                className={`flex min-h-11 w-full items-center justify-between gap-3 border px-3 text-left font-mono text-[10px] font-black uppercase transition-all ${open ? 'border-[#ff1744] text-white' : 'border-[#333] text-[#aaa] hover:border-white hover:text-white'}`}
             >
                 <span className="min-w-0">
                     <span className="block text-[8px] tracking-[0.25em] text-[#666]">{label}</span>
                     <span className="block truncate">{selected.length ? selected.map(option => option.label).join(', ') : 'Select...'}</span>
                 </span>
-                <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? 'rotate-180 text-[#e60000]' : ''}`} />
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? 'rotate-180 text-[#ff1744]' : ''}`} />
             </button>
             {open && (
                 <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[160] max-h-56 overflow-y-auto border border-[#333] bg-[#080808] p-2 shadow-2xl">
@@ -1229,13 +1229,13 @@ function ActionMultiSelect({
                                 key={option.value}
                                 type="button"
                                 onClick={() => toggleValue(option.value)}
-                                className={`mb-1 flex w-full items-center justify-between gap-3 border px-3 py-2 text-left font-mono text-[10px] font-black uppercase transition-all last:mb-0 ${checked ? 'border-[#e60000] bg-[#1a0505] text-white' : 'border-[#1f1f1f] text-[#777] hover:border-[#e60000] hover:text-white'}`}
+                                className={`mb-1 flex w-full items-center justify-between gap-3 border px-3 py-2 text-left font-mono text-[10px] font-black uppercase transition-all last:mb-0 ${checked ? 'border-[#ff1744] bg-[#1a0505] text-white' : 'border-[#1f1f1f] text-[#777] hover:border-[#ff1744] hover:text-white'}`}
                             >
                                 <span className="min-w-0">
                                     <span className="block truncate">{option.label}</span>
                                     {option.meta && <span className="block text-[8px] tracking-[0.2em] text-[#555]">{option.meta}</span>}
                                 </span>
-                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center border ${checked ? 'border-[#e60000] text-[#e60000]' : 'border-[#333] text-transparent'}`}>
+                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center border ${checked ? 'border-[#ff1744] text-[#ff1744]' : 'border-[#333] text-transparent'}`}>
                                     <Check size={12} />
                                 </span>
                             </button>
@@ -1266,7 +1266,7 @@ function ProfileTextButton({
         <button
             type="button"
             onClick={() => onNavigate(path)}
-            className="font-mono uppercase text-[#777] hover:text-[#e60000]"
+            className="font-mono uppercase text-[#777] hover:text-[#ff1744]"
         >
             {label}
         </button>
@@ -1310,7 +1310,7 @@ function initialProfileCardForm(): ProfileCardFormState {
             designationFontSize: 0.9,
             statsFontSize: 1.05,
             textColor: '#111111',
-            accentColor: '#e60000',
+            accentColor: '#ff1744',
         },
     };
 }
@@ -1374,7 +1374,7 @@ function NumberField({
                 step={step}
                 value={value}
                 onChange={(event) => onChange(Number(event.target.value))}
-                className="mt-1 h-8 w-full border border-[#333] bg-[#0b0b0b] px-2 text-white outline-none focus:border-[#e60000]"
+                className="mt-1 h-8 w-full border border-[#333] bg-[#0b0b0b] px-2 text-white outline-none focus:border-[#ff1744]"
             />
         </label>
     );
@@ -1383,7 +1383,7 @@ function NumberField({
 function TemplateOverlay({ layout }: { layout: ProfileCardLayout }) {
     return (
         <>
-            <div className="absolute border-2 border-[#e60000]" style={{ left: `${layout.photoX}%`, top: `${layout.photoY}%`, width: `${layout.photoW}%`, height: `${layout.photoH}%` }} />
+            <div className="absolute border-2 border-[#ff1744]" style={{ left: `${layout.photoX}%`, top: `${layout.photoY}%`, width: `${layout.photoW}%`, height: `${layout.photoH}%` }} />
             <div className="absolute border border-[#38bdf8] bg-[#38bdf8]/20" style={{ left: `${layout.nameX}%`, top: `${layout.nameY}%`, width: `${layout.nameW}%`, height: `${layout.nameH}%` }} />
             <div className="absolute border border-[#22c55e] bg-[#22c55e]/20" style={{ left: `${layout.designationX}%`, top: `${layout.designationY}%`, width: `${layout.designationW}%`, height: `${layout.designationH}%` }} />
         </>

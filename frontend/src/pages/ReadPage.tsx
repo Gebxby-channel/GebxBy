@@ -361,16 +361,15 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                         onClick={() => navigate('/')}
                         className="group flex items-center gap-2 text-[#888] transition-all hover:text-white"
                     >
-                        <span className="h-2 w-2 bg-[#e60000] group-hover:animate-pulse" />
+                        <span className="h-2 w-2 bg-[#ff1744] group-hover:animate-pulse" />
                         <span className="text-xs font-black uppercase tracking-widest">{'[<]'} Return to Database</span>
                     </button>
-                    <div className="hidden font-mono text-[10px] uppercase tracking-widest text-[#444] md:block">TERMINAL_ID: CXA-00{id?.substring(0, 2)}</div>
                 </div>
 
                 <main className="overflow-hidden border border-[#2a2a2a] bg-[#181818] shadow-2xl">
                     <header className="border-b border-[#2a2a2a] bg-[#131313] p-6 md:p-9">
                         <div className="mb-5 flex flex-wrap items-center gap-3">
-                            <span className="border border-[#e60000] bg-[#e60000] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white">
+                            <span className="border border-[#ff1744] bg-[#ff1744] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white">
                                 {content.kategori || 'Classified'}
                             </span>
                             <span className="flex items-center gap-1.5 font-mono text-[10px] font-black uppercase tracking-widest text-[#666]">
@@ -388,7 +387,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     </header>
 
                     <div
-                        className="p-5 text-left font-sans text-base leading-8 text-[#ccc] selection:bg-[#e60000] selection:text-white sm:p-8 sm:text-lg md:p-12 md:text-justify [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_br]:block [&_div]:mb-4 [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
+                        className="p-5 text-left font-sans text-base leading-8 text-[#ccc] selection:bg-[#ff1744] selection:text-white sm:p-8 sm:text-lg md:p-12 md:text-justify [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#ff1744] [&_blockquote]:pl-4 [&_br]:block [&_div]:mb-4 [&_h1]:mb-5 [&_h1]:text-3xl [&_h1]:font-black [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-6 [&_ol]:pl-6 [&_p]:mb-6 [&_p:last-child]:mb-0 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-[#333] [&_pre]:bg-black [&_pre]:p-4 [&_ul]:my-6 [&_ul]:pl-6"
                         dangerouslySetInnerHTML={{ __html: safeBody }}
                     />
 
@@ -396,7 +395,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
 
                     <footer className="flex justify-end border-t border-[#2a2a2a] bg-[#1a1a1a]/50 p-6">
                         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-[#444]">
-                            End_Of_Transmission
+                            Akhir tulisan
                         </p>
                     </footer>
                     <div ref={readCompletionRef} className="h-2" aria-hidden="true" />
@@ -405,7 +404,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                 <section className="mt-8 border border-[#2a2a2a] bg-[#151515] p-4 md:p-6">
                     <div className="mb-6 flex flex-col gap-2 border-b border-[#2a2a2a] pb-4 md:flex-row md:items-end md:justify-between">
                         <div>
-                            <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Discussion</p>
+                            <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Discussion</p>
                             <h2 className="m-0 mt-1 font-mono text-xl font-black uppercase tracking-widest text-white">Comment Thread</h2>
                         </div>
                         <span className="font-mono text-[10px] font-bold uppercase text-[#666]">{stats?.commentCount ?? 0} Active Signal</span>
@@ -420,7 +419,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                             onChange={(event) => setCommentBody(event.target.value)}
                             placeholder={user ? 'Add field note...' : 'Login required to comment...'}
                             disabled={!user || rootCommentPosting}
-                            className="min-h-24 w-full resize-y border border-[#333] bg-[#0f0f0f] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#e60000] disabled:opacity-50"
+                            className="min-h-24 w-full resize-y border border-[#333] bg-[#0f0f0f] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#ff1744] disabled:opacity-50"
                         />
                         {commentNotice && (
                             <div className={`border px-3 py-2 font-mono text-[10px] font-black uppercase tracking-widest ${
@@ -435,7 +434,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                             type="button"
                             onClick={() => void handleComment()}
                             disabled={!user || !commentBody.trim() || rootCommentPosting}
-                            className="self-end border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
+                            className="self-end border border-[#ff1744] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#ff1744] transition-all hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
                         >
                             {rootCommentPosting ? 'Posting...' : 'Dispatch Comment'}
                         </button>
@@ -444,7 +443,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                     <div className="space-y-4">
                         {comments.length === 0 ? (
                             <div className="border border-dashed border-[#2a2a2a] py-12 text-center font-mono text-xs uppercase tracking-widest text-[#444]">
-                                [ Thread_Empty ]
+                                Belum ada komentar.
                             </div>
                         ) : (
                             <LazyRenderList
@@ -470,7 +469,7 @@ export default function ReadPage({ user }: { user: CurrentUser | null }) {
                                 type="button"
                                 onClick={() => void commentsQuery.fetchNextPage()}
                                 disabled={commentsQuery.isFetchingNextPage}
-                                className="mx-auto mt-4 block border border-[#333] px-5 py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
+                                className="mx-auto mt-4 block border border-[#333] px-5 py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#ff1744] hover:text-[#ff1744] disabled:cursor-wait disabled:opacity-50"
                             >
                                 {commentsQuery.isFetchingNextPage ? 'Loading...' : 'Load More Comments'}
                             </button>
@@ -653,10 +652,10 @@ function RailButton({
 
     const className = `flex h-11 min-w-11 items-center justify-center gap-1 border px-2 font-mono text-[9px] font-black uppercase transition-all disabled:cursor-wait md:w-11 md:flex-col md:px-0 ${
         active
-            ? 'border-[#e60000] bg-[#e60000] text-white'
+            ? 'border-[#ff1744] bg-[#ff1744] text-white'
             : danger
-                ? 'border-[#333] text-[#e60000] hover:border-[#e60000] hover:bg-[#200707]'
-                : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-white'
+                ? 'border-[#333] text-[#ff1744] hover:border-[#ff1744] hover:bg-[#200707]'
+                : 'border-[#333] text-[#777] hover:border-[#ff1744] hover:text-white'
     }`;
 
     if (!onClick) {
@@ -700,7 +699,7 @@ function ArticleAuthorBox({
             type="button"
             onClick={() => onOpenProfile(author?.userID)}
             disabled={!path}
-            className="flex w-full max-w-xl items-center gap-3 border border-[#2a2a2a] bg-[#101010] p-3 text-left transition-all hover:border-[#e60000] disabled:cursor-default disabled:hover:border-[#2a2a2a]"
+            className="flex w-full max-w-xl items-center gap-3 border border-[#2a2a2a] bg-[#101010] p-3 text-left transition-all hover:border-[#ff1744] disabled:cursor-default disabled:hover:border-[#2a2a2a]"
         >
             <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden border border-[#333] bg-[#181818]">
                 {author?.picture ? (
@@ -737,7 +736,7 @@ function ImageGallery({ images, title }: { images: ContentImage[]; title: string
         <section className="border-t border-[#2a2a2a] bg-[#101010] p-4 md:p-8">
             <div className="mb-4 flex items-end justify-between gap-4">
                 <div>
-                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Visual Evidence</p>
+                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Visual Evidence</p>
                     <h2 className="m-0 mt-1 font-mono text-sm font-black uppercase tracking-widest text-white">Attached Gallery</h2>
                 </div>
                 <span className="font-mono text-[10px] font-bold uppercase text-[#666]">{images.length} File</span>
@@ -770,7 +769,7 @@ function ImageGallery({ images, title }: { images: ContentImage[]; title: string
                                 type="button"
                                 onClick={() => setSelectedIndex(index)}
                                 className={`relative aspect-square overflow-hidden border bg-black transition-all ${
-                                    index === selectedIndex ? 'border-[#e60000]' : 'border-[#333] opacity-70 hover:border-white hover:opacity-100'
+                                    index === selectedIndex ? 'border-[#ff1744]' : 'border-[#333] opacity-70 hover:border-white hover:opacity-100'
                                 }`}
                                 title={image.alt || `Image ${index + 1}`}
                             >
@@ -814,7 +813,7 @@ function CommentNode({
     const [replyBody, setReplyBody] = useState('');
     const [replyPosting, setReplyPosting] = useState(false);
     const canDelete = Boolean(user && !comment.deleted && (user.role === 'ADMIN' || user.userID === comment.user?.userID));
-    const depthTone = depth === 0 ? '#e60000' : depth === 1 ? '#8b5cf6' : depth === 2 ? '#38bdf8' : '#555';
+    const depthTone = depth === 0 ? '#ff1744' : depth === 1 ? '#8b5cf6' : depth === 2 ? '#38bdf8' : '#555';
 
     const openCommentAuthor = () => {
         const path = profilePathForUser(comment.user?.userID, user?.userID);
@@ -840,15 +839,15 @@ function CommentNode({
     return (
         <div className="relative pl-3 sm:pl-4" style={{ marginLeft: depth > 0 ? Math.min(depth, 4) * 10 : 0 }}>
             <div className="absolute bottom-0 left-0 top-0 w-px" style={{ backgroundColor: depthTone }} />
-            <div className={`border p-4 ${comment.adminHighlighted ? 'border-[#e60000] bg-[#190707]' : 'border-[#242424] bg-[#101010]'}`}>
+            <div className={`border p-4 ${comment.adminHighlighted ? 'border-[#ff1744] bg-[#190707]' : 'border-[#242424] bg-[#101010]'}`}>
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <button
                         type="button"
                         onClick={openCommentAuthor}
                         disabled={!comment.user?.userID}
-                        className="flex min-w-0 items-center gap-3 text-left transition-all hover:text-[#e60000] disabled:cursor-default"
+                        className="flex min-w-0 items-center gap-3 text-left transition-all hover:text-[#ff1744] disabled:cursor-default"
                     >
-                        <span className="h-9 w-9 flex-shrink-0 overflow-hidden border border-[#333] bg-[#222] transition-all hover:border-[#e60000]">
+                        <span className="h-9 w-9 flex-shrink-0 overflow-hidden border border-[#333] bg-[#222] transition-all hover:border-[#ff1744]">
                             {comment.user?.picture ? (
                                 <img src={comment.user.picture} alt="" width={36} height={36} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
@@ -864,7 +863,7 @@ function CommentNode({
                         <button
                             type="button"
                             onClick={() => void onReport(comment.id)}
-                            className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000]"
+                            className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#ff1744] hover:text-[#ff1744]"
                         >
                             <Flag size={12} />
                             Report
@@ -873,7 +872,7 @@ function CommentNode({
                             <button
                                 type="button"
                                 onClick={() => void onDelete(comment.id)}
-                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000]"
+                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#ff1744] hover:text-[#ff1744]"
                             >
                                 <Trash2 size={12} />
                                 Delete
@@ -882,7 +881,7 @@ function CommentNode({
                     </div>
                 </div>
                 {comment.adminHighlighted && !comment.deleted && (
-                    <span className="mb-2 inline-flex border border-[#e60000] px-2 py-0.5 font-mono text-[9px] font-black uppercase text-[#e60000]">
+                    <span className="mb-2 inline-flex border border-[#ff1744] px-2 py-0.5 font-mono text-[9px] font-black uppercase text-[#ff1744]">
                         Admin Highlight
                     </span>
                 )}
@@ -893,7 +892,7 @@ function CommentNode({
                     <button
                         type="button"
                         onClick={() => user ? setReplyOpen(!replyOpen) : feedback.toast('Guest hanya bisa membaca. Login dulu untuk membalas komentar.', 'info')}
-                        className="mt-4 font-mono text-[10px] font-black uppercase text-[#e60000] hover:text-white"
+                        className="mt-4 font-mono text-[10px] font-black uppercase text-[#ff1744] hover:text-white"
                     >
                         Reply
                     </button>
@@ -907,14 +906,14 @@ function CommentNode({
                             value={replyBody}
                             onChange={(event) => setReplyBody(event.target.value)}
                             disabled={replyPosting}
-                            className="min-h-20 resize-y border border-[#333] bg-[#0b0b0b] p-3 font-sans text-sm text-white outline-none focus:border-[#e60000]"
+                            className="min-h-20 resize-y border border-[#333] bg-[#0b0b0b] p-3 font-sans text-sm text-white outline-none focus:border-[#ff1744]"
                             placeholder="Write reply..."
                         />
                         <button
                             type="button"
                             onClick={() => void submitReply()}
                             disabled={!replyBody.trim() || replyPosting}
-                            className="self-end border border-[#e60000] px-4 py-1.5 font-mono text-[9px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
+                            className="self-end border border-[#ff1744] px-4 py-1.5 font-mono text-[9px] font-black uppercase text-[#ff1744] hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#444]"
                         >
                             {replyPosting ? 'Posting...' : 'Send Reply'}
                         </button>
@@ -979,8 +978,8 @@ function ReportDialog({
     return (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
             <div className="w-full max-w-lg border border-[#2a2a2a] bg-[#0d0d0d] p-6 shadow-2xl">
-                <div className="mb-5 border-l-4 border-[#e60000] pl-4">
-                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Report System</p>
+                <div className="mb-5 border-l-4 border-[#ff1744] pl-4">
+                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Report System</p>
                     <h2 className="m-0 mt-2 font-mono text-xl font-black uppercase text-white">Laporkan {targetLabel}</h2>
                 </div>
                 <div className="space-y-4">
@@ -990,7 +989,7 @@ function ReportDialog({
                         aria-label="Report category"
                         value={category}
                         onChange={(event) => setCategory(event.target.value)}
-                        className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs uppercase text-white outline-none focus:border-[#e60000]"
+                        className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs uppercase text-white outline-none focus:border-[#ff1744]"
                     >
                         {reportCategories.map((option) => (
                             <option key={option.value} value={option.value}>{option.label}</option>
@@ -1003,13 +1002,13 @@ function ReportDialog({
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                         maxLength={500}
-                        className="min-h-32 w-full resize-y border border-[#333] bg-[#101010] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#e60000]"
+                        className="min-h-32 w-full resize-y border border-[#333] bg-[#101010] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#ff1744]"
                         placeholder="Tulis alasan yang spesifik agar admin/moderator bisa menilai dengan cepat..."
                     />
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
                     <button type="button" onClick={onClose} disabled={submitting} className="border border-[#333] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#777] hover:border-white hover:text-white">Cancel</button>
-                    <button type="button" onClick={() => void submit()} disabled={submitting || !reason.trim()} className="border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">
+                    <button type="button" onClick={() => void submit()} disabled={submitting || !reason.trim()} className="border border-[#ff1744] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#ff1744] hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">
                         {submitting ? 'Sending' : 'Send Report'}
                     </button>
                 </div>

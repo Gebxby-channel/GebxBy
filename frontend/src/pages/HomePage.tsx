@@ -19,7 +19,6 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
     const [feedMode, setFeedMode] = useState<FeedMode>('all');
     const [selectedCategory, setSelectedCategory] = useState('General');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'popular'>('newest');
-    const terminalId = useMemo(() => user ? user.userID.replaceAll('-', '').substring(0, 6).toUpperCase() : 'GUEST', [user]);
     const feedQuery = useInfiniteQuery({
         queryKey: ['feed-page', user?.userID ?? 'guest', feedMode, feedMode === 'category' ? selectedCategory : 'all'],
         initialPageParam: 0,
@@ -103,7 +102,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
             <section className="mb-8 border border-[#2a2a2a] bg-[#111]/70 p-4">
                 <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Feed</p>
+                        <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Feed</p>
                         <h2 className="m-0 mt-1 font-mono text-xl font-black uppercase tracking-normal text-white">Archive Routing</h2>
                     </div>
                     <p className="m-0 font-mono text-[10px] uppercase tracking-widest text-[#555]">Adaptive archive routing</p>
@@ -123,7 +122,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                             aria-label="Filter feed by category"
                             value={selectedCategory}
                             onChange={(event) => setSelectedCategory(event.target.value)}
-                            className="h-10 border border-[#333] bg-[#0d0d0d] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] outline-none focus:border-[#e60000]"
+                            className="h-10 border border-[#333] bg-[#0d0d0d] px-3 font-mono text-[10px] font-black uppercase text-[#ff1744] outline-none focus:border-[#ff1744]"
                         >
                             {categories.map((category) => (
                                 <option key={category} value={category}>{category}</option>
@@ -133,16 +132,16 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 </div>
             </section>
 
-            <div className="mb-12 flex min-h-[220px] flex-col gap-6 border-l-4 border-[#e60000] pl-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mb-12 flex min-h-[220px] flex-col gap-6 border-l-4 border-[#ff1744] pl-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
                     <div className="mb-3 flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center border border-[#e60000] bg-[#170707] text-[#e60000]">
+                        <span className="flex h-10 w-10 items-center justify-center border border-[#ff1744] bg-[#170707] text-[#ff1744]">
                             <Megaphone size={18} />
                         </span>
                         <div>
                             <h1 className="font-mono text-4xl font-black uppercase tracking-normal text-white">Announcement</h1>
                             <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#666]">
-                                {user ? 'Authorized Access' : 'Guest Read Access'} // Terminal_ID: {terminalId}
+                                {user ? 'Akses anggota' : 'Mode pengunjung'}
                             </p>
                         </div>
                     </div>
@@ -150,7 +149,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                     {announcement ? (
                         <div className="max-w-3xl">
                             <p className="m-0 text-sm leading-relaxed text-[#aaa] md:text-base">
-                                <span className="font-mono font-black uppercase text-[#e60000]">Announcement:</span>{' '}
+                                <span className="font-mono font-black uppercase text-[#ff1744]">Announcement:</span>{' '}
                                 {announcement.message}
                             </p>
                             <button
@@ -159,9 +158,9 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                                     const path = profilePathForUser(announcement.adminUserId, user?.userID);
                                     if (path) navigate(path);
                                 }}
-                                className="mt-4 flex items-center gap-3 text-left transition-all hover:text-[#e60000]"
+                                className="mt-4 flex items-center gap-3 text-left transition-all hover:text-[#ff1744]"
                             >
-                                <span className="h-9 w-9 overflow-hidden border border-[#333] bg-[#181818] transition-all hover:border-[#e60000]">
+                                <span className="h-9 w-9 overflow-hidden border border-[#333] bg-[#181818] transition-all hover:border-[#ff1744]">
                                     {announcement.adminPhoto ? (
                                         <img
                                             src={announcement.adminPhoto}
@@ -186,18 +185,18 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 </div>
 
                 <div className="flex flex-col items-start gap-2 lg:items-end">
-                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#444]">Filter_Protocol</span>
+                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#85858f]">Urutkan tulisan</span>
                     <select
                         id="feed-sort-order"
                         name="feedSortOrder"
                         aria-label="Sort feed entries"
                         value={sortOrder}
                         onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest' | 'popular')}
-                        className="cursor-pointer border border-[#333] bg-[#111] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none transition-colors focus:border-[#e60000]"
+                        className="cursor-pointer border border-[#333] bg-[#111] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#ff1744] outline-none transition-colors focus:border-[#ff1744]"
                     >
-                        <option value="newest">Recent_Entries</option>
-                        <option value="oldest">Archived_Files</option>
-                        <option value="popular">Most_UP</option>
+                        <option value="newest">Terbaru</option>
+                        <option value="oldest">Terlama</option>
+                        <option value="popular">Paling banyak disukai</option>
                     </select>
                 </div>
             </div>
@@ -206,7 +205,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                 <FeedSkeleton />
             ) : sortedArticles.length === 0 ? (
                 <div className="min-h-[360px] border border-dashed border-[#222] py-40 text-center font-mono uppercase tracking-[0.4em] text-[#333]">
-                    [ No_Data_Found_In_Sector ]
+                    Belum ada tulisan untuk ditampilkan.
                 </div>
             ) : (
                 <div className="flex min-h-[640px] flex-col">
@@ -222,7 +221,7 @@ export default function HomePage({ user }: { user: CurrentUser | null }) {
                             type="button"
                             onClick={() => void feedQuery.fetchNextPage()}
                             disabled={feedQuery.isFetchingNextPage}
-                            className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
+                            className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#ff1744] hover:text-[#ff1744] disabled:cursor-wait disabled:opacity-50"
                         >
                             {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load More'}
                         </button>
@@ -251,8 +250,8 @@ function FeedButton({ active, label, onClick }: { active: boolean; label: string
             onClick={onClick}
             className={`h-9 border px-4 font-mono text-[9px] font-black uppercase tracking-widest transition-all ${
                 active
-                    ? 'border-[#e60000] bg-[#e60000] text-white'
-                    : 'border-[#333] bg-[#0d0d0d] text-[#777] hover:border-[#e60000] hover:text-white'
+                    ? 'border-[#ff1744] bg-[#ff1744] text-white'
+                    : 'border-[#333] bg-[#0d0d0d] text-[#777] hover:border-[#ff1744] hover:text-white'
             }`}
         >
             {label}

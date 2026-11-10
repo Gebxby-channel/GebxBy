@@ -1,9 +1,14 @@
 import { decodeTrie, editDistance } from 'cspell-trie-lib';
 import nspell from 'nspell';
-import idTrieRaw from '../../node_modules/@cspell/dict-id-id/dict/id-id.trie?raw';
-import englishAff from '../../node_modules/dictionary-en/index.aff?raw';
-import englishDic from '../../node_modules/dictionary-en/index.dic?raw';
+import idTrieUrl from '../../node_modules/@cspell/dict-id-id/dict/id-id.trie?url';
+import englishAffUrl from '../../node_modules/dictionary-en/index.aff?url';
+import englishDicUrl from '../../node_modules/dictionary-en/index.dic?url';
 
+const [idTrieRaw, englishAff, englishDic] = await Promise.all([
+    loadDictionary(idTrieUrl),
+    loadDictionary(englishAffUrl),
+    loadDictionary(englishDicUrl),
+]);
 const indonesianTrie = decodeTrie(idTrieRaw);
 const englishSpell = nspell(englishAff, englishDic);
 const WORD_PATTERN = /[\p{L}]+(?:['\u2018\u2019-][\p{L}]+)*/gu;
@@ -47,6 +52,14 @@ const AUTOCORRECT_OVERRIDES = new Map<string, string>([
 
 const PARTICLE_SUFFIXES = ['nyalah', 'nyakah', 'nyapun', 'nya', 'lah', 'kah', 'pun', 'ku', 'mu'];
 const DERIVATIONAL_SUFFIXES = ['kan', 'an', 'i'];
+
+async function loadDictionary(url: string) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Gagal memuat kamus pemeriksa ejaan (${response.status}).`);
+    }
+    return response.text();
+}
 
 export type SpellToken = {
     word: string;

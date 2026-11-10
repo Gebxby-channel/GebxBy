@@ -97,13 +97,13 @@ export default function ShareDialog({ open, title, url, text = '', mediaUrl, onC
             <section className="w-full max-w-2xl overflow-hidden border border-[#333] bg-[#1f1f1f] shadow-2xl shadow-black/60">
                 <header className="flex items-start justify-between gap-4 border-b border-[#3a3a3a] px-6 py-5">
                     <div className="min-w-0">
-                        <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Transmission Link</p>
+                        <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Transmission Link</p>
                         <h2 id="share-dialog-title" className="m-0 mt-1 truncate font-mono text-2xl font-black uppercase text-white">Share Entry</h2>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-[#444] text-[#aaa] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-[#444] text-[#aaa] transition-all hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                         aria-label="Close share dialog"
                     >
                         <X size={20} />
@@ -136,7 +136,7 @@ export default function ShareDialog({ open, title, url, text = '', mediaUrl, onC
                     </div>
 
                     <div className="flex min-h-14 items-center gap-3 border border-[#444] bg-[#101010] px-4 py-2">
-                        <Link2 size={17} className="flex-shrink-0 text-[#e60000]" />
+                        <Link2 size={17} className="flex-shrink-0 text-[#ff1744]" />
                         <input
                             id="share-link-url"
                             name="shareLinkUrl"
@@ -149,7 +149,7 @@ export default function ShareDialog({ open, title, url, text = '', mediaUrl, onC
                         <button
                             type="button"
                             onClick={() => void copyLink()}
-                            className="h-10 border border-[#e60000] px-4 font-mono text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white"
+                            className="h-10 border border-[#ff1744] px-4 font-mono text-[10px] font-black uppercase text-[#ff1744] transition-all hover:bg-[#ff1744] hover:text-white"
                         >
                             Copy
                         </button>

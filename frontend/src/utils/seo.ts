@@ -129,7 +129,7 @@ function publicImageUrl(content: ContentItem) {
         content.coverImage?.thumbnail,
         content.coverImage?.data,
         ...(content.images ?? []).flatMap((image) => [image.thumbnail, image.data]),
-        content.user?.picture,
+        content.user?.picture ?? undefined,
     ];
     return candidates.find((value) => typeof value === 'string' && /^https?:\/\//i.test(value));
 }

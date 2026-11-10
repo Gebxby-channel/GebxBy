@@ -238,12 +238,12 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
         <div className="min-h-screen bg-[#111] p-6 font-mono text-[#eee] lg:p-10">
             <div className="mx-auto max-w-[1600px]">
                 <div className="mb-10 flex items-center justify-between border-b border-[#2a2a2a] pb-4">
-                    <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] transition-all hover:text-[#e60000]">
+                    <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#888] transition-all hover:text-[#ff1744]">
                         <span className="text-xs font-bold uppercase tracking-widest">{'<'} Back to Command Center</span>
                     </button>
                     <div className="text-[10px] uppercase tracking-normal text-[#444]">
                         Mode: <span className={isMyOwnProfile ? 'text-green-500' : 'text-yellow-500'}>
-                            {isMyOwnProfile ? 'SELF_ACCESS' : 'GUEST_RESTRICTED'}
+                            {isMyOwnProfile ? 'Profil sendiri' : 'Profil pengunjung'}
                         </span>
                     </div>
                 </div>
@@ -277,8 +277,8 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                 disabled={actionBusy}
                                 className={`mt-4 flex h-10 items-center gap-2 border px-4 font-mono text-[10px] font-black uppercase tracking-widest transition-all disabled:cursor-wait disabled:opacity-50 ${
                                     isFollowing
-                                        ? 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-[#e60000]'
-                                        : 'border-[#e60000] text-[#e60000] hover:bg-[#e60000] hover:text-white'
+                                        ? 'border-[#333] text-[#777] hover:border-[#ff1744] hover:text-[#ff1744]'
+                                        : 'border-[#ff1744] text-[#ff1744] hover:bg-[#ff1744] hover:text-white'
                                 }`}
                             >
                                 {isFollowing ? <UserMinus size={14} /> : <UserPlus size={14} />}
@@ -312,12 +312,12 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                         )}
 
                         {displayUser?.suspensionMarked && (
-                            <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
-                                <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+                            <div className="mt-4 border border-[#ff1744] bg-[#1a0b0b] p-4">
+                                <div className="mb-2 flex items-center gap-2 text-[#ff1744]">
                                     <ShieldAlert size={16} />
                                     <span className="font-mono text-[10px] font-black uppercase tracking-widest">Suspension Mark Placeholder</span>
                                 </div>
-                                <div className="h-24 border border-dashed border-[#e60000]/40 bg-[#100]" />
+                                <div className="h-24 border border-dashed border-[#ff1744]/40 bg-[#100]" />
                             </div>
                         )}
                     </div>
@@ -348,7 +348,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                     onClick={(event) => event.stopPropagation()}
                 >
                     <div className="mb-2 border-b border-[#2a2a2a] px-2 pb-2">
-                        <p className="m-0 text-[9px] font-black uppercase tracking-[0.3em] text-[#e60000]">Profile Actions</p>
+                        <p className="m-0 text-[9px] font-black uppercase tracking-[0.3em] text-[#ff1744]">Profile Actions</p>
                         <p className="m-0 mt-1 truncate text-xs font-black uppercase text-white">{displayUser.name}</p>
                     </div>
                     <ContextMenuItem
@@ -410,7 +410,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                     <div className="w-full max-w-xl border border-[#333] bg-[#111] p-5 font-mono shadow-2xl shadow-black/70">
                         <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#2a2a2a] pb-4">
                             <div>
-                                <p className="m-0 text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">{getDialogEyebrow(dialog)}</p>
+                                <p className="m-0 text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">{getDialogEyebrow(dialog)}</p>
                                 <h2 className="m-0 mt-2 text-xl font-black uppercase tracking-widest text-white">{getDialogTitle(dialog)}</h2>
                         <p className="m-0 mt-1 text-[10px] uppercase text-[#777]">Target: {displayUser.name} {displayUser.username ? `// @${displayUser.username}` : ''}</p>
                             </div>
@@ -437,7 +437,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                     value={reportMessage}
                                     onChange={(event) => setReportMessage(event.target.value)}
                                     rows={5}
-                                    className="w-full resize-none border border-[#333] bg-[#090909] p-3 text-sm text-white outline-none focus:border-[#e60000]"
+                                    className="w-full resize-none border border-[#333] bg-[#090909] p-3 text-sm text-white outline-none focus:border-[#ff1744]"
                                     placeholder="Tulis alasan laporan..."
                                 />
                                 <DialogActions
@@ -453,7 +453,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                         {dialog === 'suspend' && (
                             <div className="space-y-4">
                                 <div className="border border-[#3a1a1a] bg-[#160707] p-4 text-sm text-[#ddd]">
-                                    Aksi ini akan menahan akses tulis target selama <span className="font-black text-[#e60000]">{isAdminViewer ? '24 jam' : '1 jam'}</span>.
+                                    Aksi ini akan menahan akses tulis target selama <span className="font-black text-[#ff1744]">{isAdminViewer ? '24 jam' : '1 jam'}</span>.
                                     {isAdminViewer && <span> Admin suspend juga akan memberi mark Criminal sesuai aturan sistem.</span>}
                                 </div>
                                 <DialogActions
@@ -493,7 +493,7 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
                                         aria-label="Profile badge selection"
                                         value={selectedBadge}
                                         onChange={(event) => setSelectedBadge(event.target.value as BadgeCode)}
-                                        className="h-11 w-full border border-[#333] bg-[#090909] px-3 text-sm font-black text-white outline-none focus:border-[#e60000]"
+                                        className="h-11 w-full border border-[#333] bg-[#090909] px-3 text-sm font-black text-white outline-none focus:border-[#ff1744]"
                                     >
                                         {assignableBadges.map((badge) => (
                                             <option key={badge} value={badge}>{badge}</option>
@@ -541,14 +541,14 @@ export default function OtherProfilePage({ user }: { user: CurrentUser | null })
 function RemoteArchiveItem({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
     const color = getCategoryColor(item.kategori);
     return (
-        <div onClick={onOpen} className="group cursor-pointer border border-[#2a2a2a] bg-[#181818] p-6 transition-all hover:border-[#e60000]">
+        <div onClick={onOpen} className="group cursor-pointer border border-[#2a2a2a] bg-[#181818] p-6 transition-all hover:border-[#ff1744]">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                 <div className="flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-4">
-                        <span className="text-[10px] font-bold text-[#e60000]">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
+                        <span className="text-[10px] font-bold text-[#ff1744]">ENTRY ID: {item.idContent?.substring(0, 8)}...</span>
                         <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: color, color, backgroundColor: `${color}15` }}>{item.kategori}</span>
                     </div>
-                    <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
+                    <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#ff1744]">{item.head}</h3>
                     <p className="line-clamp-2 text-sm text-[#bbb] opacity-90">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                 </div>
             </div>
@@ -575,7 +575,7 @@ function DefaultPublicProfileCard({ displayUser, defaultAvatar }: { displayUser:
 
                 <div className="space-y-4">
                     <ProfileField label="Officer Name" value={displayUser?.name || 'N/A'} />
-                    <ProfileField label={displayUser?.username ? 'Username' : 'Designation'} value={displayUser?.username ? `@${displayUser.username}` : displayUser?.designation || 'ACCESS_RESTRICTED'} />
+                    <ProfileField label={displayUser?.username ? 'Nama pengguna' : 'Jabatan'} value={displayUser?.username ? `@${displayUser.username}` : displayUser?.designation || 'Informasi tidak tersedia'} />
                 </div>
 
                 <div className="flex items-end justify-between gap-3">
@@ -624,7 +624,7 @@ function ProfileRelationPreview({
         <div>
             <div className="mb-2 flex items-center justify-between gap-3">
                 <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#777]">{title}</p>
-                <span className="font-mono text-[10px] font-black text-[#e60000]">{users.length}</span>
+                <span className="font-mono text-[10px] font-black text-[#ff1744]">{users.length}</span>
             </div>
             {users.length === 0 ? (
                 <p className="m-0 font-mono text-[9px] uppercase tracking-[0.25em] text-[#444]">[ empty ]</p>
@@ -638,7 +638,7 @@ function ProfileRelationPreview({
                                 type="button"
                                 onClick={() => onOpen(target)}
                                 title={target.username ? `@${target.username}` : target.name}
-                                className="h-8 w-8 overflow-hidden border border-[#333] bg-[#111] hover:border-[#e60000]"
+                                className="h-8 w-8 overflow-hidden border border-[#333] bg-[#111] hover:border-[#ff1744]"
                             >
                                 <img
                                     src={target.picture || avatar}
@@ -724,7 +724,7 @@ function DialogActions({
                 disabled={busy || confirmDisabled}
                 className={`h-10 border px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-40 ${
                     danger
-                        ? 'border-[#e60000] text-[#e60000] hover:bg-[#e60000] hover:text-white'
+                        ? 'border-[#ff1744] text-[#ff1744] hover:bg-[#ff1744] hover:text-white'
                         : 'border-[#166534] text-[#4ade80] hover:bg-[#166534] hover:text-white'
                 }`}
             >

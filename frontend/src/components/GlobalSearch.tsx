@@ -96,8 +96,8 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
 
     return (
         <div ref={rootRef} className={`relative w-full min-w-[220px] ${wide ? '' : 'lg:w-[320px]'}`}>
-            <div className="flex h-9 items-center border border-[#2a2a2a] bg-[#0d0d0d] px-3 text-[#777] focus-within:border-[#e60000]/70">
-                <Search size={14} className="mr-2 flex-shrink-0 text-[#e60000]" />
+            <div className="flex h-9 items-center border border-[#2a2a2a] bg-[#0d0d0d] px-3 text-[#777] focus-within:border-[#ff1744]/70">
+                <Search size={14} className="mr-2 flex-shrink-0 text-[#ff1744]" />
                 <input
                     id="global-search"
                     name="globalSearch"
@@ -133,7 +133,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex-1 border px-2 py-1.5 font-mono text-[8px] font-black uppercase tracking-widest ${
                                     activeTab === tab.id
-                                        ? 'border-[#e60000] bg-[#e60000] text-white'
+                                        ? 'border-[#ff1744] bg-[#ff1744] text-white'
                                         : 'border-[#222] text-[#666] hover:border-[#555] hover:text-white'
                                 }`}
                             >
@@ -161,7 +161,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                 <button
                                                     type="button"
                                                     onClick={() => goTo(`/profile/${item.userID}`)}
-                                                    className="flex w-full items-center gap-3 border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
+                                                    className="flex w-full items-center gap-3 border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#ff1744]/60"
                                                 >
                                                     <img
                                                         src={item.picture || `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(item.name)}`}
@@ -200,7 +200,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                             goTo(`/read/${item.idContent}`);
                                                         }
                                                     }}
-                                                    className="w-full border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#e60000]/60"
+                                                    className="w-full border border-[#181818] bg-[#101010] p-3 text-left hover:border-[#ff1744]/60"
                                                 >
                                                     <span className="mb-1 block truncate font-mono text-[11px] font-black uppercase text-white">{item.head}</span>
                                                     <span className="block truncate font-mono text-[9px] uppercase text-[#666]">
@@ -212,7 +212,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                                     event.stopPropagation();
                                                                     goTo(`/profile/${item.user?.userID}`);
                                                                 }}
-                                                                className="font-mono uppercase text-[#777] hover:text-[#e60000]"
+                                                                className="font-mono uppercase text-[#777] hover:text-[#ff1744]"
                                                             >
                                                                 {item.user?.name || 'Unknown'}
                                                             </button>
@@ -239,7 +239,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                 <div className="border border-[#181818] bg-[#101010] p-3">
                                                     <div className="mb-1 flex items-center justify-between gap-3">
                                                         <span className="font-mono text-[11px] font-black uppercase text-white">{item.label}</span>
-                                                        <span className="border border-[#e60000]/40 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">{item.code}</span>
+                                                        <span className="border border-[#ff1744]/40 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#ff1744]">{item.code}</span>
                                                     </div>
                                                     <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#999]">{item.description}</p>
                                                     {item.users.length > 0 && (
@@ -249,7 +249,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
                                                                     key={badgeUser.userID}
                                                                     type="button"
                                                                     onClick={() => goTo(`/profile/${badgeUser.userID}`)}
-                                                                    className="border border-[#333] px-2 py-1 font-mono text-[8px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white"
+                                                                    className="border border-[#333] px-2 py-1 font-mono text-[8px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-white"
                                                                 >
                                                                     {badgeUser.name}
                                                                 </button>
@@ -273,7 +273,7 @@ export default function GlobalSearch({ wide = false }: { wide?: boolean }) {
 function SearchSection({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
     return (
         <section>
-            <div className="mb-2 flex items-center gap-2 border-b border-[#1d1d1d] pb-1.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#e60000]">
+            <div className="mb-2 flex items-center gap-2 border-b border-[#1d1d1d] pb-1.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#ff1744]">
                 {icon}
                 {title}
             </div>

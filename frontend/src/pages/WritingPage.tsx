@@ -452,9 +452,9 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
     return (
         <div className="min-h-screen bg-[#0a0a0a] px-3 py-4 font-mono text-[#eee] sm:px-5 lg:px-8 lg:py-7">
             <div className="mx-auto w-full max-w-[1220px] border border-[#333] bg-[#111] p-4 shadow-2xl sm:p-5 lg:p-6">
-                <div className="mb-6 flex flex-col gap-3 border-b border-[#e60000] pb-4 md:flex-row md:items-center md:justify-between">
+                <div className="mb-6 flex flex-col gap-3 border-b border-[#ff1744] pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h2 className="text-2xl font-black uppercase tracking-normal text-[#e60000]">Writer Studio</h2>
+                        <h2 className="text-2xl font-black uppercase tracking-normal text-[#ff1744]">Writer Studio</h2>
                         <p className="m-0 mt-1 font-mono text-[10px] uppercase tracking-widest text-[#666]">
                             {wordCount} words // {readMinutes} min read // {draftNotice ?? 'Draft standby'}
                         </p>
@@ -472,7 +472,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             type="button"
                             onClick={submit}
                             disabled={actionDisabled}
-                            className="flex h-9 items-center justify-center gap-2 bg-[#e60000] px-4 text-xs font-black uppercase text-white shadow-[3px_3px_0px_#444] transition-all hover:bg-white hover:text-[#e60000] disabled:cursor-wait disabled:opacity-60 sm:px-5"
+                            className="flex h-9 items-center justify-center gap-2 bg-[#ff1744] px-4 text-xs font-black uppercase text-white shadow-[3px_3px_0px_#444] transition-all hover:bg-white hover:text-[#ff1744] disabled:cursor-wait disabled:opacity-60 sm:px-5"
                         >
                             {activeTab === 'manual' ? <Send size={16} /> : <Upload size={16} />}
                             {actionDisabled ? 'PROCESSING' : activeTab === 'manual' ? 'UPLOAD DATA' : 'DECRYPT FILE'}
@@ -496,7 +496,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                         id="writing-title"
                         name="writingTitle"
                         aria-label="Writing title"
-                        className="w-full border-b border-[#222] bg-transparent py-2 text-4xl font-black text-white outline-none transition-colors focus:border-[#e60000]"
+                        className="w-full border-b border-[#222] bg-transparent py-2 text-4xl font-black text-white outline-none transition-colors focus:border-[#ff1744]"
                         placeholder="SUBJECT TITLE..."
                         value={title}
                         onChange={(event) => setTitle(event.target.value)}
@@ -512,7 +512,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             id="writing-category"
                             name="writingCategory"
                             aria-label="Writing category"
-                            className="cursor-pointer border border-[#333] bg-[#1a1a1a] p-3 text-xs font-bold uppercase outline-none focus:border-[#e60000]"
+                            className="cursor-pointer border border-[#333] bg-[#1a1a1a] p-3 text-xs font-bold uppercase outline-none focus:border-[#ff1744]"
                             value={selectedKategori}
                             onChange={(event) => setSelectedKategori(event.target.value)}
                         >
@@ -536,7 +536,7 @@ export default function WritingPage({ user }: { user: CurrentUser | null }) {
                             />
                         </Suspense>
                     ) : (
-                        <div className="mx-auto w-full max-w-[1080px] border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#e60000]">
+                        <div className="mx-auto w-full max-w-[1080px] border-2 border-dashed border-[#333] bg-[#0d0d0d] p-12 text-center transition-all hover:border-[#ff1744]">
                             <input
                                 name="docxFile"
                                 aria-label="Upload DOCX file"
@@ -730,7 +730,7 @@ function ArticlePreview({
     return (
         <section className="mx-auto w-full max-w-[1080px] border border-[#333] bg-[#0f0f0f]">
             <header className="border-b border-[#252525] p-5">
-                <span className="inline-flex border border-[#e60000] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest text-[#e60000]">
+                <span className="inline-flex border border-[#ff1744] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest text-[#ff1744]">
                     {kategori || 'General'}
                 </span>
                 <h1 className="m-0 mt-4 break-words font-mono text-3xl font-black uppercase tracking-normal text-white">
@@ -738,7 +738,7 @@ function ArticlePreview({
                 </h1>
             </header>
             <div
-                className="min-h-[520px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"
+                className="min-h-[520px] p-5 font-sans text-base leading-8 text-[#ddd] [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-[#ff1744] [&_blockquote]:pl-4 [&_h1]:mb-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-black [&_li]:mb-2 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-8 [&_p]:mb-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-8"
                 dangerouslySetInnerHTML={{ __html: sanitizeArticle(content || '<p>No decrypted data.</p>') }}
             />
             {images.length > 0 && (
@@ -813,7 +813,7 @@ function ImageAttachmentPanel({
                 />
                 <label
                     htmlFor="imageAttachments"
-                    className="inline-flex cursor-pointer items-center justify-center gap-2 border border-[#e60000] px-4 py-2 text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white"
+                    className="inline-flex cursor-pointer items-center justify-center gap-2 border border-[#ff1744] px-4 py-2 text-[10px] font-black uppercase text-[#ff1744] transition-all hover:bg-[#ff1744] hover:text-white"
                 >
                     {compressing ? <LoaderCircle size={14} className="animate-spin" /> : <ImagePlus size={14} />}
                     {compressing ? 'Compressing' : 'Attach Image'}
@@ -838,7 +838,7 @@ function ImageAttachmentPanel({
                                     aria-label="Image caption"
                                     value={image.alt}
                                     onChange={(event) => onAltChange(image.id, event.target.value)}
-                                    className="mb-2 w-full border border-[#222] bg-[#0b0b0b] px-2 py-1 font-mono text-[9px] uppercase text-white outline-none focus:border-[#e60000]"
+                                    className="mb-2 w-full border border-[#222] bg-[#0b0b0b] px-2 py-1 font-mono text-[9px] uppercase text-white outline-none focus:border-[#ff1744]"
                                     placeholder="Image caption"
                                     maxLength={120}
                                 />
@@ -850,7 +850,7 @@ function ImageAttachmentPanel({
                             <button
                                 type="button"
                                 onClick={() => onRemove(image.id)}
-                                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center border border-[#e60000] bg-[#111] text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white"
+                                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center border border-[#ff1744] bg-[#111] text-[#ff1744] transition-all hover:bg-[#ff1744] hover:text-white"
                                 title="Remove image"
                             >
                                 <X size={14} />
@@ -869,7 +869,7 @@ function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick
             type="button"
             onClick={onClick}
             className={`flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap border px-3 text-[11px] font-bold uppercase transition-all sm:w-auto sm:min-w-[140px] ${
-                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#666] hover:border-[#e60000]/60 hover:text-white'
+                active ? 'border-[#ff1744] bg-[#ff1744] text-white' : 'border-[#333] text-[#666] hover:border-[#ff1744]/60 hover:text-white'
             }`}
         >
             {icon}

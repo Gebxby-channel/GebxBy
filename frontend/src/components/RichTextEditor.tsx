@@ -166,7 +166,7 @@ export default function RichTextEditor({
             </div>
             <EditorContent
                 editor={editor}
-                className="writer-prose [&_.ProseMirror]:min-h-[520px] [&_.ProseMirror]:w-full [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:px-5 [&_.ProseMirror]:py-4 [&_.ProseMirror]:font-sans [&_.ProseMirror]:text-base [&_.ProseMirror]:leading-8 [&_.ProseMirror]:text-[#ddd] [&_.ProseMirror]:outline-none [&_.ProseMirror:focus]:bg-[#0d0d0d] sm:[&_.ProseMirror]:px-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#e60000] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
+                className="writer-prose [&_.ProseMirror]:min-h-[520px] [&_.ProseMirror]:w-full [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:px-5 [&_.ProseMirror]:py-4 [&_.ProseMirror]:font-sans [&_.ProseMirror]:text-base [&_.ProseMirror]:leading-8 [&_.ProseMirror]:text-[#ddd] [&_.ProseMirror]:outline-none [&_.ProseMirror:focus]:bg-[#0d0d0d] sm:[&_.ProseMirror]:px-6 [&_blockquote]:border-l-4 [&_blockquote]:border-[#ff1744] [&_blockquote]:pl-4 [&_h1]:text-4xl [&_h1]:font-black [&_h2]:text-2xl [&_h2]:font-black [&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-8"
             />
             <div className="border-t border-[#222] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#555]">
                 ProseMirror protocol // bilingual ID+EN spellcheck // autocorrect // headings, bold, italic, underline, link, quote, lists, undo, redo
@@ -240,8 +240,8 @@ function EditorButton({ icon, text, label, active = false, onClick }: { icon?: R
             title={label}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onClick}
-            className={`flex h-8 min-w-8 items-center justify-center border px-2 font-mono text-[9px] font-black uppercase transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white ${
-                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#2a2a2a] text-[#888]'
+            className={`flex h-8 min-w-8 items-center justify-center border px-2 font-mono text-[9px] font-black uppercase transition-all hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white ${
+                active ? 'border-[#ff1744] bg-[#ff1744] text-white' : 'border-[#2a2a2a] text-[#888]'
             }`}
         >
             {icon ?? text}

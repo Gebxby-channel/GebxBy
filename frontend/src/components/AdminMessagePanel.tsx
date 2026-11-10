@@ -104,7 +104,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                         setBroadcastType(nextType);
                         setTitle(nextType === 'ANNOUNCEMENT_EVENT' ? 'Announcement Event' : 'Peringatan admin');
                     }}
-                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                 >
                     <option value="MESSAGE">Message</option>
                     <option value="ANNOUNCEMENT_EVENT">Announcement Event</option>
@@ -116,7 +116,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                     value={recipientId}
                     onChange={(event) => setRecipientId(event.target.value)}
                     disabled={broadcastType === 'ANNOUNCEMENT_EVENT'}
-                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                 >
                     <option value="ALL">{broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Homepage announcement slot' : 'All users - broadcast'}</option>
                     {users.map((target) => (
@@ -132,7 +132,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     maxLength={120}
-                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                    className="border border-[#333] bg-[#101010] p-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                     placeholder={broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Judul announcement' : 'Judul pesan'}
                 />
             </div>
@@ -144,7 +144,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 maxLength={1000}
-                className="mt-3 min-h-28 w-full resize-y border border-[#333] bg-[#101010] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#e60000]"
+                className="mt-3 min-h-28 w-full resize-y border border-[#333] bg-[#101010] p-3 font-sans text-sm leading-6 text-white outline-none focus:border-[#ff1744]"
                 placeholder={broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Tulis announcement event untuk homepage...' : 'Tulis pesan admin...'}
             />
 
@@ -153,7 +153,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                     type="button"
                     onClick={() => void sendMessage()}
                     disabled={(broadcastType === 'MESSAGE' && !recipientId) || !message.trim() || sending}
-                    className="flex items-center gap-2 border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
+                    className="flex items-center gap-2 border border-[#ff1744] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#ff1744] transition-all hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
                 >
                     {broadcastType === 'ANNOUNCEMENT_EVENT' ? <Megaphone size={14} /> : <Send size={14} />}
                     {sending ? 'Sending' : broadcastType === 'ANNOUNCEMENT_EVENT' ? 'Publish Announcement' : 'Send Message'}
@@ -164,14 +164,14 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                 <div className="mt-5 border border-[#2a2a2a] bg-[#101010] p-4">
                     <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="min-w-0">
-                            <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">Current Homepage Announcement</p>
+                            <p className="m-0 font-mono text-[10px] font-black uppercase tracking-widest text-[#ff1744]">Current Homepage Announcement</p>
                             <p className="m-0 mt-1 truncate font-mono text-xs font-black uppercase text-white">{latestAnnouncement.title || 'Announcement Event'}</p>
                         </div>
                         {latestAnnouncement.adminUserId === user.userID ? (
                             <button
                                 type="button"
                                 onClick={() => void deleteLatestAnnouncement()}
-                                className="flex h-9 items-center justify-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                className="flex h-9 items-center justify-center gap-2 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                             >
                                 <Trash2 size={13} />
                                 Delete
@@ -189,7 +189,7 @@ export default function AdminMessagePanel({ user }: { user: CurrentUser }) {
                             const path = profilePathForUser(latestAnnouncement.adminUserId, user.userID);
                             if (path) navigate(path);
                         }}
-                        className="m-0 mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555] hover:text-[#e60000]"
+                        className="m-0 mt-3 font-mono text-[9px] uppercase tracking-widest text-[#555] hover:text-[#ff1744]"
                     >
                         ~ from {latestAnnouncement.adminName || 'Admin'}
                     </button>

@@ -8,7 +8,7 @@ const badgeStyle: Record<BadgeCode, string> = {
   SURVIVOR: 'border-[#38bdf8] text-[#38bdf8] bg-[#06141d]',
   MEDIA_TEC: 'border-[#3b82f6] text-[#60a5fa] bg-[#071326]',
   LIGA: 'border-[#22c55e] text-[#4ade80] bg-[#061807]',
-  CRIMINAL: 'border-[#e60000] text-[#ff5555] bg-[#1a0707]',
+  CRIMINAL: 'border-[#ff1744] text-[#ff5555] bg-[#1a0707]',
   SPEED: 'border-[#f97316] text-[#fb923c] bg-[#1a0d04]',
   SMILE: 'border-[#fef08a] text-[#fef08a] bg-[#171506]',
   REQUIEM: 'border-[#e5e7eb] text-[#f8fafc] bg-[#111827]',
@@ -41,7 +41,7 @@ export default function BadgeStrip({ badges, compact = false }: { badges?: Badge
         return (
           <span
             key={key}
-            title={`${badge.label}: ${badge.description}`}
+            title={`${badge.label.replaceAll('_', ' ')}: ${badge.description.replaceAll('_', ' ')}`}
             className={`badge-aura inline-flex items-center gap-1 border px-2 py-1 font-mono font-black uppercase ${compact ? 'text-[8px]' : 'text-[9px]'} ${style}`}
           >
             {badgeImage ? (
@@ -51,7 +51,7 @@ export default function BadgeStrip({ badges, compact = false }: { badges?: Badge
             ) : (
               <Icon size={compact ? 10 : 12} />
             )}
-            {compact ? badge.label.substring(0, 3) : badge.label}
+            {compact ? badge.label.replaceAll('_', ' ').substring(0, 3) : badge.label.replaceAll('_', ' ')}
           </span>
         );
       })}

@@ -77,7 +77,7 @@ export interface PublicUser {
   userID: string;
   name: string;
   username?: string;
-  picture?: string;
+  picture?: string | null;
   designation?: string;
   moto?: string;
   suspensionMarked?: boolean;
@@ -232,7 +232,7 @@ export interface AnnouncementItem {
   message: string;
   adminUserId: string;
   adminName: string;
-  adminPhoto?: string;
+  adminPhoto?: string | null;
   createdAt?: string;
 }
 

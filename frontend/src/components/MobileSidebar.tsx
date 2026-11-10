@@ -30,18 +30,18 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                     <button
                         type="button"
                         onClick={() => setDrawerOpen(true)}
-                        className="flex h-11 w-11 flex-shrink-0 items-center justify-center border border-[#333] bg-[#181818] text-[#e60000] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-[#333] bg-[#181818] text-[#ff1744] transition-all hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                         title="Open menu"
                     >
                         <Menu size={22} />
                     </button>
                     <NavLink to="/" className="min-w-0 no-underline">
-                        <div className="border-l-2 border-[#e60000] pl-3">
-                            <h1 className="m-0 truncate font-mono text-xl font-extrabold uppercase tracking-wider text-white">
+                        <div className="border-l-2 border-[#ff1744] pl-3">
+                            <h1 className="m-0 truncate font-sans text-xl font-extrabold tracking-tight text-white">
                                 CodeXAvernico
                             </h1>
-                            <p className="m-0 font-mono text-[10px] uppercase leading-tight tracking-widest text-[#888]">
-                                Central Access
+                            <p className="m-0 font-sans text-[10px] uppercase leading-tight tracking-widest text-[#888]">
+                                Komunitas dan tulisan
                             </p>
                         </div>
                     </NavLink>
@@ -51,7 +51,7 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                     <button
                         type="button"
                         onClick={() => navigate(user ? '/profile' : '/login')}
-                        className="h-11 w-11 overflow-hidden border border-[#444] bg-[#181818] transition-all hover:border-[#e60000]"
+                        className="h-11 w-11 overflow-hidden border border-[#444] bg-[#181818] transition-all hover:border-[#ff1744]"
                         title={user ? 'Open biodata' : 'Login'}
                     >
                         {user ? (
@@ -71,7 +71,7 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                     <button
                         type="button"
                         onClick={() => void handleTerminate()}
-                        className="flex h-7 items-center gap-1 border border-[#333] px-2 font-mono text-[8px] font-black uppercase tracking-widest text-[#e60000] transition-all hover:border-[#e60000] hover:bg-[#e60000] hover:text-white"
+                        className="flex h-7 items-center gap-1 rounded-full border border-[#333] px-3 font-sans text-[9px] font-semibold uppercase tracking-wider text-[#ff1744] transition-all hover:border-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                         title={user ? 'Terminate session' : 'Open login'}
                     >
                         {user ? <LogOut size={11} /> : <LogIn size={11} />}
@@ -87,14 +87,14 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                         onMouseDown={(event) => event.stopPropagation()}
                     >
                         <div className="mb-8 flex items-start justify-between gap-4 border-b border-[#2a2a2a] pb-5">
-                            <div className="border-l-2 border-[#e60000] pl-3">
+                            <div className="border-l-2 border-[#ff1744] pl-3">
                                 <h2 className="m-0 font-mono text-xl font-black uppercase tracking-widest text-white">Menu</h2>
-                                <p className="m-0 mt-1 font-mono text-[10px] uppercase tracking-widest text-[#666]">Navigation Drawer</p>
+                        <p className="m-0 mt-1 font-sans text-[10px] text-[#85858f]">Navigasi</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setDrawerOpen(false)}
-                                className="flex h-9 w-9 items-center justify-center border border-[#333] text-[#777] hover:border-[#e60000] hover:text-white"
+                                className="flex h-9 w-9 items-center justify-center border border-[#333] text-[#777] hover:border-[#ff1744] hover:text-white"
                                 title="Close menu"
                             >
                                 <X size={16} />
@@ -132,8 +132,8 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                                         onClick={() => setDrawerOpen(false)}
                                         className={`flex h-12 items-center gap-3 border px-4 font-mono text-[10px] font-black uppercase tracking-widest transition-all ${
                                             active
-                                                ? 'border-[#e60000] bg-[#e60000] text-white'
-                                                : 'border-[#242424] bg-[#101010] text-[#777] hover:border-[#e60000]/60 hover:text-white'
+                                                ? 'border-[#ff1744] bg-[#ff1744] text-white'
+                                                : 'border-[#242424] bg-[#101010] text-[#777] hover:border-[#ff1744]/60 hover:text-white'
                                         }`}
                                     >
                                         <item.icon size={15} strokeWidth={2.5} />

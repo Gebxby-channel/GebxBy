@@ -186,10 +186,10 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-[#050505] p-5">
             <div className="relative w-full max-w-2xl border border-[#333] bg-[#0a0a0a] p-6 sm:p-10">
-                <div className="absolute left-0 top-0 h-6 w-6 border-l-2 border-t-2 border-[#e60000]" />
-                <div className="absolute bottom-0 right-0 h-6 w-6 border-b-2 border-r-2 border-[#e60000]" />
+                <div className="absolute left-0 top-0 h-6 w-6 border-l-2 border-t-2 border-[#ff1744]" />
+                <div className="absolute bottom-0 right-0 h-6 w-6 border-b-2 border-r-2 border-[#ff1744]" />
 
-                <div className="mb-8 border-l-4 border-[#e60000] pl-4">
+                <div className="mb-8 border-l-4 border-[#ff1744] pl-4">
                     <h1 className="font-mono text-3xl font-black uppercase tracking-normal text-white">System Access</h1>
                     <p className="mt-1 font-mono text-xs uppercase tracking-widest text-[#666]">Authorization Gateway</p>
                 </div>
@@ -213,7 +213,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                             aria-label="Email"
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
-                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                             placeholder="Email"
                             type="email"
                             autoComplete="email"
@@ -229,7 +229,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                                     void handleEmailLogin();
                                 }
                             }}
-                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                             placeholder="Password"
                             type="password"
                             autoComplete="current-password"
@@ -239,7 +239,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                             type="button"
                             onClick={() => void handleEmailLogin()}
                             disabled={loading || !email.trim() || !password.trim()}
-                            className="flex w-full items-center justify-center gap-3 border border-[#e60000] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#e60000] transition-all duration-300 hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
+                            className="flex w-full items-center justify-center gap-3 border border-[#ff1744] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#ff1744] transition-all duration-300 hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
                         >
                             <UserRound size={18} />
                             {loading ? 'Checking' : 'Login via Email'}
@@ -253,7 +253,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                             aria-label="Display name"
                             value={signupName}
                             onChange={(event) => setSignupName(event.target.value)}
-                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                            className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                             placeholder="Display name"
                             autoComplete="name"
                         />
@@ -265,7 +265,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                                     aria-label="Signup email"
                                     value={signupEmail}
                                     onChange={(event) => setSignupEmail(event.target.value)}
-                                    className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                                    className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                                     placeholder="Email"
                                     type="email"
                                     autoComplete="email"
@@ -276,7 +276,7 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                                     aria-label="Signup password"
                                     value={signupPassword}
                                     onChange={(event) => setSignupPassword(event.target.value)}
-                                    className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#e60000]"
+                                    className="w-full border border-[#333] bg-[#101010] px-4 py-3 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
                                     placeholder="Password, minimum 8 characters"
                                     type="password"
                                     autoComplete="new-password"
@@ -295,8 +295,8 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                                         setUsernameTouched(true);
                                         setSignupUsername(event.target.value.replace(/^@/, ''));
                                     }}
-                                    className="w-full border border-[#333] bg-[#101010] py-3 pl-9 pr-4 font-mono text-xs text-white outline-none focus:border-[#e60000]"
-                                    placeholder="unique_username"
+                                    className="w-full border border-[#333] bg-[#101010] py-3 pl-9 pr-4 font-mono text-xs text-white outline-none focus:border-[#ff1744]"
+                                    placeholder="nama pengguna"
                                     autoComplete="off"
                                 />
                             </label>
@@ -317,14 +317,14 @@ export default function Login({ user, setUser }: { user: CurrentUser | null; set
                                     ? 'border-[#7f1d1d] bg-[#1a0707] text-[#ff5555]'
                                     : 'border-[#333] bg-[#111] text-[#555]'
                         }`}>
-                            {usernameOk ? `@${usernameStatus?.username} available` : usernameStatus?.message || 'Username akan disarankan otomatis dari nama.'}
+                            {usernameOk ? `@${usernameStatus?.username} tersedia` : (usernameStatus?.message || 'Nama pengguna akan disarankan otomatis.').replaceAll('_', ' ')}
                         </p>
                         <AuthError error={error} />
                         <button
                             type="button"
                             onClick={() => void (mode === 'onboarding' ? handleOnboarding() : handleSignup())}
                             disabled={mode === 'onboarding' ? onboardingDisabled : signupDisabled}
-                            className="flex w-full items-center justify-center gap-3 border border-[#e60000] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#e60000] transition-all duration-300 hover:bg-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
+                            className="flex w-full items-center justify-center gap-3 border border-[#ff1744] px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest text-[#ff1744] transition-all duration-300 hover:bg-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:border-[#333] disabled:text-[#555]"
                         >
                             <UserRound size={18} />
                             {loading ? (mode === 'onboarding' ? 'Saving' : 'Creating') : (mode === 'onboarding' ? 'Save Identity' : 'Create Account')}
@@ -363,7 +363,7 @@ function ModeButton({ active, label, onClick }: { active: boolean; label: string
             type="button"
             onClick={onClick}
             className={`h-11 font-mono text-[10px] font-black uppercase tracking-widest ${
-                active ? 'bg-[#e60000] text-white' : 'text-[#777] hover:text-white'
+                active ? 'bg-[#ff1744] text-white' : 'text-[#777] hover:text-white'
             }`}
         >
             {label}
@@ -374,8 +374,8 @@ function ModeButton({ active, label, onClick }: { active: boolean; label: string
 function AuthError({ error }: { error: string }) {
     if (!error) return null;
     return (
-        <p className="m-0 border border-[#e60000]/40 bg-[#180707] px-3 py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">
-            {error}
+        <p className="m-0 border border-[#ff1744]/40 bg-[#180707] px-3 py-2 font-mono text-[10px] font-black uppercase tracking-widest text-[#ff1744]">
+            {error.replaceAll('_', ' ')}
         </p>
     );
 }

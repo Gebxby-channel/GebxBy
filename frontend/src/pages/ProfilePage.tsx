@@ -305,14 +305,14 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
             <div className="relative border-b border-[#222] bg-gradient-to-b from-[#1a0505] via-[#111] to-[#0d0d0d] px-6 py-10 lg:px-12">
                 <div className="mx-auto max-w-[1600px]">
                     <div className="mb-6">
-                        <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#777] transition-all hover:text-[#e60000]">
+                        <button type="button" onClick={() => navigate('/')} className="group flex items-center gap-2 text-[#777] transition-all hover:text-[#ff1744]">
                             <span className="text-[10px] font-black uppercase tracking-widest">{'<'} Return to Command Center</span>
                         </button>
                     </div>
 
                     <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                         <div className="flex items-center gap-5">
-                            <div className="h-16 w-16 overflow-hidden border-2 border-[#e60000] bg-[#151515] shadow-lg shadow-red-950/40 md:h-20 md:w-20">
+                            <div className="h-16 w-16 overflow-hidden border-2 border-[#ff1744] bg-[#151515] shadow-lg shadow-red-950/40 md:h-20 md:w-20">
                                 <img
                                     src={picture || user.picture || defaultAvatar}
                                     alt="User"
@@ -326,7 +326,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             <div>
                                 <div className="flex items-center gap-3">
                                     <h1 className="text-2xl font-black uppercase tracking-wider text-white md:text-3xl">{name || user.name}</h1>
-                                    <span className="border border-[#e60000]/40 bg-[#e60000]/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#e60000]">
+                                    <span className="border border-[#ff1744]/40 bg-[#ff1744]/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#ff1744]">
                                         {designation}
                                     </span>
                                 </div>
@@ -340,14 +340,14 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                             <button
                                 type="button"
                                 onClick={() => setProfileEditorOpen(true)}
-                                className="border border-[#333] bg-[#141414] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#aaa] transition-all hover:border-[#e60000] hover:text-white"
+                                className="border border-[#333] bg-[#141414] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#aaa] transition-all hover:border-[#ff1744] hover:text-white"
                             >
                                 Edit Credentials
                             </button>
                             <button
                                 type="button"
                                 onClick={() => navigate('/write')}
-                                className="bg-[#e60000] px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_#333] transition-all hover:bg-white hover:text-[#e60000]"
+                                className="bg-[#ff1744] px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_#333] transition-all hover:bg-white hover:text-[#ff1744]"
                             >
                                 + Create New Entry
                             </button>
@@ -426,12 +426,12 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                         </div>
 
                         {user.suspensionMarked && (
-                            <div className="mt-4 border border-[#e60000] bg-[#1a0b0b] p-4">
-                                <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+                            <div className="mt-4 border border-[#ff1744] bg-[#1a0b0b] p-4">
+                                <div className="mb-2 flex items-center gap-2 text-[#ff1744]">
                                     <ShieldAlert size={16} />
                                     <span className="font-mono text-[10px] font-black uppercase tracking-widest">Suspension Mark Active</span>
                                 </div>
-                                <div className="h-20 border border-dashed border-[#e60000]/40 bg-[#100]" />
+                                <div className="h-20 border border-dashed border-[#ff1744]/40 bg-[#100]" />
                             </div>
                         )}
                     </div>
@@ -447,7 +447,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     aria-label="Sort profile writings"
                                     value={sortOrder}
                                     onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}
-                                    className="cursor-pointer border border-[#333] bg-[#141414] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#e60000] outline-none focus:border-[#e60000]"
+                                    className="cursor-pointer border border-[#333] bg-[#141414] p-2 px-4 font-mono text-[10px] font-bold uppercase text-[#ff1744] outline-none focus:border-[#ff1744]"
                                 >
                                     <option value="newest">Newest Entry</option>
                                     <option value="oldest">Oldest Entry</option>
@@ -565,7 +565,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     value={name}
                                     maxLength={80}
                                     onChange={(event) => setName(event.target.value)}
-                                    className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                    className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#ff1744]"
                                 />
                             </label>
                             <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
@@ -574,13 +574,13 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     value={designation}
                                     maxLength={80}
                                     onChange={(event) => setDesignation(event.target.value.toUpperCase())}
-                                    className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                    className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#ff1744]"
                                 />
                             </label>
                             <div>
                                 <p className="m-0 mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">Profile Photo</p>
                                 <div className="flex flex-wrap gap-2">
-                                    <label className="flex h-10 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-[#e60000] hover:text-[#e60000]">
+                                    <label className="flex h-10 cursor-pointer items-center border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-[#ff1744] hover:text-[#ff1744]">
                                         Upload Image File
                                         <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoSelect} />
                                     </label>
@@ -600,7 +600,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                 <select
                                     value={profileCardId}
                                     onChange={(event) => setProfileCardId(event.target.value)}
-                                    className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                    className="h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#ff1744]"
                                 >
                                     {availableProfileCards.map(card => (
                                         <option key={card.id} value={card.id}>{card.name}</option>
@@ -617,13 +617,13 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                             maxLength={80}
                                             onChange={(event) => setCardDisplayName(event.target.value)}
                                             placeholder={name || user.name}
-                                            className="mt-2 h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#e60000]"
+                                            className="mt-2 h-10 w-full border border-[#333] bg-[#101010] px-3 font-mono text-[10px] font-black uppercase text-white outline-none focus:border-[#ff1744]"
                                         />
                                     </label>
                                     <button
                                         type="button"
                                         onClick={() => void handleDeleteProfileCard()}
-                                        className="h-9 border border-[#e60000] px-3 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                                        className="h-9 border border-[#ff1744] px-3 font-mono text-[10px] font-black uppercase text-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                                     >
                                         Delete Custom Card
                                     </button>
@@ -657,7 +657,7 @@ export default function ProfilePage({ user, setUser }: { user: CurrentUser; setU
                                     <label className="mb-1 block text-[9px] text-[#777]">Zoom</label>
                                     <input className="mb-2 w-full" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(e) => setCropZoom(Number(e.target.value))} />
                                     <div className="flex gap-2">
-                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#e60000] px-3 py-1.5 text-[9px] font-black uppercase text-[#e60000]">Apply</button>
+                                        <button type="button" onClick={() => void applyCroppedPhoto()} className="border border-[#ff1744] px-3 py-1.5 text-[9px] font-black uppercase text-[#ff1744]">Apply</button>
                                         <button type="button" onClick={() => setCropSource('')} className="border border-[#333] px-3 py-1.5 text-[9px] font-black uppercase text-[#777]">Cancel</button>
                                     </div>
                                 </div>
@@ -692,8 +692,8 @@ function TabButton({ active, label, icon, count, onClick }: { active: boolean; l
             onClick={onClick}
             className={`flex h-11 items-center gap-2.5 border px-5 font-mono text-[10px] font-black uppercase tracking-widest transition-all ${
                 active
-                    ? 'border-[#e60000] bg-[#e60000] text-white shadow-md shadow-red-950/30'
-                    : 'border-[#222] bg-[#141414] text-[#888] hover:border-[#e60000]/70 hover:text-white'
+                    ? 'border-[#ff1744] bg-[#ff1744] text-white shadow-md shadow-red-950/30'
+                    : 'border-[#222] bg-[#141414] text-[#888] hover:border-[#ff1744]/70 hover:text-white'
             }`}
         >
             {icon}
@@ -711,26 +711,26 @@ function ArchiveItem({ item, publishing, onPublish, onEdit, onDelete }: any) {
     const themeColor = getCategoryColor(item.kategori);
     const isDraft = item.status === 'DRAFT';
     return (
-        <div className="bg-[#141414] p-6 shadow-inner transition-all duration-300 hover:border-[#e60000]" style={{ border: `1px solid #222`, borderLeft: `3px solid ${themeColor}` }}>
+        <div className="bg-[#141414] p-6 shadow-inner transition-all duration-300 hover:border-[#ff1744]" style={{ border: `1px solid #222`, borderLeft: `3px solid ${themeColor}` }}>
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                 <div className="flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-4">
                         <span className="font-mono text-[10px] font-bold" style={{ color: themeColor }}>ENTRY ID: {item.idContent?.substring(0, 8)}</span>
                         <span className="font-mono text-[9px] font-bold uppercase text-[#555]">FILE DATE: {formatDate(item.createdAt)}</span>
                         <span className="border px-3 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: themeColor, borderColor: themeColor, backgroundColor: `${themeColor}15` }}>{item.kategori}</span>
-                        {isDraft && <span className="border border-[#e60000] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase text-[#e60000]">Draft</span>}
+                        {isDraft && <span className="border border-[#ff1744] bg-[#200707] px-3 py-0.5 text-[9px] font-black uppercase text-[#ff1744]">Draft</span>}
                     </div>
                     <h3 className="mb-2 text-xl font-black uppercase text-white">{item.head}</h3>
                     <p className="line-clamp-2 max-w-3xl font-sans text-sm leading-relaxed text-[#999]">{stripHtml(item.paragrafs).substring(0, 180)}...</p>
                 </div>
                 <div className="flex w-full flex-row gap-2 md:w-auto md:flex-col">
                     {isDraft && (
-                        <button type="button" onClick={onPublish} disabled={publishing} className="flex-1 border border-[#e60000] bg-[#e60000] px-5 py-2 text-[10px] font-bold uppercase text-white hover:bg-white hover:text-[#e60000] md:w-28">
+                        <button type="button" onClick={onPublish} disabled={publishing} className="flex-1 border border-[#ff1744] bg-[#ff1744] px-5 py-2 text-[10px] font-bold uppercase text-white hover:bg-white hover:text-[#ff1744] md:w-28">
                             {publishing ? 'Publishing' : 'Publish'}
                         </button>
                     )}
                     <button type="button" onClick={onEdit} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white hover:border-white md:w-28">Edit File</button>
-                    <button type="button" onClick={onDelete} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white hover:bg-[#e60000] md:w-28">Delete</button>
+                    <button type="button" onClick={onDelete} disabled={publishing} className="flex-1 border border-[#333] px-5 py-2 text-[10px] font-bold uppercase text-white hover:bg-[#ff1744] md:w-28">Delete</button>
                 </div>
             </div>
         </div>
@@ -749,13 +749,13 @@ function AboutPanel({ stats, user, recent }: any) {
             </div>
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
                 <div className="border border-[#222] bg-[#141414] p-6">
-                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Officer Dossier</p>
+                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Officer Dossier</p>
                     <h3 className="m-0 mt-3 font-mono text-xl font-black uppercase text-white">{user.name}</h3>
                     <p className="m-0 mt-2 font-mono text-[10px] uppercase text-[#777]">{user.username ? `@${user.username}` : user.designation}</p>
                     <p className="m-0 mt-4 font-sans text-sm leading-7 text-[#999]">{user.moto || 'No operational notes recorded.'}</p>
                 </div>
                 <div className="border border-[#222] bg-[#141414] p-6">
-                    <p className="m-0 mb-4 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Recent Signal Log</p>
+                    <p className="m-0 mb-4 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Recent Signal Log</p>
                     {recent.length === 0 ? (
                         <div className="border border-dashed border-[#333] py-10 text-center font-mono text-[10px] uppercase text-[#555]">[ No Activity ]</div>
                     ) : (
@@ -778,7 +778,7 @@ function ProfileMetric({ label, value, danger = false }: any) {
     return (
         <div className="border border-[#222] bg-[#141414] p-4">
             <p className="m-0 font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#666]">{label}</p>
-            <p className={`m-0 mt-2 font-mono text-2xl font-black ${danger ? 'text-[#e60000]' : 'text-white'}`}>{value}</p>
+            <p className={`m-0 mt-2 font-mono text-2xl font-black ${danger ? 'text-[#ff1744]' : 'text-white'}`}>{value}</p>
         </div>
     );
 }
@@ -792,7 +792,7 @@ function BadgesPanel({ badges, onOpen }: any) {
             estimateSize={126}
             className="grid gap-4 md:grid-cols-2"
             renderItem={(badge: any) => (
-                <button type="button" onClick={() => onOpen(badge)} className="border border-[#222] bg-[#141414] p-5 text-left transition-all hover:border-[#e60000]">
+                <button type="button" onClick={() => onOpen(badge)} className="border border-[#222] bg-[#141414] p-5 text-left transition-all hover:border-[#ff1744]">
                     <div className="mb-3 flex items-center gap-3">
                         <span className="text-2xl">{badge.custom ? badge.icon : '▣'}</span>
                         <div className="min-w-0">
@@ -816,7 +816,7 @@ function BookmarkItem({ item, viewerUserId, onOpen }: any) {
             tabIndex={0}
             onClick={onOpen}
             onKeyDown={(event) => { if (event.key === 'Enter') onOpen(); }}
-            className="group border border-[#222] bg-[#141414] p-6 text-left transition-all hover:border-[#e60000]"
+            className="group border border-[#222] bg-[#141414] p-6 text-left transition-all hover:border-[#ff1744]"
             style={{ borderLeft: `3px solid ${themeColor}` }}
         >
             <div className="mb-2 flex items-center gap-3">
@@ -825,7 +825,7 @@ function BookmarkItem({ item, viewerUserId, onOpen }: any) {
                     {item.user?.name || 'Unknown'}
                 </span>
             </div>
-            <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#e60000]">{item.head}</h3>
+            <h3 className="mb-2 text-xl font-black uppercase text-white group-hover:text-[#ff1744]">{item.head}</h3>
             <p className="line-clamp-2 text-sm text-[#999]">{stripHtml(item.paragrafs).substring(0, 200)}...</p>
         </article>
     );
@@ -834,7 +834,7 @@ function BookmarkItem({ item, viewerUserId, onOpen }: any) {
 function FollowingItem({ target, onOpen, actionLabel, actionDisabled, onAction }: any) {
     const defaultAvatar = `https://ui-avatars.com/api/?background=1a3a63&color=fff&name=${encodeURIComponent(target.name || 'User')}`;
     return (
-        <div className="flex flex-col gap-3 border border-[#222] bg-[#141414] p-4 transition-all hover:border-[#e60000] sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 border border-[#222] bg-[#141414] p-4 transition-all hover:border-[#ff1744] sm:flex-row sm:items-center">
             <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-4 text-left">
                 <div className="h-12 w-12 overflow-hidden border border-[#333]">
                     <img src={target.picture || defaultAvatar} alt="" width={48} height={48} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
@@ -845,7 +845,7 @@ function FollowingItem({ target, onOpen, actionLabel, actionDisabled, onAction }
                 </div>
             </button>
             {actionLabel && (
-                <button type="button" onClick={(e) => { e.stopPropagation(); onAction(); }} disabled={actionDisabled} className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-[#e60000] hover:text-[#e60000] disabled:opacity-40">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onAction(); }} disabled={actionDisabled} className="h-9 border border-[#333] px-3 font-mono text-[10px] font-black uppercase text-[#aaa] hover:border-[#ff1744] hover:text-[#ff1744] disabled:opacity-40">
                     {actionLabel}
                 </button>
             )}
@@ -857,31 +857,31 @@ function SettingsPanel({ name, setName, designation, setDesignation, profileCard
     return (
         <div className="border border-[#222] bg-[#141414] p-6 space-y-6">
             <div>
-                <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">Quick Preferences</p>
+                <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">Quick Preferences</p>
                 <h3 className="m-0 mt-1 text-xl font-black uppercase text-white">Direct Terminal Config</h3>
             </div>
             <div className="space-y-4 max-w-xl">
                 <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
                     Officer Name
-                    <input value={name} onChange={(e) => setName(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]" />
+                    <input value={name} onChange={(e) => setName(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#ff1744]" />
                 </label>
                 <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
                     Designation
-                    <input value={designation} onChange={(e) => setDesignation(e.target.value.toUpperCase())} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]" />
+                    <input value={designation} onChange={(e) => setDesignation(e.target.value.toUpperCase())} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#ff1744]" />
                 </label>
                 <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
                     Active Card Template
-                    <select value={profileCardId} onChange={(e) => setProfileCardId(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]">
+                    <select value={profileCardId} onChange={(e) => setProfileCardId(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#ff1744]">
                         {availableProfileCards.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </label>
                 {canCustomizeSelectedCard && (
                     <label className="block font-mono text-[9px] font-black uppercase tracking-widest text-[#777]">
                         Card Display Name
-                        <input value={cardDisplayName} onChange={(e) => setCardDisplayName(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#e60000]" />
+                        <input value={cardDisplayName} onChange={(e) => setCardDisplayName(e.target.value)} className="mt-2 h-11 w-full border border-[#333] bg-[#101010] px-3 font-mono text-xs font-black uppercase text-white outline-none focus:border-[#ff1744]" />
                     </label>
                 )}
-                <button type="button" onClick={onSave} disabled={!dirty || saving} className="bg-[#e60000] px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_#222] hover:bg-white hover:text-[#e60000] disabled:opacity-40">
+                <button type="button" onClick={onSave} disabled={!dirty || saving} className="bg-[#ff1744] px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-[4px_4px_0px_#222] hover:bg-white hover:text-[#ff1744] disabled:opacity-40">
                     {saving ? 'Syncing...' : 'Save Quick Settings'}
                 </button>
             </div>
@@ -954,7 +954,7 @@ function defaultCardLayout() {
         designationX: 36, designationY: 72, designationW: 50, designationH: 8,
         statsX: 5, statsY: 78, statsW: 30, statsH: 12,
         nameFontSize: 0.9, designationFontSize: 0.9, statsFontSize: 1.2,
-        textColor: '#111111', accentColor: '#e60000',
+        textColor: '#111111', accentColor: '#ff1744',
     };
 }
 

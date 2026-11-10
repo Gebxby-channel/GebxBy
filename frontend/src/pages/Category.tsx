@@ -59,14 +59,14 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
 
     return (
         <div className="w-full">
-            <div className="mb-12 border-l-4 border-[#e60000] pl-6">
+            <div className="mb-12 border-l-4 border-[#ff1744] pl-6">
                 <h1 className="font-mono text-3xl font-black uppercase tracking-widest text-white">Category Archive</h1>
                 <p className="mt-1 font-mono text-xs uppercase tracking-tight text-[#666]">Sorting Data by Sector // Filter Active</p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
                     {categories.map((category) => {
                         const active = selectedCategory === category;
-                        const color = category === 'All' ? '#e60000' : getCategoryColor(category);
+                        const color = category === 'All' ? '#ff1744' : getCategoryColor(category);
                         return (
                             <button
                                 key={category}
@@ -92,7 +92,7 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
                     <LoadingSpinner label="Scanning Database" />
                 ) : articles.length === 0 ? (
                     <div className="border border-dashed border-[#222] py-20 text-center font-mono tracking-widest text-[#444]">
-                        [ NO_FILES_FOUND_IN_{selectedCategory.toUpperCase().replace(/\s/g, '_')} ]
+                        Belum ada tulisan dalam kategori {selectedCategory.replaceAll('_', ' ')}.
                     </div>
                 ) : (
                     <>
@@ -108,7 +108,7 @@ export default function CategoryPage({ user }: { user: CurrentUser | null }) {
                                 type="button"
                                 onClick={() => void feedQuery.fetchNextPage()}
                                 disabled={feedQuery.isFetchingNextPage}
-                                className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-[#e60000] disabled:cursor-wait disabled:opacity-50"
+                                className="mt-8 self-center border border-[#333] px-6 py-3 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#ff1744] hover:text-[#ff1744] disabled:cursor-wait disabled:opacity-50"
                             >
                                 {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load More'}
                             </button>

@@ -41,7 +41,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`border border-[var(--app-border)] bg-[var(--app-surface-2)] p-5 text-[var(--app-text)] ${className}`}>
+    <section className={`rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-5 text-[var(--app-text)] shadow-xl shadow-black/10 ${className}`}>
       {(title || subtitle || action) && (
         <div className="mb-5 flex flex-col gap-4 border-b border-[var(--app-border)] pb-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -108,7 +108,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className={`max-h-[calc(100vh-2rem)] w-full overflow-y-auto border border-[var(--app-border)] bg-[var(--app-panel)] p-6 text-[var(--app-text)] shadow-2xl shadow-black/60 ${sizes[size]} ${className}`}
+        className={`max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] p-6 text-[var(--app-text)] shadow-2xl shadow-black/60 ${sizes[size]} ${className}`}
       >
         <div className="mb-5 flex items-start justify-between gap-4 border-l-4 border-[var(--app-accent)] pl-4">
           <div>

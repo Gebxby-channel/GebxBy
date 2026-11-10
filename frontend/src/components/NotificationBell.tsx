@@ -103,13 +103,13 @@ export default function NotificationBell() {
             <button
                 type="button"
                 onClick={toggleOpen}
-                className="relative flex h-9 w-9 items-center justify-center border border-[#2a2a2a] bg-[#181818] text-[#888] transition-all hover:border-[#e60000]/60 hover:text-white"
+                className="relative flex h-9 w-9 items-center justify-center border border-[#2a2a2a] bg-[#181818] text-[#888] transition-all hover:border-[#ff1744]/60 hover:text-white"
                 title="Notifications"
                 aria-label="Open notifications"
             >
                 <Bell size={16} />
                 {unreadCount > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center bg-[#e60000] px-1 font-mono text-[9px] font-black text-white">
+                    <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center bg-[#ff1744] px-1 font-mono text-[9px] font-black text-white">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
@@ -127,7 +127,7 @@ export default function NotificationBell() {
                                 type="button"
                                 onClick={() => void markAllRead()}
                                 disabled={clearing}
-                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white disabled:cursor-wait disabled:opacity-50"
+                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-white disabled:cursor-wait disabled:opacity-50"
                             >
                                 <CheckCheck size={12} />
                                 Read
@@ -136,7 +136,7 @@ export default function NotificationBell() {
                                 type="button"
                                 onClick={() => void clearNotifications()}
                                 disabled={clearing || items.length === 0}
-                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                className="flex items-center gap-1 border border-[#333] px-2 py-1 font-mono text-[9px] font-black uppercase text-[#777] hover:border-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 <Trash2 size={12} />
                                 Clear
@@ -179,7 +179,7 @@ export default function NotificationBell() {
                                                 <p className="m-0 truncate font-mono text-[11px] font-black uppercase text-white">
                                                     {item.title || (item.type === 'COMMENT' ? 'Komentar baru' : 'Pesan admin')}
                                                 </p>
-                                                {!item.read && <span className="h-2 w-2 flex-shrink-0 bg-[#e60000]" />}
+                                                {!item.read && <span className="h-2 w-2 flex-shrink-0 bg-[#ff1744]" />}
                                             </div>
                                             <p className="m-0 line-clamp-2 font-sans text-xs leading-5 text-[#aaa]">{item.message}</p>
                                             <div className="mt-2 flex items-center justify-between gap-3 font-mono text-[9px] uppercase text-[#555]">
@@ -191,7 +191,7 @@ export default function NotificationBell() {
                                                             navigate(`/profile/${item.actorUserId}`);
                                                             setOpen(false);
                                                         }}
-                                                        className="truncate font-mono uppercase text-[#777] hover:text-[#e60000]"
+                                                        className="truncate font-mono uppercase text-[#777] hover:text-[#ff1744]"
                                                     >
                                                         {item.actorName}
                                                     </button>
@@ -215,7 +215,7 @@ export default function NotificationBell() {
 function NotificationIcon({ type }: { type: NotificationItem['type'] }) {
     const Icon = type === 'COMMENT' ? MessageSquare : ShieldAlert;
     return (
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center border border-[#333] bg-[#111] text-[#e60000]">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center border border-[#333] bg-[#111] text-[#ff1744]">
             <Icon size={15} />
         </div>
     );

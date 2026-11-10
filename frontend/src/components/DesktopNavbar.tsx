@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LogIn, LogOut } from 'lucide-react';
+import { ArrowRight, LogIn, LogOut } from 'lucide-react';
 import type { CurrentUser } from '../types/forum';
 import NotificationBell from './NotificationBell';
 import type { NavigationItem } from './navigationItems';
@@ -17,78 +17,90 @@ export default function DesktopNavbar({ user, menuItems, onTerminate }: DesktopN
     const firstName = getFirstName(user?.name);
 
     return (
-        <header className="sticky top-0 z-50 hidden border-b border-[#2a2a2a] bg-[#111]/95 shadow-md backdrop-blur md:block">
-            <div className="grid min-h-[88px] grid-cols-[240px_1fr_auto] items-center gap-5 px-6 lg:grid-cols-[270px_1fr_auto] xl:px-8">
-                <NavLink to="/" className="min-w-0 no-underline">
-                    <div className="border-l-2 border-[#e60000] pl-3">
-                        <h1 className="m-0 truncate font-mono text-xl font-extrabold uppercase tracking-wider text-white lg:text-2xl">
-                            CodeXAvernico
-                        </h1>
-                        <p className="m-0 font-mono text-[10px] uppercase leading-tight tracking-widest text-[#888]">
-                            Central Access
-                        </p>
+        <aside className="sticky top-0 z-50 hidden h-screen w-[280px] shrink-0 flex-col border-r border-white/10 bg-black px-4 py-3 md:flex">
+            <NavLink to="/" className="mb-5 flex min-h-14 items-center gap-3 rounded-xl px-3 text-white no-underline transition-colors hover:bg-white/10">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff1744] text-sm font-black text-white">C</span>
+                <span className="min-w-0">
+                    <span className="block truncate text-lg font-extrabold tracking-tight">CodeXAvernico</span>
+                    <span className="block text-xs text-[#85858f]">Komunitas dan tulisan</span>
+                </span>
+            </NavLink>
+
+            <nav aria-label="Menu utama" className="flex flex-col gap-1">
+                {menuItems.map((item) => {
+                    const active = location.pathname === item.path;
+                    return (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            aria-current={active ? 'page' : undefined}
+                            className={`flex min-h-12 items-center gap-4 rounded-full px-4 text-[15px] transition-colors ${
+                                active
+                                    ? 'bg-white/10 font-bold text-white'
+                                    : 'text-[#d6d6d9] hover:bg-white/10 hover:text-white'
+                            }`}
+                        >
+                            <item.icon size={21} strokeWidth={active ? 2.5 : 2} />
+                            <span>{item.label}</span>
+                        </NavLink>
+                    );
+                })}
+                {user && <div className="my-2 border-t border-white/10" />}
+                {user && (
+                    <div className="flex items-center gap-4 rounded-full px-4 py-2 text-[15px] text-[#d6d6d9]">
+                        <NotificationBell />
+                        <span>Notifikasi</span>
                     </div>
-                </NavLink>
+                )}
+            </nav>
 
-                <nav className="flex min-w-0 max-w-[760px] items-center justify-center gap-2 justify-self-center">
-                    {menuItems.map((item) => {
-                        const active = location.pathname === item.path;
-                        return (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                className={`flex h-10 min-w-[92px] items-center justify-center gap-2 border px-3 font-mono text-[8px] font-black uppercase tracking-[0.14em] transition-all lg:min-w-[104px] ${
-                                    active
-                                        ? 'border-[#e60000] bg-[#e60000] text-white'
-                                        : 'border-[#2a2a2a] bg-[#141414]/80 text-[#777] hover:border-[#e60000]/70 hover:bg-[#181818] hover:text-white'
-                                }`}
-                            >
-                                <item.icon size={14} strokeWidth={2.5} />
-                                <span className="truncate">{item.label}</span>
-                            </NavLink>
-                        );
-                    })}
-                </nav>
+            <button
+                type="button"
+                onClick={() => navigate(user ? '/write' : '/login')}
+                className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-5 font-bold text-black transition-colors hover:bg-zinc-200"
+            >
+                <span>{user ? 'Tulis' : 'Mulai'}</span>
+                <ArrowRight size={17} />
+            </button>
 
-                <div className="flex flex-shrink-0 items-center justify-end gap-3">
-                    {user && <NotificationBell />}
-                    <button
-                        type="button"
-                        onClick={() => navigate(user ? '/profile' : '/login')}
-                        className="flex h-11 min-w-[108px] items-center justify-between gap-3 border border-[#333] bg-[#151515] px-2 text-left transition-all hover:border-[#e60000]"
-                        title={user ? 'Open biodata' : 'Login'}
-                    >
-                        <span className="min-w-0 truncate font-mono text-[10px] font-black uppercase tracking-widest text-white">
-                            {firstName}
-                        </span>
-                        <span className="h-8 w-8 flex-shrink-0 overflow-hidden border border-[#444] bg-[#181818]">
-                            {user ? (
-                                <img
-                                    src={user.picture || defaultAvatar}
-                                    alt="Profile"
-                                    width={32}
-                                    height={32}
-                                    className="h-full w-full object-cover"
-                                    referrerPolicy="no-referrer"
-                                    onError={(event) => { event.currentTarget.src = defaultAvatar; }}
-                                />
-                            ) : (
-                                <span className="flex h-full w-full items-center justify-center font-mono text-xs font-black uppercase text-[#777]">G</span>
-                            )}
-                        </span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => void onTerminate()}
-                        className="flex h-11 min-w-[150px] items-center justify-center gap-2 border border-[#e60000]/70 px-5 font-mono text-[9px] font-black uppercase tracking-widest text-[#e60000] transition-all hover:bg-[#e60000] hover:text-white"
-                        title={user ? 'Terminate session' : 'Open login'}
-                    >
-                        {user ? <LogOut size={13} /> : <LogIn size={13} />}
-                        {user ? 'Terminate' : 'Login'}
-                    </button>
-                </div>
+            <div className="mt-auto flex items-center gap-2 rounded-2xl p-2 hover:bg-white/10">
+                <button
+                    type="button"
+                    onClick={() => navigate(user ? '/profile' : '/login')}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left"
+                    title={user ? 'Buka profil' : 'Masuk'}
+                >
+                    <span className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-[#181818]">
+                        {user ? (
+                            <img
+                                src={user.picture || defaultAvatar}
+                                alt=""
+                                width={40}
+                                height={40}
+                                className="h-full w-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={(event) => { event.currentTarget.src = defaultAvatar; }}
+                            />
+                        ) : (
+                            <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white">G</span>
+                        )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-white">{firstName}</span>
+                        <span className="block truncate text-xs text-[#85858f]">{user?.username ? `@${user.username}` : 'Pengunjung'}</span>
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => void onTerminate()}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-[#a1a1aa] transition-colors hover:bg-white/10 hover:text-white"
+                    title={user ? 'Keluar' : 'Masuk'}
+                    aria-label={user ? 'Keluar' : 'Masuk'}
+                >
+                    {user ? <LogOut size={17} /> : <LogIn size={17} />}
+                </button>
             </div>
-        </header>
+        </aside>
     );
 }
 

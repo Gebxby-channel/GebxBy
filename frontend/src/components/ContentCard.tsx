@@ -51,12 +51,12 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                     <button
                         type="button"
                         onClick={handleAuthorClick}
-                        className="flex h-6 w-6 items-center justify-center overflow-hidden border border-[#333] transition-all hover:border-[#e60000]"
+                        className="flex h-6 w-6 items-center justify-center overflow-hidden border border-[#333] transition-all hover:border-[#ff1744]"
                         style={{ backgroundColor: `${themeColor}33` }}
                         title={`Open ${art.user?.name || 'author'} profile`}
                     >
                         {art.user?.picture ? (
-                            <img src={art.user.picture} alt="" width={24} height={24} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                            <img src={art.user.picture} alt="" width={24} height={24} loading="lazy" decoding="async" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
                             <span className="font-mono text-[10px] font-black text-white">U</span>
                         )}
@@ -68,7 +68,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                             className="truncate bg-transparent p-0 text-left font-bold uppercase text-white transition-colors hover:underline"
                             style={{ maxWidth: 180 }}
                         >
-                            {art.user?.name || 'ANONYMOUS_OFFICER'}
+                            {art.user?.name || 'Penulis anonim'}
                             {art.user?.username && <span className="ml-2 text-[#666]">@{art.user.username}</span>}
                         </button>
                         <span className="text-[#444]">IN</span>
@@ -92,7 +92,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                     className="mb-2 line-clamp-2 font-mono text-xl font-black uppercase leading-tight tracking-normal text-white transition-colors md:text-2xl"
                     style={{ color: 'white' }}
                 >
-                    {art.head || 'NO_SUBJECT_FOUND'}
+                    {art.head || 'Tanpa judul'}
                 </h2>
 
                 <p className="mb-6 line-clamp-2 max-w-2xl font-sans text-sm leading-relaxed text-[#999]">
@@ -116,7 +116,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                             event.stopPropagation();
                             setShareOpen(true);
                         }}
-                        className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#e60000] hover:text-white"
+                        className="flex h-9 items-center gap-2 border border-[#333] px-3 font-mono text-[9px] font-black uppercase text-[#777] transition-all hover:border-[#ff1744] hover:text-white"
                         title="Share"
                     >
                         <Share2 size={13} />

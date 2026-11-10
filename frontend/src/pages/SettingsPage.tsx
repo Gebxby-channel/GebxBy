@@ -21,14 +21,14 @@ export default function SettingsPage({
 }: SettingsPageProps) {
     return (
         <div className="space-y-8">
-            <header className="border-l-4 border-[#e60000] pl-6">
+            <header className="border-l-4 border-[#ff1744] pl-6">
                 <h1 className="font-mono text-3xl font-black uppercase tracking-widest text-white">Settings</h1>
                 <p className="mt-1 font-mono text-xs uppercase tracking-tight text-[#666]">Policy // theme protocol // music channel</p>
             </header>
 
             <section className="border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-4 flex items-center gap-3 border-b border-[#2a2a2a] pb-3">
-                    <ScrollText size={18} className="text-[#e60000]" />
+                    <ScrollText size={18} className="text-[#ff1744]" />
                     <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Policy</h2>
                 </div>
                 <div className="space-y-3 font-sans text-sm leading-7 text-[#aaa]">
@@ -45,7 +45,7 @@ export default function SettingsPage({
 
             <section className="border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-4 flex items-center gap-3 border-b border-[#2a2a2a] pb-3">
-                    <Palette size={18} className="text-[#e60000]" />
+                    <Palette size={18} className="text-[#ff1744]" />
                     <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Theme Color</h2>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -59,7 +59,7 @@ export default function SettingsPage({
 
             <section className="border border-[#2a2a2a] bg-[#151515] p-5">
                 <div className="mb-4 flex items-center gap-3 border-b border-[#2a2a2a] pb-3">
-                    <Music size={18} className="text-[#e60000]" />
+                    <Music size={18} className="text-[#ff1744]" />
                     <h2 className="m-0 font-mono text-sm font-black uppercase tracking-widest text-white">Music</h2>
                 </div>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -71,7 +71,7 @@ export default function SettingsPage({
                             type="checkbox"
                             checked={musicEnabled}
                             onChange={(event) => onMusicEnabledChange(event.target.checked)}
-                            className="h-4 w-4 accent-[#e60000]"
+                            className="h-4 w-4 accent-[#ff1744]"
                         />
                         Music {musicEnabled ? 'On' : 'Off'}
                     </label>
@@ -82,7 +82,7 @@ export default function SettingsPage({
                         value={musicTrackId}
                         onChange={(event) => onMusicTrackChange(event.target.value)}
                         disabled={MUSIC_TRACKS.length === 0}
-                        className="h-11 min-w-[260px] border border-[#333] bg-[#101010] px-3 font-mono text-xs text-white outline-none focus:border-[#e60000] disabled:opacity-45"
+                        className="h-11 min-w-[260px] border border-[#333] bg-[#101010] px-3 font-mono text-xs text-white outline-none focus:border-[#ff1744] disabled:opacity-45"
                     >
                         {MUSIC_TRACKS.length === 0 ? (
                             <option value="">No music files found</option>
@@ -108,8 +108,8 @@ function ThemeButton({ active, label, onClick }: { active: boolean; label: strin
             onClick={onClick}
             className={`h-11 border px-5 font-mono text-[10px] font-black uppercase tracking-widest transition-all ${
                 active
-                    ? 'border-[#e60000] bg-[#e60000] text-white'
-                    : 'border-[#333] text-[#777] hover:border-[#e60000] hover:text-white'
+                    ? 'border-[#ff1744] bg-[#ff1744] text-white'
+                    : 'border-[#333] text-[#777] hover:border-[#ff1744] hover:text-white'
             }`}
         >
             {label}

@@ -9,26 +9,27 @@
 }
 
 @theme {
-    --color-re-red: #9a0000;
-    --color-re-dark: #080808;
+    --color-re-red: #ff1744;
+    --color-re-dark: #000000;
     --color-re-green: #00ff41;
 }
 
 :root,
 html[data-theme="dark"] {
-    --app-bg: #0f0f0f;
-    --app-surface: #111111;
-    --app-surface-2: #151515;
-    --app-surface-hover: #181818;
-    --app-panel: #0d0d0d;
-    --app-input: #101010;
-    --app-border: #2a2a2a;
-    --app-border-soft: #333333;
+    color-scheme: dark;
+    --app-bg: #000000;
+    --app-surface: #121212;
+    --app-surface-2: #1a1a1a;
+    --app-surface-hover: #242424;
+    --app-panel: #121212;
+    --app-input: #161616;
+    --app-border: rgba(255, 255, 255, 0.09);
+    --app-border-soft: rgba(255, 255, 255, 0.14);
     --app-text: #ffffff;
-    --app-text-soft: #aaaaaa;
-    --app-text-muted: #777777;
-    --app-text-dim: #666666;
-    --app-accent: #e60000;
+    --app-text-soft: #a1a1aa;
+    --app-text-muted: #85858f;
+    --app-text-dim: #71717a;
+    --app-accent: #ff1744;
     --app-success-border: #166534;
     --app-success-text: #4ade80;
     --app-overlay: rgba(0, 0, 0, 0.8);
@@ -62,14 +63,41 @@ body {
     min-width: 320px;
     background: var(--app-bg);
     color: var(--app-text);
-    font-family: Roboto, Arial, sans-serif;
+    font-family: Inter, "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 button,
 select,
 input,
 textarea {
-    border-radius: 0;
+    border-radius: 12px;
+    font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[role="button"] {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 3px;
+}
+
+::selection {
+    color: #fff;
+    background: color-mix(in srgb, var(--app-accent) 72%, #000);
 }
 
 [contenteditable][data-placeholder]:empty::before {
@@ -220,10 +248,83 @@ textarea {
 }
 
 .terminal-grid {
-    background-image:
-        linear-gradient(rgba(230, 0, 0, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(230, 0, 0, 0.025) 1px, transparent 1px);
-    background-size: 28px 28px;
+    background-color: var(--app-bg);
+    background-image: radial-gradient(ellipse at 50% -16%, rgba(255, 23, 68, 0.09), transparent 43%);
+    background-attachment: fixed;
+}
+
+/* Shared dark design system: quiet borders, rounded surfaces, clear focus. */
+.archive-card {
+    border: 1px solid var(--app-border);
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(24, 24, 27, 0.94), rgba(12, 12, 14, 0.98));
+    padding: 1.5rem;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.2);
+}
+
+.archive-card:hover {
+    border-color: rgba(255, 255, 255, 0.17);
+    background-color: #171719;
+    transform: translateY(-2px);
+}
+
+.font-mono {
+    font-family: Inter, "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: 0.025em;
+}
+
+.bg-\[\#121212\],
+.bg-\[\#141414\],
+.bg-\[\#151515\],
+.bg-\[\#181818\],
+.bg-\[\#111\],
+.bg-\[\#0d0d0d\],
+.bg-\[\#0f0f0f\] {
+    border-radius: 16px;
+}
+
+.border-\[\#2a2a2a\],
+.border-\[\#333\],
+.border-\[\#2a2a2a\]\/60 {
+    border-color: rgba(255, 255, 255, 0.11);
+}
+
+.shadow-2xl {
+    --tw-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+header.sticky {
+    border-color: var(--app-border) !important;
+    background: rgba(8, 8, 9, 0.86) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.24) !important;
+    backdrop-filter: blur(20px);
+}
+
+main > div {
+    min-height: 60vh;
+}
+
+input,
+select,
+textarea,
+[contenteditable="true"] {
+    border-radius: 12px;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #71717a;
+}
+
+dialog,
+[role="dialog"] {
+    border-radius: 18px;
+}
+
+@media (max-width: 767px) {
+    main > div {
+        padding: 1.25rem 1rem !important;
+    }
 }
 
 html[data-theme="light"],
@@ -322,19 +423,19 @@ html[data-theme="light"] .archive-card::after {
     }
 }
 
-html[data-theme="light"] .bg-\[\#e60000\],
-html[data-theme="light"] .hover\:bg-\[\#e60000\]:hover {
-    background-color: #e60000 !important;
-    border-color: #e60000 !important;
+html[data-theme="light"] .bg-\[\#ff1744\],
+html[data-theme="light"] .hover\:bg-\[\#ff1744\]:hover {
+    background-color: #ff1744 !important;
+    border-color: #ff1744 !important;
     color: #ffffff !important;
 }
 
-html[data-theme="light"] .bg-\[\#e60000\] *,
-html[data-theme="light"] .hover\:bg-\[\#e60000\]:hover * {
+html[data-theme="light"] .bg-\[\#ff1744\] *,
+html[data-theme="light"] .hover\:bg-\[\#ff1744\]:hover * {
     color: #ffffff !important;
 }
 
-html[data-theme="light"] .text-\[\#e60000\] {
+html[data-theme="light"] .text-\[\#ff1744\] {
     color: #dc0000 !important;
 }
 

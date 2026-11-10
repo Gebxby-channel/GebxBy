@@ -117,8 +117,8 @@ export default function LogPage({ user }: { user: CurrentUser }) {
 
     return (
         <div className="w-full">
-            <div className="mb-10 border-l-4 border-[#e60000] pl-6">
-                <div className="mb-2 flex items-center gap-2 text-[#e60000]">
+            <div className="mb-10 border-l-4 border-[#ff1744] pl-6">
+                <div className="mb-2 flex items-center gap-2 text-[#ff1744]">
                     <Radio size={18} />
                     <span className="font-mono text-[10px] font-black uppercase tracking-[0.35em]">Signal Ledger</span>
                 </div>
@@ -142,7 +142,7 @@ export default function LogPage({ user }: { user: CurrentUser }) {
                         type="button"
                         onClick={() => void clearBasis()}
                         disabled={clearingBasis || basis.length === 0}
-                        className="ml-auto flex h-9 items-center gap-2 border border-[#333] px-4 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#e60000] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        className="ml-auto flex h-9 items-center gap-2 border border-[#333] px-4 font-mono text-[10px] font-black uppercase tracking-widest text-[#777] transition-all hover:border-[#ff1744] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         <Trash2 size={14} />
                         {clearingBasis ? 'Clearing' : 'Clear Basis'}
@@ -215,13 +215,13 @@ function LogRow({ item, viewerUserId, onSelect }: { item: ActivityLogItem; viewe
             <LogIcon item={item} />
             <div className="min-w-0 flex-1">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#e60000]">{item.type}</span>
+                    <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#ff1744]">{item.type}</span>
                     <span className="font-mono text-[9px] uppercase text-[#555]">{item.direction}</span>
                     {item.reportCategory && <span className="border border-[#333] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#777]">{item.reportCategory}</span>}
-                    {item.reportQueue && <span className="border border-[#e60000]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#e60000]">Queue</span>}
+                    {item.reportQueue && <span className="border border-[#ff1744]/50 px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#ff1744]">Queue</span>}
                     {item.resolved && <span className="border border-[#166534] px-2 py-0.5 font-mono text-[8px] font-black uppercase text-[#4ade80]">Resolved</span>}
                 </div>
-                <h2 className="m-0 truncate font-mono text-sm font-black uppercase text-white group-hover:text-[#e60000]">{item.title}</h2>
+                <h2 className="m-0 truncate font-mono text-sm font-black uppercase text-white group-hover:text-[#ff1744]">{item.title}</h2>
                 <p className="m-0 mt-1 line-clamp-2 font-sans text-sm leading-6 text-[#999]">{item.message || item.reason}</p>
                 <div className="mt-3 flex flex-wrap gap-3 font-mono text-[9px] uppercase text-[#555]">
                     <span>{formatDate(item.createdAt)}</span>
@@ -230,7 +230,7 @@ function LogRow({ item, viewerUserId, onSelect }: { item: ActivityLogItem; viewe
                     {item.targetUserName && <InlineProfileLink label={`Target: ${item.targetUserName}`} userId={item.targetUserId} viewerUserId={viewerUserId} />}
                 </div>
             </div>
-            <div className="absolute right-0 top-0 h-3 w-3 border-r border-t border-[#e60000]/0 transition-colors group-hover:border-[#e60000]" />
+            <div className="absolute right-0 top-0 h-3 w-3 border-r border-t border-[#ff1744]/0 transition-colors group-hover:border-[#ff1744]" />
         </article>
     );
 }
@@ -241,7 +241,7 @@ function QueueFilter({ active, label, onClick }: { active: boolean; label: strin
             type="button"
             onClick={onClick}
             className={`h-8 border px-3 font-mono text-[9px] font-black uppercase tracking-widest ${
-                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-white hover:text-white'
+                active ? 'border-[#ff1744] bg-[#ff1744] text-white' : 'border-[#333] text-[#777] hover:border-white hover:text-white'
             }`}
         >
             {label}
@@ -253,7 +253,7 @@ function Metric({ label, value, danger }: { label: string; value: number; danger
     return (
         <div className="border border-[#2a2a2a] bg-[#151515] p-4">
             <p className="m-0 font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#555]">{label}</p>
-            <p className={`m-0 mt-2 font-mono text-3xl font-black ${danger ? 'text-[#e60000]' : 'text-white'}`}>{value}</p>
+            <p className={`m-0 mt-2 font-mono text-3xl font-black ${danger ? 'text-[#ff1744]' : 'text-white'}`}>{value}</p>
         </div>
     );
 }
@@ -264,7 +264,7 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
             type="button"
             onClick={onClick}
             className={`flex h-9 items-center gap-2 border px-4 font-mono text-[10px] font-black uppercase tracking-widest transition-all ${
-                active ? 'border-[#e60000] bg-[#e60000] text-white' : 'border-[#333] text-[#777] hover:border-white hover:text-white'
+                active ? 'border-[#ff1744] bg-[#ff1744] text-white' : 'border-[#333] text-[#777] hover:border-white hover:text-white'
             }`}
         >
             {icon}
@@ -276,7 +276,7 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
 function LogIcon({ item }: { item: ActivityLogItem }) {
     const Icon = item.reportQueue ? AlertTriangle : item.targetType === 'USER' ? UserRound : FileText;
     return (
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-[#333] bg-[#0b0b0b] text-[#e60000] shadow-[0_0_18px_rgba(230,0,0,0.08)]">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center border border-[#333] bg-[#0b0b0b] text-[#ff1744] shadow-[0_0_18px_rgba(230,0,0,0.08)]">
             <Icon size={17} />
         </div>
     );
@@ -303,13 +303,13 @@ function LogDetailModal({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center border border-[#333] text-[#777] hover:border-[#e60000] hover:text-white"
+                    className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center border border-[#333] text-[#777] hover:border-[#ff1744] hover:text-white"
                     title="Close"
                 >
                     <X size={15} />
                 </button>
-                <div className="mb-5 border-l-4 border-[#e60000] pl-4 pr-10">
-                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#e60000]">{item.type}</p>
+                <div className="mb-5 border-l-4 border-[#ff1744] pl-4 pr-10">
+                    <p className="m-0 font-mono text-[10px] font-black uppercase tracking-[0.35em] text-[#ff1744]">{item.type}</p>
                     <h2 className="m-0 mt-2 font-mono text-2xl font-black uppercase tracking-normal text-white">{item.title}</h2>
                     <p className="m-0 mt-1 font-mono text-[10px] uppercase text-[#555]">{formatDate(item.createdAt)}</p>
                 </div>
@@ -321,7 +321,7 @@ function LogDetailModal({
                     <ProfileMeta label="Target" value={item.targetUserName || item.contentTitle || item.targetType} userId={item.targetUserId} viewerUserId={viewerUserId} />
                     <Meta label="Direction" value={item.direction} />
                     <Meta label="Category" value={item.reportCategory || 'N/A'} />
-                    <Meta label="Queue" value={item.reportQueue ? 'REPORT_QUEUE' : 'BASIS'} />
+                    <Meta label="Antrean" value={item.reportQueue ? 'Laporan' : 'Umum'} />
                 </div>
                 {(item.contentId || item.targetUserId || canResolve) && (
                     <div className="mt-6 flex flex-wrap justify-end gap-3">
@@ -338,7 +338,7 @@ function LogDetailModal({
                         <button
                             type="button"
                             onClick={() => onOpenDestination(item)}
-                            className="border border-[#e60000] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#e60000] hover:bg-[#e60000] hover:text-white"
+                            className="border border-[#ff1744] px-5 py-2 font-mono text-[10px] font-black uppercase text-[#ff1744] hover:bg-[#ff1744] hover:text-white"
                         >
                             Open Target
                         </button>
@@ -362,7 +362,7 @@ function InlineProfileLink({ label, userId, viewerUserId }: { label: string; use
                 event.stopPropagation();
                 navigate(path);
             }}
-            className="font-mono uppercase text-[#777] hover:text-[#e60000]"
+            className="font-mono uppercase text-[#777] hover:text-[#ff1744]"
         >
             {label}
         </button>
@@ -379,7 +379,7 @@ function ProfileMeta({ label, value, userId, viewerUserId }: { label: string; va
                 <button
                     type="button"
                     onClick={() => navigate(path)}
-                    className="m-0 mt-1 max-w-full truncate text-left text-white hover:text-[#e60000]"
+                    className="m-0 mt-1 max-w-full truncate text-left text-white hover:text-[#ff1744]"
                 >
                     {value}
                 </button>
@@ -394,12 +394,12 @@ function Meta({ label, value }: { label: string; value: string }) {
     return (
         <div className="border border-[#202020] bg-[#101010] p-3">
             <p className="m-0 text-[#444]">{label}</p>
-            <p className="m-0 mt-1 truncate text-white">{value}</p>
+            <p className="m-0 mt-1 truncate text-white">{value.replaceAll('_', ' ')}</p>
         </div>
     );
 }
 
 function formatDate(dateString?: string) {
-    if (!dateString) return 'NO_DATE';
+    if (!dateString) return 'Tanggal tidak tersedia';
     return formatIndonesiaDateTime(dateString);
 }
