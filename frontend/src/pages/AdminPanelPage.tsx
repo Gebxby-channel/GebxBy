@@ -50,7 +50,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const [mediaSmoke, setMediaSmoke] = useState<MediaSmokeTestResult | null>(null);
     const [mediaSmokeBusy, setMediaSmokeBusy] = useState(false);
     const [mediaMigrationBusy, setMediaMigrationBusy] = useState(false);
-    const [mediaMigrationProgress, setMediaMigrationProgress] = useState({ contents: 0, images: 0 });
+    const [mediaMigrationProgress, setMediaMigrationProgress] = useState({ contents: 0, images: 0, profiles: 0 });
     const [backupBusy, setBackupBusy] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -351,28 +351,30 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
     const migrateExistingMedia = async () => {
         const accepted = await feedback.confirm({
             title: 'Migrate Existing Images to R2',
-            message: 'Gambar Base64 pada tulisan lama akan diunggah ke R2 dan URL-nya disimpan ke MongoDB. Proses berjalan bertahap dan dapat dilanjutkan jika terhenti.',
+            message: 'Gambar Base64 pada tulisan, foto profil pengguna, dan foto pada kartu profil akan diunggah ke R2. Proses berjalan bertahap dan dapat dilanjutkan jika terhenti.',
             confirmLabel: 'Start migration',
         });
         if (!accepted) return;
 
         setMediaMigrationBusy(true);
-        setMediaMigrationProgress({ contents: 0, images: 0 });
+        setMediaMigrationProgress({ contents: 0, images: 0, profiles: 0 });
         let migratedContents = 0;
         let migratedImages = 0;
+        let migratedProfiles = 0;
         try {
             let complete = false;
             while (!complete) {
                 const response = await api.post<MediaMigrationResult>('/api/admin/media/migrate-inline');
                 migratedContents += response.data.migratedContents;
                 migratedImages += response.data.migratedImages;
+                migratedProfiles += response.data.migratedProfiles;
                 complete = response.data.complete;
-                setMediaMigrationProgress({ contents: migratedContents, images: migratedImages });
-                if (!complete && response.data.migratedContents === 0) {
+                setMediaMigrationProgress({ contents: migratedContents, images: migratedImages, profiles: migratedProfiles });
+                if (!complete && response.data.migratedContents === 0 && response.data.migratedProfiles === 0) {
                     throw new Error('Migrasi berhenti tanpa progres. Periksa log backend dan konfigurasi R2.');
                 }
             }
-            feedback.toast(`Migrasi selesai: ${migratedImages} gambar dari ${migratedContents} tulisan.`, 'success');
+            feedback.toast(`Migrasi selesai: ${migratedImages} gambar dari ${migratedContents} tulisan dan ${migratedProfiles} foto profil.`, 'success');
             invalidateApiCache('/content/feed-page');
             invalidateApiCache('/content/all-content');
         } catch (error) {
@@ -573,7 +575,7 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
                     <div className="flex flex-wrap gap-2">
                         <UiButton onClick={() => void migrateExistingMedia()} disabled={mediaMigrationBusy || mediaSmokeBusy} variant="danger">
                             <RefreshCcw size={13} className={mediaMigrationBusy ? 'animate-spin' : ''} />
-                            {mediaMigrationBusy ? `Migrating ${mediaMigrationProgress.images} images` : 'Migrate Existing Images'}
+                            {mediaMigrationBusy ? `Migrating ${mediaMigrationProgress.images + mediaMigrationProgress.profiles} images` : 'Migrate Existing Images'}
                         </UiButton>
                         <UiButton onClick={() => void runMediaSmokeTest()} disabled={mediaSmokeBusy || mediaMigrationBusy} variant="danger">
                             <HardDrive size={13} />
@@ -585,8 +587,8 @@ export default function AdminPanelPage({ user }: { user: CurrentUser }) {
             >
                 <p className="mb-3 font-mono text-[10px] uppercase text-[#777]">
                     {mediaMigrationBusy
-                        ? `Migration progress: ${mediaMigrationProgress.images} images across ${mediaMigrationProgress.contents} writings`
-                        : 'Migrate images already stored in MongoDB to R2 in small batches.'}
+                        ? `Migration progress: ${mediaMigrationProgress.images} writing images and ${mediaMigrationProgress.profiles} profile photos`
+                        : 'Migrate images and profile photos already stored in MongoDB to R2 in small batches.'}
                 </p>
                 {mediaSmoke ? (
                     <div className="grid gap-2 font-mono text-[10px] uppercase text-[#777]">

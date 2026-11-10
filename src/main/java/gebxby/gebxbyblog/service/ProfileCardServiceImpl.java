@@ -38,6 +38,8 @@ public class ProfileCardServiceImpl implements ProfileCardService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final UserProfileProjectionService profileProjectionService;
+    @Autowired(required = false)
+    private MediaPipelineService mediaPipelineService;
 
     @Autowired
     public ProfileCardServiceImpl(ProfileCardTemplateRepository templateRepository,
@@ -191,7 +193,9 @@ public class ProfileCardServiceImpl implements ProfileCardService {
         String displayName = trim(request == null ? null : request.displayName(), 80);
         card.setDisplayName(StringUtils.hasText(displayName) ? displayName : null);
         if (request != null && request.displayPhoto() != null) {
-            card.setDisplayPhoto(StringUtils.hasText(request.displayPhoto()) ? validateCardPhoto(request.displayPhoto()) : null);
+            String displayPhoto = StringUtils.hasText(request.displayPhoto()) ? validateCardPhoto(request.displayPhoto()) : null;
+            card.setDisplayPhoto(mediaPipelineService == null || displayPhoto == null ? displayPhoto
+                    : mediaPipelineService.storeProfilePhoto(displayPhoto, "profile-card", card.getId()));
         }
         return toUserCardResponse(userCardRepository.save(card));
     }

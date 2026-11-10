@@ -22,6 +22,9 @@ public interface UserRepository extends MongoRepository<User, UUID> {
     List<User> findByManualBadges(BadgeCode badge, Pageable pageable);
     List<User> findByCustomBadgeIds(UUID customBadgeId, Pageable pageable);
 
+    @Query(value = "{ 'photo': { $regex: '^data:image/' } }", fields = "{ 'photo': 1 }")
+    List<User> findUsersWithInlineProfilePhotos(Pageable pageable);
+
     @Query("{ '$or': [ { 'name': { $regex: ?0, $options: 'i' } }, { 'username': { $regex: ?0, $options: 'i' } }, { 'usernameNormalized': { $regex: ?0, $options: 'i' } }, { 'designation': { $regex: ?0, $options: 'i' } } ] }")
     List<User> searchPublicUsers(String query, Pageable pageable);
 

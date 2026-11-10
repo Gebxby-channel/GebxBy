@@ -32,6 +32,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 @Service
 public class MediaPipelineServiceImpl implements MediaPipelineService {
@@ -169,6 +172,22 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
             migrated++;
         }
         return migrated;
+    }
+
+    @Override
+    public String storeProfilePhoto(String imageData, String ownerType, UUID ownerId) {
+        if (!StringUtils.hasText(imageData) || !isInlineImage(imageData)) {
+            return imageData;
+        }
+        if (!isR2Enabled()) {
+            return imageData;
+        }
+        ImagePayload payload = validateImageDataUrl(imageData.trim(), MAX_IMAGE_DATA_URL_LENGTH, MAX_IMAGE_BYTES);
+        ensureR2Configured();
+        String safeOwnerType = "profile-card".equals(ownerType) ? "profile-cards" : "profiles";
+        String key = safeOwnerType + "/" + ownerId + "/" + sha256(payload.bytes()) + "." + extensionFor(payload.mimeType());
+        putObject(key, payload.mimeType(), payload.bytes());
+        return publicUrl(key);
     }
 
     @Override
@@ -342,6 +361,14 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
             case "image/png" -> "png";
             default -> "webp";
         };
+    }
+
+    private String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
     }
 
     private String cleanAlt(String value) {

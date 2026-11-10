@@ -55,6 +55,8 @@ public class UserServiceImpl implements UserService {
     private final BookmarkRepository bookmarkRepository;
     private final FollowRepository followRepository;
     private final EmailDomainPolicyService emailDomainPolicyService;
+    @Autowired(required = false)
+    private MediaPipelineService mediaPipelineService;
 
     @Autowired
     public UserServiceImpl(UserRepository userRepository,
@@ -119,7 +121,9 @@ public class UserServiceImpl implements UserService {
             user.setMoto(trimToLength(request.moto(), 160));
         }
         if (StringUtils.hasText(request.picture())) {
-            user.setPhoto(validateProfilePicture(request.picture()));
+            String picture = validateProfilePicture(request.picture());
+            user.setPhoto(mediaPipelineService == null ? picture
+                    : mediaPipelineService.storeProfilePhoto(picture, "profile", user.getUserID()));
         }
         user.setOnboardingComplete(true);
         user.setUpdatedAt(LocalDateTime.now());

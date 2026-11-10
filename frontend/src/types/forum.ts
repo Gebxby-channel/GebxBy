@@ -147,6 +147,7 @@ export interface MediaSmokeTestResult {
 export interface MediaMigrationResult {
   migratedContents: number;
   migratedImages: number;
+  migratedProfiles: number;
   complete: boolean;
 }
 
