@@ -32,7 +32,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
-    implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("org.jsoup:jsoup:1.18.3")

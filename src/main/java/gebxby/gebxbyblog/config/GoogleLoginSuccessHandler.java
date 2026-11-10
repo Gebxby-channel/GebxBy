@@ -1,7 +1,5 @@
 package gebxby.gebxbyblog.config;
 
-import gebxby.gebxbyblog.model.User;
-import gebxby.gebxbyblog.service.LoginVerificationService;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,16 +15,13 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 @Component
-public class GoogleLoginVerificationSuccessHandler implements AuthenticationSuccessHandler {
+public class GoogleLoginSuccessHandler implements AuthenticationSuccessHandler {
     private final UserService userService;
-    private final LoginVerificationService verificationService;
     private final String frontendUrl;
 
-    public GoogleLoginVerificationSuccessHandler(UserService userService,
-                                                LoginVerificationService verificationService,
-                                                @Value("${app.frontend-url}") String frontendUrl) {
+    public GoogleLoginSuccessHandler(UserService userService,
+                                     @Value("${app.frontend-url}") String frontendUrl) {
         this.userService = userService;
-        this.verificationService = verificationService;
         this.frontendUrl = frontendUrl;
     }
 
@@ -36,20 +31,14 @@ public class GoogleLoginVerificationSuccessHandler implements AuthenticationSucc
                                         Authentication authentication) throws IOException, ServletException {
         try {
             OAuth2User principal = (OAuth2User) authentication.getPrincipal();
-            User user = userService.processUserLogin(principal);
-            verificationService.start(user, request);
-            SecurityContextHolder.clearContext();
-            if (request.getSession(false) != null) {
-                request.getSession(false).removeAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
-            }
-            response.sendRedirect(frontendUrl + "/login?verify=1");
+            userService.processUserLogin(principal);
+            response.sendRedirect(frontendUrl + "/");
         } catch (RuntimeException exception) {
             SecurityContextHolder.clearContext();
             if (request.getSession(false) != null) {
-                verificationService.clear(request.getSession(false));
                 request.getSession(false).removeAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
             }
-            response.sendRedirect(frontendUrl + "/login?verification=unavailable");
+            response.sendRedirect(frontendUrl + "/login?error=google");
         }
     }
 }

@@ -1,20 +1,16 @@
 package gebxby.gebxbyblog.controller;
 
 import gebxby.gebxbyblog.dto.CurrentUserResponse;
-import gebxby.gebxbyblog.dto.AuthChallengeResponse;
 import gebxby.gebxbyblog.dto.EmailLoginRequest;
 import gebxby.gebxbyblog.dto.SignupRequest;
-import gebxby.gebxbyblog.dto.VerificationCodeRequest;
 import gebxby.gebxbyblog.dto.UsernameCheckResponse;
 import gebxby.gebxbyblog.dto.UsernameSuggestResponse;
 import gebxby.gebxbyblog.model.User;
 import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.LoginRateLimiter;
-import gebxby.gebxbyblog.service.LoginVerificationService;
 import gebxby.gebxbyblog.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -24,9 +20,9 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,22 +36,16 @@ public class AuthController {
     private final UserService userService;
     private final ForumMapper mapper;
     private final LoginRateLimiter loginRateLimiter;
-    private final LoginVerificationService verificationService;
-    private final boolean verifyCustomAccounts;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
-    public AuthController(UserService userService, ForumMapper mapper, LoginRateLimiter loginRateLimiter,
-                          LoginVerificationService verificationService,
-                          @Value("${app.auth.verify-custom-accounts:false}") boolean verifyCustomAccounts) {
+    public AuthController(UserService userService, ForumMapper mapper, LoginRateLimiter loginRateLimiter) {
         this.userService = userService;
         this.mapper = mapper;
         this.loginRateLimiter = loginRateLimiter;
-        this.verificationService = verificationService;
-        this.verifyCustomAccounts = verifyCustomAccounts;
     }
 
     @PostMapping("/api/auth/email-login")
-    public ResponseEntity<AuthChallengeResponse> emailLogin(
+    public ResponseEntity<CurrentUserResponse> emailLogin(
             @RequestBody EmailLoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
@@ -66,48 +56,21 @@ public class AuthController {
                 email,
                 request == null ? null : request.password()
         );
-        if (isGoogleLinked(user) || verifyCustomAccounts) {
-            verificationService.start(user, servletRequest);
-            return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail()), null));
-        }
         establishSession(user, servletRequest, servletResponse);
         loginRateLimiter.reset(email, remoteAddress);
-        return ResponseEntity.ok(new AuthChallengeResponse(false, null, mapper.toCurrentUser(user)));
+        return ResponseEntity.ok(mapper.toCurrentUser(user));
     }
 
     @PostMapping("/api/auth/signup")
-    public ResponseEntity<AuthChallengeResponse> signup(
+    public ResponseEntity<CurrentUserResponse> signup(
             @RequestBody SignupRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
         loginRateLimiter.check(request == null ? null : request.email(), clientAddress(servletRequest));
         User user = userService.registerWithEmail(request);
-        if (verifyCustomAccounts) {
-            verificationService.start(user, servletRequest);
-            return ResponseEntity.ok(new AuthChallengeResponse(true, verificationService.emailHint(user.getEmail()), null));
-        }
         establishSession(user, servletRequest, servletResponse);
         loginRateLimiter.reset(user.getEmail(), clientAddress(servletRequest));
-        return ResponseEntity.ok(new AuthChallengeResponse(false, null, mapper.toCurrentUser(user)));
-    }
-
-    @PostMapping("/api/auth/verify-code")
-    public ResponseEntity<CurrentUserResponse> verifyCode(
-            @RequestBody VerificationCodeRequest request,
-            HttpServletRequest servletRequest,
-            HttpServletResponse servletResponse) {
-        LoginVerificationService.VerifiedLogin verified = verificationService.verify(request == null ? null : request.code(), servletRequest);
-        User user = userService.getUserById(verified.userId());
-        servletRequest.changeSessionId();
-        saveSession(user, servletRequest, servletResponse);
-        loginRateLimiter.reset(verified.email(), verified.remoteAddress());
         return ResponseEntity.ok(mapper.toCurrentUser(user));
-    }
-
-    @PostMapping("/api/auth/resend-code")
-    public ResponseEntity<Void> resendCode(HttpServletRequest servletRequest) {
-        verificationService.resend(servletRequest);
-        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/usernames/check")
@@ -140,11 +103,6 @@ public class AuthController {
         servletRequest.getSession(true);
         servletRequest.changeSessionId();
         saveSession(user, servletRequest, servletResponse);
-    }
-
-    private boolean isGoogleLinked(User user) {
-        String googleId = user.getGoogleId();
-        return googleId != null && !googleId.isBlank() && !googleId.startsWith("manual:");
     }
 
     private OAuth2User toPrincipal(User user) {
