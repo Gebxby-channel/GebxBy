@@ -40,6 +40,7 @@ public interface ContentService {
     ContentStatsResponse getStats(UUID id, User viewer);
     ContentStatsResponse vote(UUID id, VoteDirection vote, User voter);
     VoteBatchResponse batchVotes(Collection<UUID> contentIds, User viewer);
+    List<ContentResponse> findVotedByUser(User viewer, VoteDirection direction);
     List<String> findCategories();
     AnalyticsResponse getAnalytics(User viewer);
     Page<ContentResponse> getPagedContent(int page, int size, String sortBy, String category, User viewer);

@@ -1,6 +1,7 @@
 import './index.css';
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import api, { isRequestCanceled } from './lib/api';
 import type { CurrentUser } from './types/forum';
 
@@ -11,6 +12,7 @@ const ReadPage = lazy(() => import('./pages/ReadPage'));
 const OtherProfilePage = lazy(() => import('./pages/OtherProfilePage'));
 const CategoryPage = lazy(() => import('./pages/Category'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
 const Login = lazy(() => import('./pages/Login'));
 const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
@@ -36,6 +38,9 @@ function MainLayout({
     children: React.ReactNode;
 }) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const queryClient = useQueryClient();
+    const widePage = location.pathname === '/' || location.pathname === '/bookmarks';
 
     useEffect(() => {
         if (user?.onboardingComplete === false) {
@@ -43,12 +48,20 @@ function MainLayout({
         }
     }, [navigate, user?.onboardingComplete]);
 
+    useEffect(() => {
+        const refreshHomeFeed = () => {
+            void queryClient.invalidateQueries({ queryKey: ['feed-page'] });
+        };
+        window.addEventListener('home-feed-refresh', refreshHomeFeed);
+        return () => window.removeEventListener('home-feed-refresh', refreshHomeFeed);
+    }, [queryClient]);
+
     return (
         <div className="terminal-grid flex min-h-screen flex-col md:flex-row">
             <Navbar user={user} onLogout={onLogout} />
             <div className="flex min-h-screen min-w-0 flex-1 flex-col">
                 <main className="w-full overflow-x-hidden">
-                    <div className="mx-auto max-w-6xl p-6 md:p-10">
+                    <div className={`mx-auto w-full ${widePage ? 'max-w-[1440px] p-4 md:p-6' : 'max-w-6xl p-6 md:p-10'}`}>
                         {children}
                     </div>
                 </main>
@@ -130,6 +143,7 @@ export default function App() {
                                         <Route path="/logs" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <LogPage user={user} /> : <GuestAccessPage title="Log Locked" />} />
                                         <Route path="/write" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <WritingPage user={user} /> : <GuestAccessPage title="Write Locked" />} />
                                         <Route path="/analytics" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <AnalyticsPage user={user} /> : <GuestAccessPage title="Analysis Locked" />} />
+                                        <Route path="/bookmarks" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user ? <BookmarksPage user={user} /> : <GuestAccessPage title="Bookmark Locked" />} />
                                         <Route path="/control-room" element={authLoading ? <LoadingSpinner label="Memeriksa akun" /> : user?.role === 'ADMIN' ? <AdminPanelPage user={user} /> : <NotFoundPage />} />
                                         <Route path="/admin" element={<NotFoundPage />} />
 

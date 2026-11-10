@@ -425,6 +425,35 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public List<ContentResponse> findVotedByUser(User viewer, VoteDirection direction) {
+        if (viewer == null || viewer.getUserID() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login diperlukan untuk melihat vote tersimpan");
+        }
+        if (direction != VoteDirection.UP && direction != VoteDirection.DOWN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Arah vote harus UP atau DOWN");
+        }
+        List<UUID> contentIds = voteRepository.findByUserId(viewer.getUserID()).stream()
+                .filter(vote -> vote.getVote() == direction)
+                .sorted((left, right) -> {
+                    if (left.getCreatedAt() == null) return 1;
+                    if (right.getCreatedAt() == null) return -1;
+                    return right.getCreatedAt().compareTo(left.getCreatedAt());
+                })
+                .map(ContentVote::getContentId)
+                .distinct()
+                .toList();
+        Map<UUID, Content> contentById = new HashMap<>();
+        contentRepository.findAllById(contentIds).stream()
+                .filter(this::isPublished)
+                .forEach(content -> contentById.put(content.getIdContent(), content));
+        return contentIds.stream()
+                .map(contentById::get)
+                .filter(java.util.Objects::nonNull)
+                .map(content -> mapper.toContentResponse(content, direction))
+                .toList();
+    }
+
+    @Override
     public List<String> findCategories() {
         CacheEntry<List<String>> cached = categoriesCache;
         if (cached != null && !cached.isExpired()) {

@@ -121,6 +121,13 @@ public class ContentController {
         return ResponseEntity.ok(contentService.getAnalytics(optionalUser(principal)));
     }
 
+    @GetMapping("/voted")
+    public ResponseEntity<List<ContentResponse>> getVotedContent(
+            @RequestParam("direction") VoteDirection direction,
+            @AuthenticationPrincipal OAuth2User principal) {
+        return ResponseEntity.ok(contentService.findVotedByUser(userService.getCurrentUser(principal), direction));
+    }
+
     @GetMapping("/by-user/{userId}")
     public ResponseEntity<List<ContentResponse>> getContentByUser(
             @PathVariable UUID userId,

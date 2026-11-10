@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowBigDown, ArrowBigUp, Bookmark, BookmarkCheck, Eye, MessageSquare, Share2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
@@ -20,6 +21,7 @@ interface ContentCardProps {
 
 export default function ContentCard({ art, user }: ContentCardProps) {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const feedback = useFeedback();
     const themeColor = getCategoryColor(art.kategori);
     const [shareOpen, setShareOpen] = useState(false);
@@ -77,6 +79,8 @@ export default function ContentCard({ art, user }: ContentCardProps) {
         try {
             const response = await api.post<ContentStats>(`/content/${art.idContent}/vote`, { vote });
             setStats(response.data);
+            void queryClient.invalidateQueries({ queryKey: ['saved-posts', user.userID] });
+            void queryClient.invalidateQueries({ queryKey: ['home-analytics'] });
         } catch {
             feedback.toast('Vote gagal disimpan. Coba lagi.', 'error');
         } finally {
@@ -99,6 +103,7 @@ export default function ContentCard({ art, user }: ContentCardProps) {
                 setBookmarked(true);
             }
             invalidateApiCache('/api/user/bookmarks');
+            void queryClient.invalidateQueries({ queryKey: ['saved-posts', user.userID, 'bookmarks'] });
         } catch {
             feedback.toast('Bookmark gagal diperbarui. Coba lagi.', 'error');
         } finally {
