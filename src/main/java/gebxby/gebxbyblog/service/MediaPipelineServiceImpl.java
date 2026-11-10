@@ -68,7 +68,7 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
                                     @Value("${app.media.r2.endpoint:}") String r2Endpoint,
                                     @Value("${app.media.r2.public-base-url:}") String r2PublicBaseUrl,
                                     @Value("${app.media.r2.region:auto}") String r2Region,
-                                    @Value("${app.media.r2.fallback-inline-on-failure:true}") boolean r2FallbackInlineOnFailure) {
+                                    @Value("${app.media.r2.fallback-inline-on-failure:false}") boolean r2FallbackInlineOnFailure) {
         this.storageProvider = normalizeStorageProvider(storageProvider);
         this.r2BucketName = clean(r2BucketName);
         this.r2AccountId = clean(r2AccountId);
@@ -144,6 +144,31 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
             result.add(image);
         }
         return result;
+    }
+
+    @Override
+    public int migrateInlineContentImages(List<ContentImage> images) {
+        if (!isR2Enabled()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Aktifkan MEDIA_STORAGE_PROVIDER=r2 sebelum migrasi media");
+        }
+        if (images == null || images.isEmpty()) {
+            return 0;
+        }
+
+        int migrated = 0;
+        for (ContentImage image : images) {
+            if (image == null || !isInlineImage(image.getData())) {
+                continue;
+            }
+            ImagePayload payload = validateImageDataUrl(image.getData().trim(), MAX_IMAGE_DATA_URL_LENGTH, MAX_IMAGE_BYTES);
+            String thumbnail = isInlineImage(image.getThumbnail()) ? image.getThumbnail().trim() : null;
+            if (!StringUtils.hasText(image.getId())) {
+                image.setId(UUID.randomUUID().toString());
+            }
+            applyR2Storage(image, payload, thumbnail);
+            migrated++;
+        }
+        return migrated;
     }
 
     @Override
@@ -262,6 +287,10 @@ public class MediaPipelineServiceImpl implements MediaPipelineService {
 
     private boolean isR2Enabled() {
         return "r2".equals(storageProvider);
+    }
+
+    private boolean isInlineImage(String value) {
+        return StringUtils.hasText(value) && value.regionMatches(true, 0, "data:image/", 0, "data:image/".length());
     }
 
     private String objectKey(String id, String extension, boolean thumbnail) {

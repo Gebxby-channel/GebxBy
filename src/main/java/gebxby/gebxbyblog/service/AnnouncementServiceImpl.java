@@ -80,9 +80,15 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 announcement.getMessage(),
                 announcement.getAdminUserId(),
                 announcement.getAdminName(),
-                announcement.getAdminPhoto(),
+                withoutInlineImage(announcement.getAdminPhoto()),
                 announcement.getCreatedAt()
         );
+    }
+
+    private String withoutInlineImage(String value) {
+        return value != null && value.regionMatches(true, 0, "data:image/", 0, "data:image/".length())
+                ? null
+                : value;
     }
 
     private String sanitize(String value, int maxLength) {

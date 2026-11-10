@@ -10,6 +10,7 @@ import gebxby.gebxbyblog.dto.EmailDomainResponse;
 import gebxby.gebxbyblog.dto.GenreRequest;
 import gebxby.gebxbyblog.dto.GenreResponse;
 import gebxby.gebxbyblog.dto.MediaSmokeTestResponse;
+import gebxby.gebxbyblog.dto.MediaMigrationResponse;
 import gebxby.gebxbyblog.dto.NotificationResponse;
 import gebxby.gebxbyblog.dto.ProfileCardRequest;
 import gebxby.gebxbyblog.dto.ProfileCardResponse;
@@ -27,6 +28,7 @@ import gebxby.gebxbyblog.service.EmailDomainPolicyService;
 import gebxby.gebxbyblog.service.ForumMapper;
 import gebxby.gebxbyblog.service.GenreService;
 import gebxby.gebxbyblog.service.MediaPipelineService;
+import gebxby.gebxbyblog.service.MediaMigrationService;
 import gebxby.gebxbyblog.service.NotificationService;
 import gebxby.gebxbyblog.service.ProfileCardService;
 import gebxby.gebxbyblog.service.UserService;
@@ -60,6 +62,7 @@ public class AdminController {
     private final BadgeService badgeService;
     private final ActivityLogService activityLogService;
     private final MediaPipelineService mediaPipelineService;
+    private final MediaMigrationService mediaMigrationService;
     private final GenreService genreService;
     private final ProfileCardService profileCardService;
     private final EmailDomainPolicyService emailDomainPolicyService;
@@ -74,6 +77,7 @@ public class AdminController {
                            BadgeService badgeService,
                            ActivityLogService activityLogService,
                            MediaPipelineService mediaPipelineService,
+                           MediaMigrationService mediaMigrationService,
                            GenreService genreService,
                            ProfileCardService profileCardService,
                            EmailDomainPolicyService emailDomainPolicyService,
@@ -87,6 +91,7 @@ public class AdminController {
         this.badgeService = badgeService;
         this.activityLogService = activityLogService;
         this.mediaPipelineService = mediaPipelineService;
+        this.mediaMigrationService = mediaMigrationService;
         this.genreService = genreService;
         this.profileCardService = profileCardService;
         this.emailDomainPolicyService = emailDomainPolicyService;
@@ -109,6 +114,15 @@ public class AdminController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
         }
         return ResponseEntity.ok(mediaPipelineService.smokeTest());
+    }
+
+    @PostMapping("/media/migrate-inline")
+    public ResponseEntity<MediaMigrationResponse> migrateInlineMedia(@AuthenticationPrincipal OAuth2User principal) {
+        User admin = userService.getCurrentUser(principal);
+        if (!userService.isAdmin(admin)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin only");
+        }
+        return ResponseEntity.ok(mediaMigrationService.migrateNextBatch());
     }
 
     @GetMapping(value = "/backup/export", produces = "application/zip")

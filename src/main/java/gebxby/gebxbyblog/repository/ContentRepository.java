@@ -19,6 +19,26 @@ public interface ContentRepository extends MongoRepository<Content, UUID> {
 
     List<Content> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+    @Query(value = "{ 'images.data': { '$regex': '^data:image/' } }", sort = "{ '_id': 1 }")
+    List<Content> findContentsWithInlineImages(Pageable pageable);
+
+    @Query(value = "{ 'images.data': { '$regex': '^data:image/' } }", exists = true)
+    boolean existsContentsWithInlineImages();
+
+    // Feed cards only need image thumbnails. Keep original image payloads out of
+    // Mongo-to-application reads; full image data is loaded by the article view.
+    @Query(value = "{}", fields = "{ 'images.data': 0 }")
+    List<Content> findFeedPageBy(Pageable pageable);
+
+    @Query(value = "{ 'kategori': { '$regex': ?0, '$options': 'i' } }", fields = "{ 'images.data': 0 }")
+    List<Content> findFeedPageByCategory(String categoryPattern, Pageable pageable);
+
+    @Query(value = "{ 'createdAt': { '$gte': ?0 } }", fields = "{ 'images.data': 0 }", sort = "{ 'upCount': -1, 'createdAt': -1 }")
+    List<Content> findFeedPageByCreatedAtAfterOrderByUpCountDescCreatedAtDesc(LocalDateTime createdAt, Pageable pageable);
+
+    @Query(value = "{ '$or': [ { 'user.userID': { '$in': ?0 } }, { 'kategori': { '$in': ?1 } } ] }", fields = "{ 'images.data': 0 }", sort = "{ 'createdAt': -1 }")
+    List<Content> findFollowingFeedPage(Collection<UUID> userIds, Collection<String> categories, Pageable pageable);
+
     List<Content> findByKategoriIgnoreCaseOrderByCreatedAtDesc(String kategori);
 
     List<Content> findByKategoriIgnoreCaseOrderByCreatedAtDesc(String kategori, Pageable pageable);

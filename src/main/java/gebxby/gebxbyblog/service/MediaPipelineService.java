@@ -9,5 +9,7 @@ import java.util.List;
 public interface MediaPipelineService {
     List<ContentImage> prepareContentImages(List<ContentImageRequest> images);
 
+    int migrateInlineContentImages(List<ContentImage> images);
+
     MediaSmokeTestResponse smokeTest();
 }

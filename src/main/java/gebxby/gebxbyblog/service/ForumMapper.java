@@ -123,7 +123,7 @@ public class ForumMapper {
                 content.getSubtitle(),
                 summarizeBody(content.getParagrafs()),
                 toCoverImageResponse(content.getImages()),
-                toPublicUser(content.getUser()),
+                toPublicUserForFeed(content.getUser()),
                 content.getKategori(),
                 content.getCreatedAt(),
                 content.getUpdatedAt(),
@@ -136,12 +136,33 @@ public class ForumMapper {
         );
     }
 
+    private PublicUserResponse toPublicUserForFeed(User user) {
+        PublicUserResponse response = toPublicUser(user);
+        if (response == null || !isInlineImage(response.picture())) {
+            return response;
+        }
+        return new PublicUserResponse(
+                response.userID(), response.name(), response.username(), null,
+                response.designation(), response.moto(), response.suspensionMarked(),
+                response.suspendedUntil(), response.badges(), response.activeProfileCard()
+        );
+    }
+
+    private boolean isInlineImage(String value) {
+        return value != null && value.regionMatches(true, 0, "data:image/", 0, "data:image/".length());
+    }
+
     private ContentImageResponse toCoverImageResponse(List<ContentImage> images) {
         if (images == null || images.isEmpty()) {
             return null;
         }
         ContentImage image = images.getFirst();
-        String thumbnail = image.getThumbnail() == null ? image.getData() : image.getThumbnail();
+        String thumbnail = image.getThumbnail() == null || image.getThumbnail().isBlank()
+                ? image.getData()
+                : image.getThumbnail();
+        if (thumbnail == null) {
+            return null;
+        }
         return new ContentImageResponse(
                 image.getId(),
                 thumbnail,

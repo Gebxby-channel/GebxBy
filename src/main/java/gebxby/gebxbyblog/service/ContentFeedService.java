@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 @Service
 public class ContentFeedService {
@@ -87,11 +88,11 @@ public class ContentFeedService {
         int pageSize = clampFeedLimit(limit);
         int pageNumber = Math.max(0, page);
         List<Content> contents = switch (feedMode) {
-            case "category" -> feedByCategory(category, pageNumber, pageSize + 1);
-            case "trending" -> trendingFeed(pageNumber, pageSize + 1);
-            case "recommended" -> recommendedFeed(viewer, pageNumber, pageSize + 1);
-            case "following" -> followingFeed(viewer, pageNumber, pageSize + 1);
-            default -> contentRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(pageNumber, pageSize + 1));
+            case "category" -> feedPageByCategory(category, pageNumber, pageSize + 1);
+            case "trending" -> trendingFeedPage(pageNumber, pageSize + 1);
+            case "recommended" -> recommendedFeedPage(viewer, pageNumber, pageSize + 1);
+            case "following" -> followingFeedPage(viewer, pageNumber, pageSize + 1);
+            default -> contentRepository.findFeedPageBy(PageRequest.of(pageNumber, pageSize + 1));
         };
         boolean hasMore = contents.size() > pageSize;
         List<ContentSummaryResponse> items = contents.stream()
@@ -100,6 +101,69 @@ public class ContentFeedService {
                 .map(content -> mapper.toContentSummaryResponse(content, resolveUserVote(content.getIdContent(), viewer)))
                 .toList();
         return new FeedResponse(items, pageNumber, pageSize, hasMore);
+    }
+
+    private List<Content> feedPageByCategory(String category, int page, int limit) {
+        if (!StringUtils.hasText(category) || "all".equalsIgnoreCase(category)) {
+            return contentRepository.findFeedPageBy(PageRequest.of(page, limit));
+        }
+        String normalized = normalizeCategory(category);
+        return contentRepository.findFeedPageByCategory("^" + Pattern.quote(normalized) + "$", PageRequest.of(page, limit));
+    }
+
+    private List<Content> trendingFeedPage(int page, int limit) {
+        int needed = (page + 1) * limit;
+        LocalDateTime recentWindow = LocalDateTime.now().minusDays(14);
+        int poolSize = Math.min(RECOMMENDATION_POOL_SIZE, Math.max(needed * 4, needed));
+        List<Content> recent = contentRepository.findFeedPageByCreatedAtAfterOrderByUpCountDescCreatedAtDesc(
+                recentWindow,
+                PageRequest.of(0, poolSize)
+        );
+        if (recent.isEmpty()) {
+            recent = contentRepository.findFeedPageBy(PageRequest.of(0, poolSize));
+        }
+        return recent.stream()
+                .filter(this::isPublished)
+                .sorted(Comparator.comparingDouble(this::trendingScore).reversed())
+                .skip((long) page * limit)
+                .limit(limit)
+                .toList();
+    }
+
+    private List<Content> recommendedFeedPage(User viewer, int page, int limit) {
+        if (viewer == null || viewer.getUserID() == null) {
+            return trendingFeedPage(page, limit);
+        }
+        RecommendationProfile profile = buildRecommendationProfile(viewer);
+        if (profile.isEmpty()) {
+            return trendingFeedPage(page, limit);
+        }
+        List<Content> pool = contentRepository.findFeedPageBy(PageRequest.of(0, RECOMMENDATION_POOL_SIZE));
+        return pool.stream()
+                .filter(this::isPublished)
+                .sorted(Comparator.comparingDouble((Content content) -> recommendationScore(content, profile)).reversed())
+                .skip((long) page * limit)
+                .limit(limit)
+                .toList();
+    }
+
+    private List<Content> followingFeedPage(User viewer, int page, int limit) {
+        if (viewer == null || viewer.getUserID() == null) {
+            return List.of();
+        }
+        Set<UUID> followedIds = new HashSet<>(viewer.getFollowingUserIds() == null ? Set.of() : viewer.getFollowingUserIds());
+        if (followRepository != null) {
+            followRepository.findByFollowerUserId(viewer.getUserID()).stream()
+                    .map(follow -> follow.getTargetUserId())
+                    .filter(Objects::nonNull)
+                    .forEach(followedIds::add);
+        }
+        if (followedIds.isEmpty()) {
+            return List.of();
+        }
+        return contentRepository.findFollowingFeedPage(followedIds, List.of(), PageRequest.of(page, limit)).stream()
+                .filter(this::isPublished)
+                .toList();
     }
 
     private List<Content> feedByCategory(String category, int page, int limit) {
