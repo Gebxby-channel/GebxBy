@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, LogOut, Menu, X } from 'lucide-react';
+import brandLogo from '../assets/Code X Avernico Logo.svg';
 import type { CurrentUser } from '../types/forum';
 import GlobalSearch from './GlobalSearch';
 import NotificationBell from './NotificationBell';
@@ -35,15 +36,8 @@ export default function MobileSidebar({ user, menuItems, onTerminate }: MobileSi
                     >
                         <Menu size={22} />
                     </button>
-                    <NavLink to="/" className="min-w-0 no-underline">
-                        <div className="border-l-2 border-[#ff1744] pl-3">
-                            <h1 className="m-0 truncate font-sans text-xl font-extrabold tracking-tight text-white">
-                                CodeXAvernico
-                            </h1>
-                            <p className="m-0 font-sans text-[10px] uppercase leading-tight tracking-widest text-[#888]">
-                                Komunitas dan tulisan
-                            </p>
-                        </div>
+                    <NavLink to="/" aria-label="CodeXAvernico — Beranda" className="min-w-0 no-underline">
+                        <img src={brandLogo} alt="CodeXAvernico" width={170} height={48} className="h-12 w-[170px] object-contain object-left" />
                     </NavLink>
                 </div>
 

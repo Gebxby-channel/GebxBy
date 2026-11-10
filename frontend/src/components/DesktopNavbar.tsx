@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, LogIn, LogOut } from 'lucide-react';
+import brandLogo from '../assets/Code X Avernico Logo.svg';
 import type { CurrentUser } from '../types/forum';
 import NotificationBell from './NotificationBell';
 import type { NavigationItem } from './navigationItems';
@@ -18,12 +19,8 @@ export default function DesktopNavbar({ user, menuItems, onTerminate }: DesktopN
 
     return (
         <aside className="sticky top-0 z-50 hidden h-screen w-[280px] shrink-0 flex-col border-r border-white/10 bg-black px-4 py-3 md:flex">
-            <NavLink to="/" className="mb-5 flex min-h-14 items-center gap-3 rounded-xl px-3 text-white no-underline transition-colors hover:bg-white/10">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff1744] text-sm font-black text-white">C</span>
-                <span className="min-w-0">
-                    <span className="block truncate text-lg font-extrabold tracking-tight">CodeXAvernico</span>
-                    <span className="block text-xs text-[#85858f]">Komunitas dan tulisan</span>
-                </span>
+            <NavLink to="/" aria-label="CodeXAvernico — Beranda" className="mb-5 flex min-h-14 items-center rounded-xl px-3 text-white no-underline transition-colors hover:bg-white/10">
+                <img src={brandLogo} alt="CodeXAvernico" width={190} height={52} className="h-[52px] w-[190px] object-contain object-left" />
             </NavLink>
 
             <nav aria-label="Menu utama" className="flex flex-col gap-1">

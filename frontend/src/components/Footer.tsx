@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Camera, ExternalLink, MessageCircle, PlayCircle } from 'lucide-react';
+import brandLogo from '../assets/Code X Avernico Logo.svg';
 
 const feedbackUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfhB5-p7NRK4bSjE2lGFs-mFD9QTPSxzfnnp0IeElWWvTG50Q/viewform?usp=publish-editor';
 
@@ -10,8 +11,8 @@ export default function Footer() {
         <footer className="border-t border-[var(--app-border)] bg-[var(--app-surface)] px-6 py-8 font-mono text-[var(--app-text-muted)]">
             <div className="mx-auto flex max-w-5xl flex-col gap-6 md:flex-row md:items-start md:justify-between">
                 <div className="max-w-xl">
-                    <div className="mb-3 border-l-2 border-[var(--app-accent)] pl-3">
-                        <p className="m-0 text-sm font-black uppercase tracking-widest text-[var(--app-text)]">CodeXAvernico</p>
+                    <div className="mb-3">
+                        <img src={brandLogo} alt="CodeXAvernico" width={160} height={54} className="h-[54px] w-40 object-contain object-left" />
                         <p className="m-0 mt-1 text-[9px] uppercase tracking-widest text-[var(--app-text-dim)]">Community archive // fan forum</p>
                     </div>
                     <p className="m-0 text-[10px] leading-5 text-[var(--app-text-dim)]">
