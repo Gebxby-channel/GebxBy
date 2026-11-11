@@ -149,7 +149,9 @@ async function writeIndexPage(articles) {
     return;
   }
 
-  const fallback = renderIndexFallback(articles);
+  // Keep the SEO metadata and sitemap, but do not show a raw article directory
+  // while the React app is booting. The article URLs retain their own SEO HTML.
+  const fallback = renderIndexFallback();
   const siteJsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -190,28 +192,10 @@ async function writeIndexPage(articles) {
   await writeFile(indexPath, html, 'utf8');
 }
 
-function renderIndexFallback(articles) {
-  const links = articles.map((article) => {
-    const title = cleanText(article.head) || 'Archive';
-    const description = summarize(article.subtitle || article.paragrafs || title, 140);
-    const href = `/read/${encodeURIComponent(article.idContent)}`;
-    return [
-      '    <li>',
-      `      <a href="${escapeHtmlAttr(href)}">${escapeHtml(title)}</a>`,
-      `      <p>${escapeHtml(description)}</p>`,
-      '    </li>',
-    ].join('\n');
-  });
-
+function renderIndexFallback() {
   return [
-    '<main class="seo-fallback">',
-    `  <h1>${SITE_NAME}</h1>`,
-    '  <p>CodeXAvernico adalah archive blog untuk tulisan, lore, dan analisis.</p>',
-    '  <nav aria-label="Artikel terbaru">',
-    '    <ul>',
-    ...links,
-    '    </ul>',
-    '  </nav>',
+    '<main id="initial-loader" role="status" aria-label="Memuat CodeXAvernico">',
+    '  <div class="loader-label"><span class="loader-dot" aria-hidden="true"></span><span>MEMUAT CODEXAVERNICO</span></div>',
     '</main>',
   ].join('\n');
 }
