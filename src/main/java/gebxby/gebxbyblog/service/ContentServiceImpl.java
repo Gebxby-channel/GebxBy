@@ -237,7 +237,12 @@ public class ContentServiceImpl implements ContentService {
 
     @Override
     public FeedResponse feedPage(String mode, String category, int page, int limit, User viewer) {
-        return feedService.feedPage(mode, category, page, limit, viewer);
+        return feedService.feedPage(mode, category, page, limit, "newest", viewer);
+    }
+
+    @Override
+    public FeedResponse feedPage(String mode, String category, int page, int limit, String sort, User viewer) {
+        return feedService.feedPage(mode, category, page, limit, sort, viewer);
     }
 
     @Override

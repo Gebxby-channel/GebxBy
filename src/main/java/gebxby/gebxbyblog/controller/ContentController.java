@@ -107,10 +107,11 @@ public class ContentController {
     public ResponseEntity<FeedResponse> feedPage(
             @RequestParam(value = "mode", defaultValue = "all") String mode,
             @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "sort", defaultValue = "newest") String sort,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "limit", defaultValue = "20") int limit,
             @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(contentService.feedPage(mode, category, page, limit, optionalUser(principal)));
+        return ResponseEntity.ok(contentService.feedPage(mode, category, page, limit, sort, optionalUser(principal)));
     }
 
     @GetMapping("/categories")

@@ -39,7 +39,6 @@ import java.util.regex.Pattern;
 public class ContentFeedService {
     private static final int DEFAULT_FEED_LIMIT = 20;
     private static final int MAX_FEED_LIMIT = 50;
-    private static final int RECOMMENDATION_POOL_SIZE = 120;
 
     private final ContentRepository contentRepository;
     private final ContentVoteRepository voteRepository;
@@ -100,16 +99,23 @@ public class ContentFeedService {
     }
 
     public FeedResponse feedPage(String mode, String category, int page, int limit, User viewer) {
+        return feedPage(mode, category, page, limit, "newest", viewer);
+    }
+
+    public FeedResponse feedPage(String mode, String category, int page, int limit, String sort, User viewer) {
         String feedMode = normalizeFeedMode(mode);
         int pageSize = clampFeedLimit(limit);
         int pageNumber = Math.max(0, page);
-        List<Content> contents = switch (feedMode) {
-            case "category" -> feedPageByCategory(category, pageNumber, pageSize + 1);
-            case "trending" -> trendingFeedPage(pageNumber, pageSize + 1);
-            case "recommended" -> recommendedFeedPage(viewer, pageNumber, pageSize + 1);
-            case "following" -> followingFeedPage(viewer, pageNumber, pageSize + 1);
-            default -> contentRepository.findFeedPageBy(PageRequest.of(pageNumber, pageSize + 1));
-        };
+        String requestedSort = normalizeSort(sort);
+        List<Content> contents = requestedSort.equals("newest")
+                ? switch (feedMode) {
+                    case "category" -> feedPageByCategory(category, pageNumber, pageSize + 1);
+                    case "trending" -> trendingFeedPage(pageNumber, pageSize + 1);
+                    case "recommended" -> recommendedFeedPage(viewer, pageNumber, pageSize + 1);
+                    case "following" -> followingFeedPage(viewer, pageNumber, pageSize + 1);
+                    default -> contentRepository.findFeedPageBy(PageRequest.of(pageNumber, pageSize + 1));
+                }
+                : sortedFeedPage(feedMode, category, pageNumber, pageSize + 1, viewer, requestedSort);
         boolean hasMore = contents.size() > pageSize;
         List<Content> pageContents = contents.stream()
                 .filter(this::isPublished)
@@ -153,23 +159,42 @@ public class ContentFeedService {
         return contentRepository.findFeedPageByCategory(categoryPattern, PageRequest.of(page, limit));
     }
 
+    private List<Content> sortedFeedPage(String mode, String category, int page, int limit, User viewer, String sort) {
+        PageRequest request = PageRequest.of(page, limit);
+        if (mode.equals("category")) {
+            String normalized = normalizeCategory(category);
+            String pattern = "Utas".equals(normalized) ? "^(Utas|QNA|QA)$" : "^" + Pattern.quote(normalized) + "$";
+            return sort.equals("oldest")
+                    ? contentRepository.findPublishedCategoryOldest(pattern, request)
+                    : contentRepository.findPublishedCategoryPopular(pattern, request);
+        }
+        if (mode.equals("following")) {
+            Set<UUID> followedIds = new HashSet<>(viewer == null || viewer.getFollowingUserIds() == null
+                    ? Set.of() : viewer.getFollowingUserIds());
+            if (viewer != null && followRepository != null && viewer.getUserID() != null) {
+                followRepository.findByFollowerUserId(viewer.getUserID()).stream()
+                        .map(follow -> follow.getTargetUserId()).filter(Objects::nonNull).forEach(followedIds::add);
+            }
+            if (followedIds.isEmpty()) return List.of();
+            return sort.equals("oldest")
+                    ? contentRepository.findFollowingFeedOldest(followedIds, List.of(), request)
+                    : contentRepository.findFollowingFeedPopular(followedIds, List.of(), request);
+        }
+        return sort.equals("oldest")
+                ? contentRepository.findPublishedFeedOldest(request)
+                : contentRepository.findPublishedFeedPopular(request);
+    }
+
     private List<Content> trendingFeedPage(int page, int limit) {
-        int needed = (page + 1) * limit;
         LocalDateTime recentWindow = LocalDateTime.now().minusDays(14);
-        int poolSize = Math.min(RECOMMENDATION_POOL_SIZE, Math.max(needed * 4, needed));
         List<Content> recent = contentRepository.findFeedPageByCreatedAtAfterOrderByUpCountDescCreatedAtDesc(
                 recentWindow,
-                PageRequest.of(0, poolSize)
+                PageRequest.of(page, limit)
         );
         if (recent.isEmpty()) {
-            recent = contentRepository.findFeedPageBy(PageRequest.of(0, poolSize));
+            recent = contentRepository.findPublishedFeedPopular(PageRequest.of(page, limit));
         }
-        return recent.stream()
-                .filter(this::isPublished)
-                .sorted(Comparator.comparingDouble(this::trendingScore).reversed())
-                .skip((long) page * limit)
-                .limit(limit)
-                .toList();
+        return recent;
     }
 
     private List<Content> recommendedFeedPage(User viewer, int page, int limit) {
@@ -180,12 +205,14 @@ public class ContentFeedService {
         if (profile.isEmpty()) {
             return trendingFeedPage(page, limit);
         }
-        List<Content> pool = contentRepository.findFeedPageBy(PageRequest.of(0, RECOMMENDATION_POOL_SIZE));
-        return pool.stream()
-                .filter(this::isPublished)
+        Set<UUID> authors = profile.preferredAuthors();
+        Set<String> categories = profile.categoryWeights().entrySet().stream()
+                .filter(entry -> entry.getValue() > 0)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+        if (authors.isEmpty() && categories.isEmpty()) return trendingFeedPage(page, limit);
+        return contentRepository.findFollowingFeedPage(authors, categories, PageRequest.of(page, limit)).stream()
                 .sorted(Comparator.comparingDouble((Content content) -> recommendationScore(content, profile)).reversed())
-                .skip((long) page * limit)
-                .limit(limit)
                 .toList();
     }
 
@@ -359,6 +386,15 @@ public class ContentFeedService {
             case "category", "kategori" -> "category";
             case "following", "followed" -> "following";
             default -> "all";
+        };
+    }
+
+    private String normalizeSort(String sort) {
+        if (!StringUtils.hasText(sort)) return "newest";
+        return switch (sort.trim().toLowerCase(Locale.ROOT)) {
+            case "oldest", "terlama" -> "oldest";
+            case "popular", "terpopuler" -> "popular";
+            default -> "newest";
         };
     }
 
